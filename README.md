@@ -60,16 +60,15 @@ aisa models show gpt-4.1             # model details + pricing
 ### API Discovery & Execution
 
 ```bash
-aisa api list                                # list all API endpoints
-aisa api list --category finance             # filter by category
-aisa api search "email finder"               # natural language search
-aisa api show finance /stock/price           # endpoint details + params
-aisa api code finance /stock/price --lang python  # generate code snippet
+aisa api list                                # 🚧 WIP — not yet available
+aisa api search "email finder"               # 🚧 WIP
+aisa api show finance /stock/price           # 🚧 WIP
+aisa api code finance /stock/price --lang python  # 🚧 WIP
 
-# Execute any API
-aisa run finance /stock/price -q "symbol=AAPL"
+# Execute any API (works now)
+aisa run financial /insider-trades -q "ticker=AAPL"
 aisa run tavily /search -d '{"query": "AI news"}'
-aisa run twitter /tweet/advanced-search -q "query=AI agents" --raw
+aisa run twitter /tweet/advanced_search -q "query=AI agents" --raw
 ```
 
 ### Web Search
@@ -85,11 +84,12 @@ aisa scholar "transformer architecture"     # academic papers
 ### Finance
 
 ```bash
-aisa stock AAPL                     # stock price
-aisa stock MSFT --field earnings    # earnings data
+aisa stock AAPL --field insider     # insider trades
+aisa stock AAPL --field news        # company news
 aisa stock TSLA --field filings     # SEC filings
-aisa stock NVDA --field insider     # insider trades
-aisa crypto BTC                     # crypto price
+aisa stock AAPL --field price       # stock price (⚠️ may return empty for some tickers)
+aisa stock MSFT --field earnings    # earnings data (⚠️ limited ticker support)
+aisa crypto BTC                     # crypto price snapshot
 aisa crypto ETH --period 30d       # historical
 aisa screener --sector Technology   # stock screener
 ```
@@ -97,11 +97,10 @@ aisa screener --sector Technology   # stock screener
 ### Twitter/X
 
 ```bash
-aisa tweet "Hello world!"                   # post a tweet
-aisa tweet "Reply" --reply-to 123456        # reply
-aisa twitter search "AI agents" --limit 20  # search tweets
 aisa twitter user elonmusk                  # user profile
+aisa twitter search "AI agents" --limit 20  # search tweets
 aisa twitter trends                         # trending topics
+aisa tweet "Hello world!"                   # post (⚠️ requires login cookies, see docs)
 ```
 
 ### Video Generation
@@ -115,9 +114,8 @@ aisa video status <task-id>                      # check status
 ### Account
 
 ```bash
-aisa balance                # credit balance
-aisa usage --limit 20       # usage history
-aisa usage --days 7         # last 7 days
+aisa balance                # 🚧 WIP — check https://aisa.one/dashboard
+aisa usage --limit 20       # 🚧 WIP
 ```
 
 ## Skills
@@ -127,12 +125,11 @@ Skills are markdown files that teach AI coding agents (Claude Code, Cursor, Copi
 ### Browse & Install
 
 ```bash
-aisa skills list                              # browse skills
-aisa skills search "financial analysis"       # search
-aisa skills show aisa-team/finance-analyst    # details
-aisa skills add aisa-team/finance-analyst     # install to all agents
-aisa skills add aisa-team/llm-assistant --agent claude  # specific agent
-aisa skills remove aisa-team/finance-analyst  # uninstall
+aisa skills list                              # 🚧 WIP — requires backend
+aisa skills search "financial analysis"       # 🚧 WIP
+aisa skills show aisa-team/finance-analyst    # 🚧 WIP
+aisa skills add aisa-team/finance-analyst     # 🚧 WIP
+aisa skills remove aisa-team/finance-analyst  # 🚧 WIP
 ```
 
 Skills install to agent directories automatically:
@@ -150,12 +147,12 @@ Skills install to agent directories automatically:
 ### Create & Publish
 
 ```bash
-aisa skills init my-skill                          # create from default template
+aisa skills init my-skill                          # create from default template (works locally)
 aisa skills init my-skill --template finance       # finance template
 aisa skills init my-skill --template llm           # LLM template
-aisa skills submit ./my-skill                      # submit to AISA
-aisa skills push owner/my-skill                    # push updates
-aisa skills request-verification owner/my-skill    # request review
+aisa skills submit ./my-skill                      # 🚧 WIP — requires backend
+aisa skills push owner/my-skill                    # 🚧 WIP
+aisa skills request-verification owner/my-skill    # 🚧 WIP
 ```
 
 Available templates: `default`, `llm`, `search`, `finance`, `twitter`, `video`
