@@ -1,6 +1,6 @@
 {
   "name": "@aisa-one/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI for the AISA unified AI infrastructure platform - access 70+ LLMs, web search, finance, Twitter, and video generation APIs",
   "type": "module",
   "main": "dist/index.js",

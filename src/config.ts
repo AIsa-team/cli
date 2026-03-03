@@ -6,7 +6,7 @@ const config = new Conf({
   schema: {
     apiKey: { type: "string", default: "" },
     defaultModel: { type: "string", default: "gpt-4.1" },
-    baseUrl: { type: "string", default: "https://api.aisa.one" },
+    baseUrl: { type: "string", default: "https://api.aisa.one/v1" },
     outputFormat: { type: "string", default: "text" },
   },
 });
