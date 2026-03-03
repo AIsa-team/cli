@@ -187,6 +187,10 @@ Settings:
 
 Environment variable `AISA_API_KEY` takes precedence over stored key.
 
+## Known Issues
+
+**GPT-4.1 streaming returns empty output.** The AISA gateway currently strips `choices[].delta.content` from GPT model SSE chunks, so streaming mode produces blank output for GPT models. Workaround: use `--no-stream` or switch to Claude/Qwen models which stream correctly. Non-streaming GPT works fine.
+
 ## Development
 
 ```bash
@@ -197,6 +201,24 @@ npm run build       # compile TypeScript
 npm run dev         # watch mode
 npm test            # run tests
 ```
+
+## Appendix: Architecture Notes for Contributors
+
+**Two base URLs.** The AISA platform uses separate base paths:
+- LLM endpoints (chat, models): `https://api.aisa.one/v1/`
+- Domain API endpoints (search, finance, twitter, video): `https://api.aisa.one/apis/v1/`
+
+The `domain: true` option in `RequestOptions` (see `src/api.ts`) selects which base URL to use. The `run` command auto-detects based on the slug prefix.
+
+**Parameter naming varies by endpoint.** Smart/full search uses `q`, scholar uses `query`, finance uses `ticker` (not `symbol`), Twitter uses `userName` (camelCase). Always check the [API Reference](https://docs.aisa.one/reference) for exact parameter names.
+
+**Video generation is async.** POST to `/services/aigc/video-generation/video-synthesis` with header `X-DashScope-Async: enable`, then poll `GET /services/aigc/tasks?task_id=<id>` for status. Response shape uses `output.task_id`, `output.task_status`, `output.video_url`.
+
+**Twitter write operations require login cookies.** `create_tweet_v2` and other action endpoints need `login_cookies` and `proxy` fields — they don't work with just the API key.
+
+**Models API follows OpenAI format.** The `/v1/models` endpoint returns `owned_by` (not `provider`) and has no `name`, `pricing`, or `contextWindow` fields.
+
+**Some financial endpoints return empty data.** `financial/prices` and `financial/financial-metrics/snapshot` may return `{}` for certain tickers. `financial/insider-trades`, `financial/news`, and `financial/filings` work reliably.
 
 ## License
 
