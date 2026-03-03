@@ -52,6 +52,10 @@ export async function runAction(
 
   const endpoint = `${slug}${path}`;
 
+  // Auto-detect domain API vs LLM API based on slug
+  const domainSlugs = ["financial", "search", "youtube", "scholar", "tavily", "querit", "twitter", "services", "crypto"];
+  const isDomain = domainSlugs.some((s) => slug.startsWith(s));
+
   // Streaming mode
   if (options.stream) {
     const res = await apiRequestRaw(key, endpoint, {
@@ -59,6 +63,7 @@ export async function runAction(
       query: Object.keys(query).length > 0 ? query : undefined,
       body,
       headers: { Accept: "text/event-stream" },
+      domain: isDomain,
     });
 
     if (!res.ok) {
@@ -82,6 +87,7 @@ export async function runAction(
     method,
     query: Object.keys(query).length > 0 ? query : undefined,
     body,
+    domain: isDomain,
   });
 
   if (!res.success) {

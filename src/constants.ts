@@ -1,6 +1,7 @@
-export const VERSION = "0.1.1";
+export const VERSION = "0.1.2";
 export const BASE_URL = "https://api.aisa.one";
 export const CLI_BASE_URL = `${BASE_URL}/v1`;
+export const APIS_BASE_URL = `${BASE_URL}/apis/v1`;
 export const ENV_VAR_NAME = "AISA_API_KEY";
 export const MCP_URL = "https://docs.aisa.one/mcp";
 

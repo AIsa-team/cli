@@ -180,7 +180,7 @@ program
 program
   .command("stock <symbol>")
   .description("Look up stock data")
-  .option("--field <field>", "Data field: price, earnings, financials, filings, insider, institutional", "price")
+  .option("--field <field>", "Data field: price, earnings, financials, filings, insider, institutional, metrics, news", "price")
   .option("--raw", "Raw JSON output")
   .action(wrap(stockAction));
 

@@ -3,7 +3,19 @@ import chalk from "chalk";
 import { requireApiKey } from "../config.js";
 import { apiRequest } from "../api.js";
 import { error, formatJson, success } from "../utils/display.js";
-import type { VideoTask } from "../types.js";
+
+interface VideoTaskResponse {
+  output?: {
+    task_id?: string;
+    task_status?: string;
+    video_url?: string;
+  };
+  request_id?: string;
+  // Alternate response shape
+  taskId?: string;
+  status?: string;
+  resultUrl?: string;
+}
 
 export async function videoCreateAction(
   prompt: string,
@@ -12,12 +24,17 @@ export async function videoCreateAction(
   const key = requireApiKey();
   const spinner = ora("Creating video generation task...").start();
 
-  const body: Record<string, unknown> = { prompt };
-  if (options.model) body.model = options.model;
+  const body: Record<string, unknown> = {
+    model: options.model || "wan2.6-t2v",
+    input: { prompt },
+    parameters: { resolution: "720P", duration: 5 },
+  };
 
-  const res = await apiRequest<VideoTask>(key, "services/aigc/video-generation/video-synthesis", {
+  const res = await apiRequest<VideoTaskResponse>(key, "services/aigc/video-generation/video-synthesis", {
     method: "POST",
     body,
+    headers: { "X-DashScope-Async": "enable" },
+    domain: true,
   });
 
   if (!res.success || !res.data) {
@@ -26,38 +43,50 @@ export async function videoCreateAction(
     return;
   }
 
-  const task = res.data;
   spinner.stop();
-  success(`Task created: ${task.taskId}`);
+
+  const taskId = res.data.output?.task_id || res.data.taskId;
+  if (!taskId) {
+    console.log(formatJson(res.data));
+    return;
+  }
+
+  success(`Task created: ${taskId}`);
 
   if (!options.wait) {
-    console.log(chalk.gray(`  Check status: aisa video status ${task.taskId}`));
+    console.log(chalk.gray(`  Check status: aisa video status ${taskId}`));
     return;
   }
 
   // Poll for completion
   const pollSpinner = ora("Generating video...").start();
-  let result: VideoTask = task;
-  while (result.status === "pending" || result.status === "processing") {
+  let status = "PENDING";
+  while (status === "PENDING" || status === "RUNNING") {
     await new Promise((r) => setTimeout(r, 5000));
 
-    const pollRes = await apiRequest<VideoTask>(key, `services/aigc/tasks/${result.taskId}`);
+    const pollRes = await apiRequest<VideoTaskResponse>(key, "services/aigc/tasks", {
+      query: { task_id: taskId },
+      domain: true,
+    });
+
     if (!pollRes.success || !pollRes.data) {
       pollSpinner.fail("Failed to check status");
       error(pollRes.error || "Unknown error");
       return;
     }
-    result = pollRes.data;
-    pollSpinner.text = `Generating video... (${result.status})`;
+
+    status = pollRes.data.output?.task_status || pollRes.data.status || "UNKNOWN";
+    pollSpinner.text = `Generating video... (${status})`;
   }
 
-  if (result.status === "completed") {
+  if (status === "SUCCEEDED" || status === "completed") {
     pollSpinner.succeed("Video generated!");
-    if (result.resultUrl) {
-      console.log(`  URL: ${chalk.cyan(result.resultUrl)}`);
+    const videoUrl = res.data.output?.video_url || res.data.resultUrl;
+    if (videoUrl) {
+      console.log(`  URL: ${chalk.cyan(videoUrl)}`);
     }
   } else {
-    pollSpinner.fail(`Video generation ${result.status}`);
+    pollSpinner.fail(`Video generation failed: ${status}`);
   }
 }
 
@@ -65,7 +94,10 @@ export async function videoStatusAction(taskId: string, options: { raw?: boolean
   const key = requireApiKey();
   const spinner = ora("Checking status...").start();
 
-  const res = await apiRequest<VideoTask>(key, `services/aigc/tasks/${taskId}`);
+  const res = await apiRequest<VideoTaskResponse>(key, "services/aigc/tasks", {
+    query: { task_id: taskId },
+    domain: true,
+  });
 
   if (!res.success || !res.data) {
     spinner.fail("Failed to check status");
@@ -78,10 +110,14 @@ export async function videoStatusAction(taskId: string, options: { raw?: boolean
   if (options.raw) {
     console.log(JSON.stringify(res.data));
   } else {
-    const t = res.data;
-    console.log(`  Task:   ${t.taskId}`);
-    console.log(`  Status: ${t.status}`);
-    console.log(`  Prompt: ${t.prompt}`);
-    if (t.resultUrl) console.log(`  URL:    ${chalk.cyan(t.resultUrl)}`);
+    const d = res.data;
+    const status = d.output?.task_status || d.status || "unknown";
+    const id = d.output?.task_id || d.taskId || taskId;
+    const videoUrl = d.output?.video_url || d.resultUrl;
+
+    console.log(`  Task:   ${id}`);
+    console.log(`  Status: ${status}`);
+    if (videoUrl) console.log(`  URL:    ${chalk.cyan(videoUrl)}`);
+    if (d.request_id) console.log(`  Request: ${chalk.gray(d.request_id)}`);
   }
 }

@@ -5,12 +5,14 @@ import { apiRequest } from "../api.js";
 import { error, formatJson } from "../utils/display.js";
 
 const FIELD_ENDPOINTS: Record<string, string> = {
-  price: "stock/price",
-  earnings: "analyst-estimates",
-  financials: "financial-statements",
-  filings: "filings",
-  insider: "insider-trades",
-  institutional: "institutional-ownership",
+  price: "financial/prices",
+  earnings: "financial/earnings/press-releases",
+  financials: "financial/financials",
+  filings: "financial/filings",
+  insider: "financial/insider-trades",
+  institutional: "financial/institutional-ownership",
+  metrics: "financial/financial-metrics/snapshot",
+  news: "financial/news",
 };
 
 export async function stockAction(
@@ -28,8 +30,23 @@ export async function stockAction(
 
   const spinner = ora(`Fetching ${field} for ${symbol.toUpperCase()}...`).start();
 
+  const query: Record<string, string> = { ticker: symbol.toUpperCase() };
+
+  // Price endpoint needs additional params for sensible defaults
+  if (field === "price") {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    query.interval = "day";
+    query.interval_multiplier = "1";
+    query.start_date = start.toISOString().split("T")[0];
+    query.end_date = end.toISOString().split("T")[0];
+    query.limit = "30";
+  }
+
   const res = await apiRequest(key, endpoint, {
-    query: { symbol: symbol.toUpperCase() },
+    query,
+    domain: true,
   });
 
   if (!res.success) {
@@ -54,14 +71,27 @@ export async function cryptoAction(
   const key = requireApiKey();
   const spinner = ora(`Fetching ${symbol.toUpperCase()}...`).start();
 
-  const query: Record<string, string> = { symbol: symbol.toUpperCase() };
-  if (options.period) query.period = options.period;
+  // Format ticker: BTC → BTC-USD
+  const ticker = symbol.toUpperCase().includes("-") ? symbol.toUpperCase() : `${symbol.toUpperCase()}-USD`;
 
-  const endpoint = options.period && options.period !== "current"
-    ? "crypto/price"
-    : "crypto/price/snapshot";
+  let endpoint: string;
+  const query: Record<string, string> = { ticker };
 
-  const res = await apiRequest(key, endpoint, { query });
+  if (!options.period || options.period === "current") {
+    endpoint = "financial/crypto/prices/snapshot";
+  } else {
+    endpoint = "financial/crypto/prices";
+    const end = new Date();
+    const start = new Date();
+    const periodMap: Record<string, number> = { "1d": 1, "7d": 7, "30d": 30, "1y": 365 };
+    start.setDate(start.getDate() - (periodMap[options.period] || 30));
+    query.interval = "day";
+    query.interval_multiplier = "1";
+    query.start_date = start.toISOString().split("T")[0];
+    query.end_date = end.toISOString().split("T")[0];
+  }
+
+  const res = await apiRequest(key, endpoint, { query, domain: true });
 
   if (!res.success) {
     spinner.fail("Failed to fetch crypto price");
@@ -86,13 +116,22 @@ export async function screenerAction(options: {
   const key = requireApiKey();
   const spinner = ora("Running stock screener...").start();
 
-  const body: Record<string, unknown> = {};
-  if (options.sector) body.sector = options.sector;
+  const body: Record<string, unknown> = {
+    filters: [],
+  };
+  if (options.sector) {
+    (body.filters as Array<unknown>).push({
+      field: "sector",
+      operator: "eq",
+      value: options.sector,
+    });
+  }
   if (options.limit) body.limit = parseInt(options.limit);
 
-  const res = await apiRequest(key, "search/financials", {
+  const res = await apiRequest(key, "financial/financials/search", {
     method: "POST",
     body,
+    domain: true,
   });
 
   if (!res.success) {

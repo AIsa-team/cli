@@ -12,12 +12,12 @@ export async function webSearchAction(
   const type = options.type || "smart";
   const spinner = ora(`Searching (${type})...`).start();
 
-  const endpointMap: Record<string, { endpoint: string; method: "GET" | "POST" }> = {
-    smart: { endpoint: "search/smart", method: "GET" },
-    full: { endpoint: "search/full", method: "GET" },
-    youtube: { endpoint: "youtube/search", method: "GET" },
-    scholar: { endpoint: "scholar/search", method: "POST" },
-    tavily: { endpoint: "tavily/search", method: "POST" },
+  const endpointMap: Record<string, { endpoint: string; method: "GET" | "POST"; paramStyle: "query" | "body" }> = {
+    smart: { endpoint: "search/smart", method: "GET", paramStyle: "query" },
+    full: { endpoint: "search/full", method: "GET", paramStyle: "query" },
+    youtube: { endpoint: "youtube/search", method: "GET", paramStyle: "query" },
+    scholar: { endpoint: "scholar/search/scholar", method: "POST", paramStyle: "query" },
+    tavily: { endpoint: "tavily/search", method: "POST", paramStyle: "body" },
   };
 
   const config = endpointMap[type];
@@ -27,12 +27,28 @@ export async function webSearchAction(
     return;
   }
 
-  const res = await apiRequest(key, config.endpoint, {
+  // Build request options
+  const reqOpts: Parameters<typeof apiRequest>[2] = {
     method: config.method,
-    ...(config.method === "GET"
-      ? { query: { query, ...(options.limit ? { limit: options.limit } : {}) } }
-      : { body: { query, limit: parseInt(options.limit || "10") } }),
-  });
+    domain: true,
+  };
+
+  if (config.paramStyle === "query") {
+    // GET-style search endpoints use 'q' for smart/full/youtube, 'query' for scholar
+    const qParam = type === "scholar" ? "query" : "q";
+    reqOpts.query = { [qParam]: query };
+    if (options.limit) {
+      reqOpts.query[type === "scholar" ? "max_num_results" : "count"] = options.limit;
+    }
+  } else {
+    // Tavily uses POST body
+    reqOpts.body = {
+      query,
+      ...(options.limit ? { max_results: parseInt(options.limit) } : {}),
+    };
+  }
+
+  const res = await apiRequest(key, config.endpoint, reqOpts);
 
   if (!res.success) {
     spinner.fail("Search failed");
@@ -45,6 +61,24 @@ export async function webSearchAction(
   if (options.raw) {
     console.log(JSON.stringify(res.data));
   } else {
+    // Format search results nicely
+    const data = res.data as Record<string, unknown>;
+
+    // Smart/Full search format
+    if (data?.webPages && typeof data.webPages === "object") {
+      const pages = data.webPages as { value?: Array<{ name: string; url: string; snippet: string }> };
+      if (pages.value) {
+        for (const result of pages.value) {
+          console.log(`\n  ${chalk.cyan.bold(result.name)}`);
+          console.log(`  ${chalk.gray(result.url)}`);
+          if (result.snippet) console.log(`  ${result.snippet}`);
+        }
+        console.log(chalk.gray(`\n  ${pages.value.length} results`));
+        return;
+      }
+    }
+
+    // Fallback to generic JSON display
     console.log(formatJson(res.data));
   }
 }

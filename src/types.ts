@@ -23,12 +23,10 @@ export interface ApiGroup {
 
 export interface Model {
   id: string;
-  name: string;
-  provider: string;
-  contextWindow: number;
-  maxTokens: number;
-  pricing: { input: number; output: number };
-  capabilities: string[];
+  object: string;
+  created: number;
+  owned_by: string;
+  supported_endpoint_types?: string[] | null;
 }
 
 export interface SkillMeta {

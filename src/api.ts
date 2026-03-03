@@ -1,5 +1,5 @@
 import fetch, { type Response } from "node-fetch";
-import { CLI_BASE_URL } from "./constants.js";
+import { CLI_BASE_URL, APIS_BASE_URL } from "./constants.js";
 import { getConfig } from "./config.js";
 import type { ApiResponse } from "./types.js";
 
@@ -14,6 +14,8 @@ export interface RequestOptions {
   body?: unknown;
   stream?: boolean;
   headers?: Record<string, string>;
+  /** Use domain API base URL (/apis/v1) instead of LLM base (/v1) */
+  domain?: boolean;
 }
 
 export async function apiRequest<T = unknown>(
@@ -21,8 +23,8 @@ export async function apiRequest<T = unknown>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<ApiResponse<T>> {
-  const { method = "GET", query, body, headers: extraHeaders } = options;
-  const baseUrl = getBaseUrl();
+  const { method = "GET", query, body, headers: extraHeaders, domain } = options;
+  const baseUrl = domain ? APIS_BASE_URL : getBaseUrl();
 
   let url = `${baseUrl}/${endpoint}`;
   if (query) {
@@ -64,8 +66,8 @@ export async function apiRequestRaw(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<Response> {
-  const { method = "GET", query, body, headers: extraHeaders } = options;
-  const baseUrl = getBaseUrl();
+  const { method = "GET", query, body, headers: extraHeaders, domain } = options;
+  const baseUrl = domain ? APIS_BASE_URL : getBaseUrl();
 
   let url = `${baseUrl}/${endpoint}`;
   if (query) {
