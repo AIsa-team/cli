@@ -84,11 +84,12 @@ aisa scholar "transformer architecture"     # academic papers
 ### Finance
 
 ```bash
+aisa stock AAPL                     # summary: company info + estimates + news
 aisa stock AAPL --field insider     # insider trades
 aisa stock AAPL --field news        # company news
 aisa stock TSLA --field filings     # SEC filings
-aisa stock AAPL --field price       # stock price (⚠️ may return empty for some tickers)
-aisa stock MSFT --field earnings    # earnings data (⚠️ limited ticker support)
+aisa stock MSFT --field estimates   # analyst EPS & revenue estimates
+aisa stock AAPL --field financials  # balance sheets, income statements
 aisa crypto BTC                     # crypto price snapshot
 aisa crypto ETH --period 30d       # historical
 aisa screener --sector Technology   # stock screener
@@ -215,7 +216,7 @@ The `domain: true` option in `RequestOptions` (see `src/api.ts`) selects which b
 
 **Models API follows OpenAI format.** The `/v1/models` endpoint returns `owned_by` (not `provider`) and has no `name`, `pricing`, or `contextWindow` fields.
 
-**Some financial endpoints return empty data.** `financial/prices` and `financial/financial-metrics/snapshot` may return `{}` for certain tickers. `financial/insider-trades`, `financial/news`, and `financial/filings` work reliably.
+**Some financial endpoints return empty data.** `financial/prices` and `financial/financial-metrics/snapshot` return `{}` for all tickers (backend issue). The default `aisa stock` now fetches `company/facts` + `analyst-estimates` + `news` instead. Working fields: `info`, `estimates`, `financials`, `filings`, `insider`, `institutional`, `news`.
 
 ## License
 
