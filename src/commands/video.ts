@@ -61,6 +61,7 @@ export async function videoCreateAction(
   // Poll for completion
   const pollSpinner = ora("Generating video...").start();
   let status = "PENDING";
+  let lastPollData: VideoTaskResponse | undefined;
   while (status === "PENDING" || status === "RUNNING") {
     await new Promise((r) => setTimeout(r, 5000));
 
@@ -75,13 +76,14 @@ export async function videoCreateAction(
       return;
     }
 
-    status = pollRes.data.output?.task_status || pollRes.data.status || "UNKNOWN";
+    lastPollData = pollRes.data;
+    status = lastPollData.output?.task_status || lastPollData.status || "UNKNOWN";
     pollSpinner.text = `Generating video... (${status})`;
   }
 
   if (status === "SUCCEEDED" || status === "completed") {
     pollSpinner.succeed("Video generated!");
-    const videoUrl = res.data.output?.video_url || res.data.resultUrl;
+    const videoUrl = lastPollData?.output?.video_url || lastPollData?.resultUrl;
     if (videoUrl) {
       console.log(`  URL: ${chalk.cyan(videoUrl)}`);
     }
