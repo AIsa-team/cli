@@ -54,7 +54,7 @@ echo "summarize this" | aisa chat                        # pipe support
 
 aisa models                          # list all models
 aisa models --provider anthropic     # filter by provider
-aisa models show gpt-4.1             # model details + pricing
+aisa models show gpt-4.1             # model details
 ```
 
 ### API Discovery & Execution
