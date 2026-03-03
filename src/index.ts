@@ -73,40 +73,40 @@ program
 
 program
   .command("balance")
-  .description("Show credit balance")
+  .description("Show credit balance (WIP)")
   .action(wrap(balanceAction));
 
 program
   .command("usage")
-  .description("Show usage history")
+  .description("Show usage history (WIP)")
   .option("--limit <n>", "Max records")
   .option("--days <n>", "Lookback days")
   .action(wrap(usageAction));
 
 // ── API ──
 
-const api = program.command("api").description("Discover and inspect APIs");
+const api = program.command("api").description("Discover and inspect APIs (WIP)");
 
 api
   .command("list")
-  .description("List available API endpoints")
+  .description("List available API endpoints (WIP)")
   .option("--category <cat>", "Filter by category (llm, search, finance, twitter, video, scholar)")
   .action(wrap(apiListAction));
 
 api
   .command("search <query>")
-  .description("Search APIs by keyword")
+  .description("Search APIs by keyword (WIP)")
   .option("--limit <n>", "Max results")
   .action(wrap(apiSearchAction));
 
 api
   .command("show <slug> [path]")
-  .description("Show API endpoint details")
+  .description("Show API endpoint details (WIP)")
   .action(wrap(apiShowAction));
 
 api
   .command("code <slug> <path>")
-  .description("Generate code snippet")
+  .description("Generate code snippet (WIP)")
   .option("--lang <language>", "Language: typescript, python, curl", "typescript")
   .action(wrap(apiCodeAction));
 
@@ -254,37 +254,37 @@ const skills = program.command("skills").description("Browse and manage agent sk
 
 skills
   .command("list")
-  .description("List available skills")
+  .description("List available skills (WIP)")
   .option("--category <cat>", "Filter by category")
   .option("--limit <n>", "Max results")
   .action(wrap(skillsListAction));
 
 skills
   .command("search <query>")
-  .description("Search skills")
+  .description("Search skills (WIP)")
   .option("--limit <n>", "Max results")
   .action(wrap(skillsSearchAction));
 
 skills
   .command("show <slug>")
-  .description("Show skill details")
+  .description("Show skill details (WIP)")
   .action(wrap(skillsShowAction));
 
 skills
   .command("add <slug>")
-  .description("Install a skill to agent directories")
+  .description("Install a skill to agent directories (WIP)")
   .option("--agent <agent>", "Target agent: claude, cursor, copilot, windsurf, codex, gemini, openclaw, all")
   .action(wrap(skillsAddAction));
 
 skills
   .command("remove <slug>")
-  .description("Remove an installed skill")
+  .description("Remove an installed skill (WIP)")
   .option("--agent <agent>", "Target agent")
   .action(skillsRemoveAction);
 
 skills
   .command("update [slug]")
-  .description("Update installed skill(s)")
+  .description("Update installed skill(s) (WIP)")
   .action(wrap(skillsUpdateAction));
 
 skills
@@ -296,17 +296,17 @@ skills
 
 skills
   .command("submit <path>")
-  .description("Submit a skill to AISA")
+  .description("Submit a skill to AISA (WIP)")
   .action(wrap(skillsSubmitAction));
 
 skills
   .command("push <slug>")
-  .description("Push local changes to a submitted skill")
+  .description("Push local changes to a submitted skill (WIP)")
   .action(wrap(skillsPushAction));
 
 skills
   .command("request-verification <slug>")
-  .description("Request skill verification")
+  .description("Request skill verification (WIP)")
   .action(wrap(skillsVerifyAction));
 
 // ── MCP ──
@@ -352,13 +352,13 @@ configCmd
 
 program
   .command("search <query>")
-  .description("Search APIs (alias for 'api search')")
+  .description("Search APIs (alias for 'api search') (WIP)")
   .option("--limit <n>", "Max results")
   .action(wrap(apiSearchAction));
 
 program
   .command("code <slug> <path>")
-  .description("Generate code (alias for 'api code')")
+  .description("Generate code (alias for 'api code') (WIP)")
   .option("--lang <language>", "Language", "typescript")
   .action(wrap(apiCodeAction));
 
