@@ -1,28 +1,115 @@
 import ora from "ora";
 import chalk from "chalk";
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { requireApiKey } from "../config.js";
-import { apiRequest } from "../api.js";
-import { error, success, badge, hint, truncate } from "../utils/display.js";
-import { expandHome, ensureDir, writeSkillFiles, readSkillDir, removeDir, detectAgents } from "../utils/file.js";
+import fetch from "node-fetch";
+import { error, success, hint, truncate } from "../utils/display.js";
+import { expandHome, ensureDir, writeSkillFiles, removeDir, detectAgents } from "../utils/file.js";
 import { AGENT_DIRS } from "../constants.js";
-import type { SkillMeta, SkillDetail } from "../types.js";
 
-// --- Skill Templates ---
+// --- GitHub-backed skill registry ---
+
+const SKILLS_REPO = "AIsa-team/OpenClaw-Skills";
+const GH_API = `https://api.github.com/repos/${SKILLS_REPO}`;
+const GH_RAW = `https://raw.githubusercontent.com/${SKILLS_REPO}/main`;
+
+interface GHTreeEntry {
+  path: string;
+  type: "blob" | "tree";
+}
+
+interface SkillInfo {
+  slug: string;
+  name: string;
+  description: string;
+  emoji: string;
+}
+
+/** Fetch the repo tree and extract top-level skill folder names. */
+async function fetchSkillSlugs(): Promise<string[]> {
+  const res = await fetch(`${GH_API}/git/trees/main`);
+  if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
+  const data = (await res.json()) as { tree: GHTreeEntry[] };
+  // Top-level directories (excluding dotfiles, LICENSE, README) are skills
+  return data.tree
+    .filter(
+      (e) =>
+        e.type === "tree" &&
+        !e.path.startsWith(".") &&
+        e.path !== "node_modules"
+    )
+    .map((e) => e.path);
+}
+
+/** Fetch and parse SKILL.md frontmatter for a single skill. */
+async function fetchSkillMeta(slug: string): Promise<SkillInfo | null> {
+  const res = await fetch(`${GH_RAW}/${slug}/SKILL.md`);
+  if (!res.ok) return null;
+  const text = await res.text();
+  return parseSkillFrontmatter(slug, text);
+}
+
+/** Parse YAML frontmatter from SKILL.md content. */
+function parseSkillFrontmatter(slug: string, content: string): SkillInfo {
+  const info: SkillInfo = { slug, name: slug, description: "", emoji: "" };
+
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!match) return info;
+
+  const frontmatter = match[1];
+
+  const nameMatch = frontmatter.match(/^name:\s*(.+)$/m);
+  if (nameMatch) info.name = nameMatch[1].trim().replace(/^["']|["']$/g, "");
+
+  const descMatch = frontmatter.match(/^description:\s*(.+)$/m);
+  if (descMatch) info.description = descMatch[1].trim().replace(/^["']|["']$/g, "");
+
+  const metaMatch = frontmatter.match(/^metadata:\s*(.+)$/m);
+  if (metaMatch) {
+    try {
+      const meta = JSON.parse(metaMatch[1]);
+      info.emoji = meta?.openclaw?.emoji || "";
+    } catch {
+      // ignore malformed metadata
+    }
+  }
+
+  return info;
+}
+
+/** Fetch all files in a skill folder from GitHub. */
+async function fetchSkillFiles(slug: string): Promise<Array<{ path: string; content: string }>> {
+  const treeRes = await fetch(`${GH_API}/git/trees/main?recursive=1`);
+  if (!treeRes.ok) throw new Error(`GitHub API error: ${treeRes.status}`);
+  const treeData = (await treeRes.json()) as { tree: GHTreeEntry[] };
+
+  const prefix = `${slug}/`;
+  const blobs = treeData.tree.filter(
+    (e) => e.type === "blob" && e.path.startsWith(prefix)
+  );
+
+  const files: Array<{ path: string; content: string }> = [];
+  await Promise.all(
+    blobs.map(async (entry) => {
+      const res = await fetch(`${GH_RAW}/${entry.path}`);
+      if (!res.ok) return;
+      const content = await res.text();
+      const relativePath = entry.path.slice(prefix.length);
+      files.push({ path: relativePath, content });
+    })
+  );
+
+  return files;
+}
+
+// --- Skill Templates (for init) ---
 
 const TEMPLATES: Record<string, string> = {
   default: `---
 name: my-skill
 description: "Describe what this skill does."
-category: general
-tags: []
-metadata:
-  aisa:
-    apis: []
-    requires:
-      auth: true
-      env: [AISA_API_KEY]
+homepage: https://openclaw.ai
+metadata: {"openclaw":{"emoji":"","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY"}}
 ---
 
 # My Skill
@@ -45,14 +132,8 @@ aisa run <slug> <path> -q "param=value"
   llm: `---
 name: llm-assistant
 description: "Use AISA's unified LLM gateway to chat with 70+ AI models."
-category: llm
-tags: [llm, chat, openai, claude, gemini]
-metadata:
-  aisa:
-    apis: [chat/completions, models]
-    requires:
-      auth: true
-      env: [AISA_API_KEY]
+homepage: https://openclaw.ai
+metadata: {"openclaw":{"emoji":"🤖","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY"}}
 ---
 
 # LLM Assistant Skill
@@ -83,28 +164,13 @@ aisa chat "Explain quantum computing" --model claude-opus-4-6 --stream
 aisa models
 aisa models --provider anthropic
 \`\`\`
-
-## REST API (OpenAI-compatible)
-
-\`\`\`bash
-curl -X POST https://api.aisa.one/v1/chat/completions \\
-  -H "Authorization: Bearer $AISA_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{"model": "gpt-4.1", "messages": [{"role": "user", "content": "Hello"}]}'
-\`\`\`
 `,
 
   search: `---
 name: web-search
 description: "Search the web, YouTube, and academic papers via AISA APIs."
-category: search
-tags: [search, web, youtube, scholar, tavily]
-metadata:
-  aisa:
-    apis: [search/smart, search/full, youtube/search, scholar/search, tavily/search]
-    requires:
-      auth: true
-      env: [AISA_API_KEY]
+homepage: https://openclaw.ai
+metadata: {"openclaw":{"emoji":"🔍","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY"}}
 ---
 
 # Web Search Skill
@@ -134,31 +200,13 @@ aisa web-search "machine learning tutorial" --type youtube
 \`\`\`bash
 aisa scholar "transformer architecture"
 \`\`\`
-
-## Tavily Deep Search
-
-\`\`\`bash
-aisa run tavily /search -d '{"query": "NVIDIA earnings 2025", "search_depth": "advanced"}'
-\`\`\`
-
-## Tavily Extract (webpage content)
-
-\`\`\`bash
-aisa run tavily /extract -d '{"urls": ["https://example.com"]}'
-\`\`\`
 `,
 
   finance: `---
 name: finance-analyst
 description: "Access stock prices, earnings, SEC filings, and financial data via AISA."
-category: finance
-tags: [stocks, earnings, sec-filings, crypto, financial-analysis]
-metadata:
-  aisa:
-    apis: [stock/price, analyst-estimates, financial-statements, filings, insider-trades, crypto/price]
-    requires:
-      auth: true
-      env: [AISA_API_KEY]
+homepage: https://openclaw.ai
+metadata: {"openclaw":{"emoji":"📊","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY"}}
 ---
 
 # Finance Analyst Skill
@@ -185,43 +233,13 @@ aisa stock TSLA --field filings
 aisa crypto BTC
 aisa crypto ETH --period 30d
 \`\`\`
-
-## Stock Screener
-
-\`\`\`bash
-aisa screener --sector Technology --limit 20
-\`\`\`
-
-## Financial Statements
-
-\`\`\`bash
-aisa run financial-statements -q "symbol=AAPL&period=annual"
-\`\`\`
-
-## SEC Filings
-
-\`\`\`bash
-aisa run filings -q "symbol=TSLA&type=10-K"
-\`\`\`
-
-## Insider Trades
-
-\`\`\`bash
-aisa stock NVDA --field insider
-\`\`\`
 `,
 
   twitter: `---
 name: twitter-manager
-description: "Post tweets, search Twitter, get user profiles and trends via AISA."
-category: twitter
-tags: [twitter, tweets, social-media, trends]
-metadata:
-  aisa:
-    apis: [twitter/create-tweet-v2, twitter/tweet/advanced-search, twitter/user/info, twitter/trends]
-    requires:
-      auth: true
-      env: [AISA_API_KEY]
+description: "Search Twitter, get user profiles and trends via AISA."
+homepage: https://openclaw.ai
+metadata: {"openclaw":{"emoji":"🐦","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY"}}
 ---
 
 # Twitter Manager Skill
@@ -232,12 +250,6 @@ Interact with Twitter/X through AISA's Twitter APIs.
 
 \`\`\`bash
 export AISA_API_KEY=sk-your-key
-\`\`\`
-
-## Post a Tweet
-
-\`\`\`bash
-aisa tweet "Hello from AISA CLI!"
 \`\`\`
 
 ## Search Tweets
@@ -257,31 +269,13 @@ aisa twitter user elonmusk
 \`\`\`bash
 aisa twitter trends
 \`\`\`
-
-## Advanced: Get Tweet Replies
-
-\`\`\`bash
-aisa run twitter/tweet/replies -q "id=1234567890"
-\`\`\`
-
-## Advanced: Send DM
-
-\`\`\`bash
-aisa run twitter/send-dm-to-user -d '{"userId": "123", "text": "Hello!"}'
-\`\`\`
 `,
 
   video: `---
 name: video-generator
 description: "Generate videos from text prompts using AISA's video synthesis API."
-category: video
-tags: [video, generation, aigc, synthesis]
-metadata:
-  aisa:
-    apis: [services/aigc/video-generation/video-synthesis, services/aigc/tasks]
-    requires:
-      auth: true
-      env: [AISA_API_KEY]
+homepage: https://openclaw.ai
+metadata: {"openclaw":{"emoji":"🎬","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY"}}
 ---
 
 # Video Generator Skill
@@ -316,142 +310,180 @@ aisa video status <task-id>
 
 // --- Commands ---
 
-export async function skillsListAction(options: { category?: string; limit?: string }): Promise<void> {
-  const key = requireApiKey();
-  const spinner = ora("Fetching skills...").start();
+export async function skillsListAction(_options: { category?: string; limit?: string }): Promise<void> {
+  const spinner = ora("Fetching skills from GitHub...").start();
 
-  const query: Record<string, string> = {};
-  if (options.category) query.category = options.category;
-  if (options.limit) query.limit = options.limit;
+  try {
+    const slugs = await fetchSkillSlugs();
 
-  const res = await apiRequest<{ skills: SkillMeta[] }>(key, "cli/skills", { query });
+    // Fetch all SKILL.md frontmatters in parallel
+    const metas = await Promise.all(slugs.map((s) => fetchSkillMeta(s)));
+    const skills = metas.filter((m): m is SkillInfo => m !== null);
 
-  if (!res.success || !res.data) {
+    spinner.stop();
+
+    if (skills.length === 0) {
+      console.log("  No skills found.");
+      return;
+    }
+
+    console.log(chalk.bold(`\n  ${skills.length} skills available\n`));
+
+    for (const s of skills) {
+      const emoji = s.emoji ? `${s.emoji} ` : "";
+      console.log(`  ${emoji}${chalk.cyan.bold(s.name)} ${chalk.gray(s.slug)}`);
+      if (s.description) {
+        console.log(`    ${chalk.gray(truncate(s.description, 80))}`);
+      }
+      console.log();
+    }
+
+    hint("Install: aisa skills install <slug>");
+    hint("Details: aisa skills show <slug>");
+  } catch (err) {
     spinner.fail("Failed to fetch skills");
-    error(res.error || "Unknown error");
-    return;
-  }
-
-  spinner.stop();
-  const { skills } = res.data;
-
-  if (skills.length === 0) {
-    console.log("  No skills found.");
-    return;
-  }
-
-  for (const s of skills) {
-    const verified = s.verified ? chalk.green(" ✓") : "";
-    console.log(`\n  ${chalk.cyan.bold(s.name)}${verified} ${chalk.gray(s.slug)} ${badge(s.category)}`);
-    console.log(`  ${chalk.gray(truncate(s.description, 60))}`);
-    console.log(`  ${chalk.gray(`${s.installs} installs`)}`);
+    error((err as Error).message);
   }
 }
 
-export async function skillsSearchAction(query: string, options: { limit?: string }): Promise<void> {
-  const key = requireApiKey();
+export async function skillsSearchAction(query: string, _options: { limit?: string }): Promise<void> {
   const spinner = ora(`Searching skills: "${query}"...`).start();
 
-  const res = await apiRequest<{ skills: SkillMeta[] }>(key, "cli/skills/search", {
-    method: "POST",
-    body: { query, limit: parseInt(options.limit || "10") },
-  });
+  try {
+    const slugs = await fetchSkillSlugs();
+    const metas = await Promise.all(slugs.map((s) => fetchSkillMeta(s)));
+    const skills = metas.filter((m): m is SkillInfo => m !== null);
 
-  if (!res.success || !res.data) {
+    const q = query.toLowerCase();
+    const matches = skills.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.slug.toLowerCase().includes(q) ||
+        s.description.toLowerCase().includes(q)
+    );
+
+    spinner.stop();
+
+    if (matches.length === 0) {
+      console.log(`  No skills found for "${query}".`);
+      return;
+    }
+
+    console.log(chalk.bold(`\n  ${matches.length} result(s)\n`));
+
+    for (const s of matches) {
+      const emoji = s.emoji ? `${s.emoji} ` : "";
+      console.log(`  ${emoji}${chalk.cyan.bold(s.name)} ${chalk.gray(s.slug)}`);
+      if (s.description) {
+        console.log(`    ${chalk.gray(truncate(s.description, 80))}`);
+      }
+      console.log();
+    }
+
+    hint("Install: aisa skills install <slug>");
+  } catch (err) {
     spinner.fail("Search failed");
-    error(res.error || "Unknown error");
-    return;
+    error((err as Error).message);
   }
-
-  spinner.stop();
-  const { skills } = res.data;
-
-  if (skills.length === 0) {
-    console.log(`  No skills found for "${query}".`);
-    return;
-  }
-
-  for (const s of skills) {
-    const verified = s.verified ? chalk.green(" ✓") : "";
-    console.log(`\n  ${chalk.cyan.bold(s.name)}${verified} ${chalk.gray(s.slug)} ${badge(s.category)}`);
-    console.log(`  ${chalk.gray(s.description)}`);
-  }
-
-  console.log(chalk.gray("\n  Run 'aisa skills add <owner/name>' to install"));
 }
 
 export async function skillsShowAction(slug: string): Promise<void> {
-  const key = requireApiKey();
   const spinner = ora(`Loading ${slug}...`).start();
 
-  const res = await apiRequest<SkillDetail>(key, `cli/skills/${slug}`);
+  try {
+    // Fetch SKILL.md
+    const res = await fetch(`${GH_RAW}/${slug}/SKILL.md`);
+    if (!res.ok) {
+      spinner.fail("Skill not found");
+      error(`No skill "${slug}" in ${SKILLS_REPO}`);
+      return;
+    }
 
-  if (!res.success || !res.data) {
-    spinner.fail("Skill not found");
-    error(res.error || "Unknown error");
-    return;
+    const content = await res.text();
+    const meta = parseSkillFrontmatter(slug, content);
+
+    // Fetch file list
+    const treeRes = await fetch(`${GH_API}/git/trees/main?recursive=1`);
+    const treeData = (await treeRes.json()) as { tree: GHTreeEntry[] };
+    const prefix = `${slug}/`;
+    const files = treeData.tree
+      .filter((e) => e.type === "blob" && e.path.startsWith(prefix))
+      .map((e) => e.path.slice(prefix.length));
+
+    spinner.stop();
+
+    const emoji = meta.emoji ? `${meta.emoji} ` : "";
+    console.log(`\n  ${emoji}${chalk.cyan.bold(meta.name)}`);
+    console.log(`  ${meta.description}`);
+    console.log(`  Slug: ${chalk.gray(slug)}`);
+    console.log(`  Files: ${files.join(", ")}`);
+    console.log(`  Source: ${chalk.gray(`https://github.com/${SKILLS_REPO}/tree/main/${slug}`)}`);
+
+    // Print SKILL.md body (after frontmatter)
+    const body = content.replace(/^---\n[\s\S]*?\n---\n*/, "").trim();
+    if (body) {
+      console.log(`\n${chalk.gray("─".repeat(60))}`);
+      console.log(body);
+    }
+
+    console.log();
+    hint(`Install: aisa skills install ${slug}`);
+  } catch (err) {
+    spinner.fail("Failed to load skill");
+    error((err as Error).message);
   }
-
-  spinner.stop();
-  const s = res.data;
-
-  const verified = s.verified ? chalk.green(" ✓ verified") : "";
-  console.log(`\n  ${chalk.cyan.bold(s.name)}${verified}`);
-  console.log(`  ${s.description}`);
-  console.log(`  Category: ${badge(s.category)}`);
-  console.log(`  Tags: ${s.tags.join(", ")}`);
-  console.log(`  Installs: ${s.installs}`);
-  console.log(`  Files: ${s.files.map((f) => f.path).join(", ")}`);
-  console.log(chalk.gray(`\n  Install: aisa skills add ${s.slug}`));
 }
 
-export async function skillsAddAction(slug: string, options: { agent?: string }): Promise<void> {
-  const key = requireApiKey();
-  const spinner = ora(`Fetching skill '${slug}'...`).start();
+export async function skillsInstallAction(slug: string, options: { agent?: string }): Promise<void> {
+  const spinner = ora(`Fetching skill '${slug}' from GitHub...`).start();
 
-  const res = await apiRequest<SkillDetail>(key, `cli/skills/${slug}`);
+  try {
+    const files = await fetchSkillFiles(slug);
 
-  if (!res.success || !res.data) {
-    spinner.fail("Failed to fetch skill");
-    error(res.error || "Unknown error");
-    return;
-  }
+    if (files.length === 0) {
+      spinner.fail("Skill not found");
+      error(`No skill "${slug}" in ${SKILLS_REPO}`);
+      return;
+    }
 
-  spinner.stop();
-  const skill = res.data;
+    spinner.stop();
 
-  // Determine targets
-  let targets: string[];
-  if (options.agent) {
-    if (options.agent === "all") {
-      targets = Object.keys(AGENT_DIRS);
-    } else {
-      if (!AGENT_DIRS[options.agent]) {
-        error(`Unknown agent: ${options.agent}. Valid: ${Object.keys(AGENT_DIRS).join(", ")}, all`);
-        return;
+    // Determine targets
+    let targets: string[];
+    if (options.agent) {
+      if (options.agent === "all") {
+        targets = Object.keys(AGENT_DIRS);
+      } else {
+        if (!AGENT_DIRS[options.agent]) {
+          error(`Unknown agent: ${options.agent}. Valid: ${Object.keys(AGENT_DIRS).join(", ")}, all`);
+          return;
+        }
+        targets = [options.agent];
       }
-      targets = [options.agent];
+    } else {
+      targets = detectAgents(AGENT_DIRS);
+      if (targets.length === 0) {
+        targets = Object.keys(AGENT_DIRS);
+      }
     }
-  } else {
-    targets = detectAgents(AGENT_DIRS);
-    if (targets.length === 0) {
-      targets = Object.keys(AGENT_DIRS);
+
+    let installed = 0;
+    for (const agent of targets) {
+      const dir = expandHome(join(AGENT_DIRS[agent], slug));
+      ensureDir(dir);
+      writeSkillFiles(dir, files);
+      console.log(`  ${chalk.green("✓")} ${AGENT_DIRS[agent]} (${agent})`);
+      installed++;
     }
-  }
 
-  let installed = 0;
-  for (const agent of targets) {
-    const dir = expandHome(join(AGENT_DIRS[agent], slug));
-    ensureDir(dir);
-    writeSkillFiles(dir, skill.files);
-    console.log(`  ${chalk.green("✓")} ${AGENT_DIRS[agent]} (${agent})`);
-    installed++;
+    success(`Skill '${slug}' installed to ${installed} agent(s)`);
+  } catch (err) {
+    spinner.fail("Failed to install skill");
+    error((err as Error).message);
   }
-
-  success(`Skill '${skill.name}' installed to ${installed} agent(s)`);
 }
 
-export async function skillsRemoveAction(slug: string, options: { agent?: string }): Promise<void> {
+export function skillsRemoveAction(slug: string, options: { agent?: string }): void {
   let targets: string[];
   if (options.agent && options.agent !== "all") {
     targets = [options.agent];
@@ -508,108 +540,5 @@ export function skillsInitAction(
 
   success(`Skill initialized: ${name}/`);
   console.log(`  ${chalk.gray(join(name, "SKILL.md"))}`);
-  hint("Edit SKILL.md, then run 'aisa skills submit ./" + name + "'");
-}
-
-export async function skillsSubmitAction(path: string): Promise<void> {
-  const key = requireApiKey();
-  const dir = resolve(path);
-
-  if (!existsSync(join(dir, "SKILL.md"))) {
-    error("No SKILL.md found. Run 'aisa skills init <name>' first.");
-    return;
-  }
-
-  const spinner = ora("Submitting skill...").start();
-  const files = readSkillDir(dir);
-
-  const res = await apiRequest<{ slug: string; status: string }>(key, "cli/skills", {
-    method: "POST",
-    body: { files },
-  });
-
-  if (!res.success || !res.data) {
-    spinner.fail("Failed to submit skill");
-    error(res.error || "Unknown error");
-    return;
-  }
-
-  spinner.stop();
-  success(`Skill submitted: ${res.data.slug}`);
-  hint(`Request verification: aisa skills request-verification ${res.data.slug}`);
-}
-
-export async function skillsPushAction(slug: string): Promise<void> {
-  const key = requireApiKey();
-  const dir = resolve(".");
-
-  if (!existsSync(join(dir, "SKILL.md"))) {
-    error("No SKILL.md in current directory.");
-    return;
-  }
-
-  const spinner = ora(`Pushing updates to ${slug}...`).start();
-  const files = readSkillDir(dir);
-
-  const res = await apiRequest(key, `cli/skills/${slug}`, {
-    method: "PUT",
-    body: { files },
-  });
-
-  if (!res.success) {
-    spinner.fail("Failed to push updates");
-    error(res.error || "Unknown error");
-    return;
-  }
-
-  spinner.stop();
-  success(`Skill '${slug}' updated.`);
-}
-
-export async function skillsVerifyAction(slug: string): Promise<void> {
-  const key = requireApiKey();
-  const spinner = ora("Requesting verification...").start();
-
-  const res = await apiRequest(key, `cli/skills/${slug}/verify`, { method: "POST" });
-
-  if (!res.success) {
-    spinner.fail("Failed to request verification");
-    error(res.error || "Unknown error");
-    return;
-  }
-
-  spinner.stop();
-  success("Verification requested. The AISA team will review your skill.");
-}
-
-export async function skillsUpdateAction(slug?: string): Promise<void> {
-  const key = requireApiKey();
-
-  if (slug) {
-    // Update single skill
-    const spinner = ora(`Updating ${slug}...`).start();
-    const res = await apiRequest<SkillDetail>(key, `cli/skills/${slug}`);
-
-    if (!res.success || !res.data) {
-      spinner.fail("Failed to fetch skill");
-      error(res.error || "Unknown error");
-      return;
-    }
-
-    spinner.stop();
-    const skill = res.data;
-    const targets = detectAgents(AGENT_DIRS);
-
-    for (const agent of targets) {
-      const dir = expandHome(join(AGENT_DIRS[agent], slug));
-      if (existsSync(dir)) {
-        writeSkillFiles(dir, skill.files);
-        console.log(`  ${chalk.green("✓")} Updated in ${AGENT_DIRS[agent]}`);
-      }
-    }
-
-    success(`Skill '${slug}' updated.`);
-  } else {
-    console.log("  Specify a skill to update: aisa skills update <owner/name>");
-  }
+  hint(`Edit SKILL.md, then submit via PR: https://github.com/${SKILLS_REPO}`);
 }

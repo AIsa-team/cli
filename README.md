@@ -121,16 +121,16 @@ aisa usage --limit 20       # 🚧 WIP
 
 ## Skills
 
-Skills are markdown files that teach AI coding agents (Claude Code, Cursor, Copilot, etc.) how to use AISA APIs.
+Skills are markdown files that teach AI coding agents (Claude Code, Cursor, Copilot, etc.) how to use AISA APIs. Skills are sourced from the [OpenClaw-Skills](https://github.com/AIsa-team/OpenClaw-Skills) repository.
 
 ### Browse & Install
 
 ```bash
-aisa skills list                              # 🚧 WIP — requires backend
-aisa skills search "financial analysis"       # 🚧 WIP
-aisa skills show aisa-team/finance-analyst    # 🚧 WIP
-aisa skills add aisa-team/finance-analyst     # 🚧 WIP
-aisa skills remove aisa-team/finance-analyst  # 🚧 WIP
+aisa skills list                              # list all available skills
+aisa skills search "financial analysis"       # search by keyword
+aisa skills show market                       # show skill details
+aisa skills install market                     # install to agent directories
+aisa skills remove market                     # uninstall
 ```
 
 Skills install to agent directories automatically:
@@ -145,18 +145,17 @@ Skills install to agent directories automatically:
 | Gemini | `~/.gemini/skills/` |
 | OpenClaw | `~/.openclaw/skills/` |
 
-### Create & Publish
+### Create Skills
 
 ```bash
-aisa skills init my-skill                          # create from default template (works locally)
+aisa skills init my-skill                          # create from default template
 aisa skills init my-skill --template finance       # finance template
 aisa skills init my-skill --template llm           # LLM template
-aisa skills submit ./my-skill                      # 🚧 WIP — requires backend
-aisa skills push owner/my-skill                    # 🚧 WIP
-aisa skills request-verification owner/my-skill    # 🚧 WIP
 ```
 
 Available templates: `default`, `llm`, `search`, `finance`, `twitter`, `video`
+
+To publish a skill, submit a pull request to [AIsa-team/OpenClaw-Skills](https://github.com/AIsa-team/OpenClaw-Skills).
 
 ## MCP Server
 

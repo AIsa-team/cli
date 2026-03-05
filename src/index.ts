@@ -26,8 +26,7 @@ import { videoCreateAction, videoStatusAction } from "./commands/video.js";
 // Skills
 import {
   skillsListAction, skillsSearchAction, skillsShowAction,
-  skillsAddAction, skillsRemoveAction, skillsUpdateAction,
-  skillsInitAction, skillsSubmitAction, skillsPushAction, skillsVerifyAction,
+  skillsInstallAction, skillsRemoveAction, skillsInitAction,
 } from "./commands/skills.js";
 // MCP
 import { mcpSetupAction, mcpStatusAction } from "./commands/mcp.js";
@@ -254,60 +253,40 @@ const skills = program.command("skills").description("Browse and manage agent sk
 
 skills
   .command("list")
-  .description("List available skills (WIP)")
+  .description("List available skills")
   .option("--category <cat>", "Filter by category")
   .option("--limit <n>", "Max results")
   .action(wrap(skillsListAction));
 
 skills
   .command("search <query>")
-  .description("Search skills (WIP)")
+  .description("Search skills by keyword")
   .option("--limit <n>", "Max results")
   .action(wrap(skillsSearchAction));
 
 skills
   .command("show <slug>")
-  .description("Show skill details (WIP)")
+  .description("Show skill details")
   .action(wrap(skillsShowAction));
 
 skills
-  .command("add <slug>")
-  .description("Install a skill to agent directories (WIP)")
+  .command("install <slug>")
+  .description("Install a skill to agent directories")
   .option("--agent <agent>", "Target agent: claude, cursor, copilot, windsurf, codex, gemini, openclaw, all")
-  .action(wrap(skillsAddAction));
+  .action(wrap(skillsInstallAction));
 
 skills
   .command("remove <slug>")
-  .description("Remove an installed skill (WIP)")
+  .description("Remove an installed skill")
   .option("--agent <agent>", "Target agent")
   .action(skillsRemoveAction);
 
 skills
-  .command("update [slug]")
-  .description("Update installed skill(s) (WIP)")
-  .action(wrap(skillsUpdateAction));
-
-skills
   .command("init <name>")
-  .description("Initialize a new skill")
+  .description("Initialize a new skill from template")
   .option("--template <template>", "Template: llm, search, finance, twitter, video")
   .option("--bare", "Minimal template")
   .action(skillsInitAction);
-
-skills
-  .command("submit <path>")
-  .description("Submit a skill to AISA (WIP)")
-  .action(wrap(skillsSubmitAction));
-
-skills
-  .command("push <slug>")
-  .description("Push local changes to a submitted skill (WIP)")
-  .action(wrap(skillsPushAction));
-
-skills
-  .command("request-verification <slug>")
-  .description("Request skill verification (WIP)")
-  .action(wrap(skillsVerifyAction));
 
 // ── MCP ──
 
