@@ -29,21 +29,6 @@ export interface Model {
   supported_endpoint_types?: string[] | null;
 }
 
-export interface SkillMeta {
-  name: string;
-  description: string;
-  owner: string;
-  slug: string;
-  tags: string[];
-  category: string;
-  verified: boolean;
-  installs: number;
-}
-
-export interface SkillDetail extends SkillMeta {
-  files: Array<{ path: string; content: string }>;
-}
-
 export interface BalanceResponse {
   balance: number;
   currency: string;
