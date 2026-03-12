@@ -2,7 +2,7 @@ import chalk from "chalk";
 import { getConfig, setConfig, listConfig, resetConfig } from "../config.js";
 import { success, info } from "../utils/display.js";
 
-const VALID_KEYS = ["defaultModel", "baseUrl", "outputFormat"];
+const VALID_KEYS = ["defaultModel", "baseUrl", "outputFormat", "twitterCookies", "twitterProxy"];
 
 export function configSetAction(key: string, value: string): void {
   if (!VALID_KEYS.includes(key)) {
