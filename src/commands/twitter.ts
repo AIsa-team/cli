@@ -10,7 +10,7 @@ import { error, success, formatJson } from "../utils/display.js";
 
 interface CookieAuth {
   login_cookies: string;
-  proxy: string;
+  proxy?: string;
 }
 
 function requireCookies(): CookieAuth {
@@ -22,13 +22,9 @@ function requireCookies(): CookieAuth {
     );
     process.exit(1);
   }
-  if (!proxy) {
-    error(
-      'No Twitter proxy configured. Run "aisa config set twitterProxy <value>".'
-    );
-    process.exit(1);
-  }
-  return { login_cookies: cookies, proxy };
+  const auth: CookieAuth = { login_cookies: cookies };
+  if (proxy) auth.proxy = proxy;
+  return auth;
 }
 
 /** Simple GET against a twitter read endpoint. */
@@ -498,19 +494,15 @@ export async function twitterLoginAction(options: {
 }): Promise<void> {
   // Direct cookie import mode
   if (options.cookies) {
-    if (!options.proxy) {
-      error("--proxy is required when setting cookies directly.");
-      process.exit(1);
-    }
     setConfig("twitterCookies", options.cookies);
-    setConfig("twitterProxy", options.proxy);
-    success("Twitter cookies and proxy saved.");
+    if (options.proxy) setConfig("twitterProxy", options.proxy);
+    success("Twitter cookies saved." + (options.proxy ? " Proxy saved." : ""));
     return;
   }
 
   // Login via API
-  if (!options.username || !options.password || !options.proxy) {
-    error("Required: --username, --password, --proxy (and optionally --email, --totp)");
+  if (!options.username || !options.password) {
+    error("Required: --username, --password (and optionally --email, --proxy, --totp)");
     process.exit(1);
   }
 
@@ -520,8 +512,8 @@ export async function twitterLoginAction(options: {
   const body: Record<string, string> = {
     user_name: options.username,
     password: options.password,
-    proxy: options.proxy,
   };
+  if (options.proxy) body.proxy = options.proxy;
   if (options.email) body.email = options.email;
   if (options.totp) body.totp_secret = options.totp;
 
@@ -547,8 +539,8 @@ export async function twitterLoginAction(options: {
 
   if (cookies) {
     setConfig("twitterCookies", cookies);
-    setConfig("twitterProxy", options.proxy);
-    success("Logged in! Cookies and proxy saved.");
+    if (options.proxy) setConfig("twitterProxy", options.proxy);
+    success("Logged in! Cookies saved." + (options.proxy ? " Proxy saved." : ""));
   } else {
     console.log(chalk.yellow("Login response did not contain login_cookies. Raw response:"));
     console.log(formatJson(res.data));
@@ -678,7 +670,7 @@ export async function twitterUploadMediaAction(
     return;
   }
   formData.append("login_cookies", auth.login_cookies);
-  formData.append("proxy", auth.proxy);
+  if (auth.proxy) formData.append("proxy", auth.proxy);
 
   const url = `${APIS_BASE_URL}/twitter/upload_media_v2`;
 
