@@ -1,64 +1,53 @@
 import ora from "ora";
 import chalk from "chalk";
-import { requireApiKey } from "../config.js";
+import fetch from "node-fetch";
+import { requireApiKey, getConfig, setConfig } from "../config.js";
 import { apiRequest } from "../api.js";
-import { error, formatJson } from "../utils/display.js";
+import { APIS_BASE_URL } from "../constants.js";
+import { error, success, formatJson } from "../utils/display.js";
 
-export async function tweetAction(
-  text: string,
-  options: { replyTo?: string; raw?: boolean }
-): Promise<void> {
-  const key = requireApiKey();
-  const spinner = ora("Posting tweet...").start();
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-  const body: Record<string, unknown> = { tweet_text: text };
-  if (options.replyTo) body.reply_to_tweet_id = options.replyTo;
-
-  // Note: create_tweet_v2 requires login_cookies and proxy
-  // This will fail without those - provide a helpful message
-  const res = await apiRequest(key, "twitter/create_tweet_v2", {
-    method: "POST",
-    body,
-    domain: true,
-  });
-
-  if (!res.success) {
-    spinner.fail("Failed to post tweet");
-    if (res.error?.includes("login_cookies")) {
-      error("Tweet creation requires Twitter login cookies. See: https://docs.aisa.one");
-    } else {
-      error(res.error || "Unknown error");
-    }
-    return;
-  }
-
-  spinner.stop();
-
-  if (options.raw) {
-    console.log(JSON.stringify(res.data));
-  } else {
-    console.log(chalk.green("Tweet posted!"));
-    console.log(formatJson(res.data));
-  }
+interface CookieAuth {
+  login_cookies: string;
+  proxy: string;
 }
 
-export async function twitterSearchAction(
-  query: string,
-  options: { limit?: string; raw?: boolean }
+function requireCookies(): CookieAuth {
+  const cookies = getConfig("twitterCookies") as string;
+  const proxy = getConfig("twitterProxy") as string;
+  if (!cookies) {
+    error(
+      'No Twitter cookies configured. Run "aisa twitter login" or "aisa config set twitterCookies <value>".'
+    );
+    process.exit(1);
+  }
+  if (!proxy) {
+    error(
+      'No Twitter proxy configured. Run "aisa config set twitterProxy <value>".'
+    );
+    process.exit(1);
+  }
+  return { login_cookies: cookies, proxy };
+}
+
+/** Simple GET against a twitter read endpoint. */
+async function twitterGet<T = unknown>(
+  endpoint: string,
+  query: Record<string, string>,
+  label: string,
+  options: { raw?: boolean }
 ): Promise<void> {
   const key = requireApiKey();
-  const spinner = ora(`Searching tweets: "${query}"...`).start();
+  const spinner = ora(label).start();
 
-  const q: Record<string, string> = { query, queryType: "Latest" };
-  if (options.limit) q.cursor = "";
-
-  const res = await apiRequest(key, "twitter/tweet/advanced_search", {
-    query: q,
+  const res = await apiRequest<T>(key, endpoint, {
+    query,
     domain: true,
   });
 
   if (!res.success) {
-    spinner.fail("Twitter search failed");
+    spinner.fail(label.replace(/\.{3}$/, " failed"));
     error(res.error || "Unknown error");
     return;
   }
@@ -71,6 +60,40 @@ export async function twitterSearchAction(
     console.log(formatJson(res.data));
   }
 }
+
+/** POST against a twitter write endpoint (auto-injects cookies/proxy). */
+async function twitterWrite<T = unknown>(
+  endpoint: string,
+  body: Record<string, unknown>,
+  label: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  const key = requireApiKey();
+  const auth = requireCookies();
+  const spinner = ora(label).start();
+
+  const res = await apiRequest<T>(key, endpoint, {
+    method: "POST",
+    body: { ...auth, ...body },
+    domain: true,
+  });
+
+  if (!res.success) {
+    spinner.fail(label.replace(/\.{3}$/, " failed"));
+    error(res.error || "Unknown error");
+    return;
+  }
+
+  spinner.stop();
+
+  if (options.raw) {
+    console.log(JSON.stringify(res.data));
+  } else {
+    console.log(formatJson(res.data));
+  }
+}
+
+// ── Read: User Endpoints ─────────────────────────────────────────────────────
 
 export async function twitterUserAction(
   username: string,
@@ -98,9 +121,13 @@ export async function twitterUserAction(
     const data = res.data as { data?: Record<string, unknown> };
     const user = data?.data;
     if (user) {
-      console.log(`\n  ${chalk.cyan.bold(user.name as string)} ${chalk.gray(`@${user.userName}`)}`);
+      console.log(
+        `\n  ${chalk.cyan.bold(user.name as string)} ${chalk.gray(`@${user.userName}`)}`
+      );
       if (user.description) console.log(`  ${user.description}`);
-      console.log(`  ${chalk.white(String(user.followers))} followers · ${chalk.white(String(user.following))} following`);
+      console.log(
+        `  ${chalk.white(String(user.followers))} followers · ${chalk.white(String(user.following))} following`
+      );
       if (user.isBlueVerified) console.log(`  ${chalk.blue("✓ Verified")}`);
       if (user.location) console.log(`  ${chalk.gray(user.location as string)}`);
     } else {
@@ -109,27 +136,590 @@ export async function twitterUserAction(
   }
 }
 
-export async function twitterTrendsAction(options: { raw?: boolean }): Promise<void> {
-  const key = requireApiKey();
-  const spinner = ora("Fetching trends...").start();
+export async function twitterUserAboutAction(
+  username: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  return twitterGet(
+    "twitter/user_about",
+    { userName: username },
+    `Fetching about @${username}...`,
+    options
+  );
+}
 
-  // woeid 1 = worldwide
-  const res = await apiRequest(key, "twitter/trends", {
-    query: { woeid: "1", count: "30" },
-    domain: true,
-  });
+export async function twitterBatchUsersAction(
+  ids: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  return twitterGet(
+    "twitter/user/batch_info_by_ids",
+    { userIds: ids },
+    "Fetching users...",
+    options
+  );
+}
+
+export async function twitterUserTweetsAction(
+  username: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { userName: username };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/user/last_tweets",
+    q,
+    `Fetching tweets by @${username}...`,
+    options
+  );
+}
+
+export async function twitterMentionsAction(
+  username: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { userName: username };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/user/mentions",
+    q,
+    `Fetching mentions of @${username}...`,
+    options
+  );
+}
+
+export async function twitterFollowersAction(
+  username: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { userName: username };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/user/followers",
+    q,
+    `Fetching followers of @${username}...`,
+    options
+  );
+}
+
+export async function twitterFollowingAction(
+  username: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { userName: username };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/user/followings",
+    q,
+    `Fetching following of @${username}...`,
+    options
+  );
+}
+
+export async function twitterVerifiedFollowersAction(
+  userId: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { user_id: userId };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/user/verifiedFollowers",
+    q,
+    "Fetching verified followers...",
+    options
+  );
+}
+
+export async function twitterCheckFollowAction(
+  source: string,
+  target: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  return twitterGet(
+    "twitter/user/check_follow_relationship",
+    { source_user_name: source, target_user_name: target },
+    `Checking follow relationship @${source} → @${target}...`,
+    options
+  );
+}
+
+export async function twitterUserSearchAction(
+  query: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { query };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/user/search",
+    q,
+    `Searching users: "${query}"...`,
+    options
+  );
+}
+
+// ── Read: Tweet Endpoints ────────────────────────────────────────────────────
+
+export async function twitterSearchAction(
+  query: string,
+  options: { limit?: string; type?: string; raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = {
+    query,
+    queryType: options.type === "top" ? "Top" : "Latest",
+  };
+  if (options.cursor) q.cursor = options.cursor;
+  if (options.limit) q.count = options.limit;
+  return twitterGet(
+    "twitter/tweet/advanced_search",
+    q,
+    `Searching tweets: "${query}"...`,
+    options
+  );
+}
+
+export async function twitterDetailAction(
+  ids: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  return twitterGet(
+    "twitter/tweets",
+    { tweet_ids: ids },
+    "Fetching tweet details...",
+    options
+  );
+}
+
+export async function twitterRepliesAction(
+  tweetId: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { tweetId };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/tweet/replies",
+    q,
+    "Fetching replies...",
+    options
+  );
+}
+
+export async function twitterQuotesAction(
+  tweetId: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { tweetId };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/tweet/quotes",
+    q,
+    "Fetching quotes...",
+    options
+  );
+}
+
+export async function twitterRetweetersAction(
+  tweetId: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { tweetId };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/tweet/retweeters",
+    q,
+    "Fetching retweeters...",
+    options
+  );
+}
+
+export async function twitterThreadAction(
+  tweetId: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { tweetId };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/tweet/thread_context",
+    q,
+    "Fetching thread...",
+    options
+  );
+}
+
+export async function twitterArticleAction(
+  tweetId: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  return twitterGet(
+    "twitter/article",
+    { tweet_id: tweetId },
+    "Fetching article...",
+    options
+  );
+}
+
+// ── Read: Trends ─────────────────────────────────────────────────────────────
+
+export async function twitterTrendsAction(options: {
+  woeid?: string;
+  count?: string;
+  raw?: boolean;
+}): Promise<void> {
+  const q: Record<string, string> = {
+    woeid: options.woeid || "1",
+    count: options.count || "30",
+  };
+  return twitterGet("twitter/trends", q, "Fetching trends...", options);
+}
+
+// ── Read: Lists ──────────────────────────────────────────────────────────────
+
+export async function twitterListMembersAction(
+  listId: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { list_id: listId };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/list/members",
+    q,
+    "Fetching list members...",
+    options
+  );
+}
+
+export async function twitterListFollowersAction(
+  listId: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { list_id: listId };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/list/followers",
+    q,
+    "Fetching list followers...",
+    options
+  );
+}
+
+// ── Read: Communities ────────────────────────────────────────────────────────
+
+export async function twitterCommunityInfoAction(
+  communityId: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  return twitterGet(
+    "twitter/community/info",
+    { community_id: communityId },
+    "Fetching community info...",
+    options
+  );
+}
+
+export async function twitterCommunityMembersAction(
+  communityId: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { community_id: communityId };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/community/members",
+    q,
+    "Fetching community members...",
+    options
+  );
+}
+
+export async function twitterCommunityModsAction(
+  communityId: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { community_id: communityId };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/community/moderators",
+    q,
+    "Fetching community moderators...",
+    options
+  );
+}
+
+export async function twitterCommunityTweetsAction(
+  communityId: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { community_id: communityId };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/community/tweets",
+    q,
+    "Fetching community tweets...",
+    options
+  );
+}
+
+export async function twitterCommunitySearchAction(
+  query: string,
+  options: { raw?: boolean; cursor?: string }
+): Promise<void> {
+  const q: Record<string, string> = { query };
+  if (options.cursor) q.cursor = options.cursor;
+  return twitterGet(
+    "twitter/community/get_tweets_from_all_community",
+    q,
+    `Searching community tweets: "${query}"...`,
+    options
+  );
+}
+
+// ── Read: Spaces ─────────────────────────────────────────────────────────────
+
+export async function twitterSpaceAction(
+  spaceId: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  return twitterGet(
+    "twitter/spaces/detail",
+    { space_id: spaceId },
+    "Fetching space details...",
+    options
+  );
+}
+
+// ── Write: Login / Logout ────────────────────────────────────────────────────
+
+export async function twitterLoginAction(options: {
+  username?: string;
+  email?: string;
+  password?: string;
+  proxy?: string;
+  totp?: string;
+  cookies?: string;
+  raw?: boolean;
+}): Promise<void> {
+  // Direct cookie import mode
+  if (options.cookies) {
+    if (!options.proxy) {
+      error("--proxy is required when setting cookies directly.");
+      process.exit(1);
+    }
+    setConfig("twitterCookies", options.cookies);
+    setConfig("twitterProxy", options.proxy);
+    success("Twitter cookies and proxy saved.");
+    return;
+  }
+
+  // Login via API
+  if (!options.username || !options.password || !options.proxy) {
+    error("Required: --username, --password, --proxy (and optionally --email, --totp)");
+    process.exit(1);
+  }
+
+  const key = requireApiKey();
+  const spinner = ora("Logging in to Twitter...").start();
+
+  const body: Record<string, string> = {
+    user_name: options.username,
+    password: options.password,
+    proxy: options.proxy,
+  };
+  if (options.email) body.email = options.email;
+  if (options.totp) body.totp_secret = options.totp;
+
+  const res = await apiRequest<{ login_cookies?: string }>(
+    key,
+    "twitter/user_login_v2",
+    { method: "POST", body, domain: true }
+  );
 
   if (!res.success) {
-    spinner.fail("Failed to fetch trends");
+    spinner.fail("Twitter login failed");
     error(res.error || "Unknown error");
     return;
   }
 
   spinner.stop();
 
-  if (options.raw) {
-    console.log(JSON.stringify(res.data));
+  // Extract and store cookies
+  const data = res.data as Record<string, unknown>;
+  const cookies =
+    (data?.login_cookies as string) ||
+    (data?.data as Record<string, unknown>)?.login_cookies as string | undefined;
+
+  if (cookies) {
+    setConfig("twitterCookies", cookies);
+    setConfig("twitterProxy", options.proxy!);
+    success("Logged in! Cookies and proxy saved.");
   } else {
+    console.log(chalk.yellow("Login response did not contain login_cookies. Raw response:"));
     console.log(formatJson(res.data));
   }
+
+  if (options.raw) {
+    console.log(JSON.stringify(res.data));
+  }
+}
+
+export function twitterLogoutAction(): void {
+  setConfig("twitterCookies", "");
+  setConfig("twitterProxy", "");
+  success("Twitter cookies and proxy cleared.");
+}
+
+// ── Write: Tweet ─────────────────────────────────────────────────────────────
+
+export async function tweetAction(
+  text: string,
+  options: { replyTo?: string; mediaIds?: string; raw?: boolean }
+): Promise<void> {
+  const body: Record<string, unknown> = { tweet_text: text };
+  if (options.replyTo) body.reply_to_tweet_id = options.replyTo;
+  if (options.mediaIds) body.media_ids = options.mediaIds.split(",");
+  return twitterWrite("twitter/create_tweet_v2", body, "Posting tweet...", options);
+}
+
+// ── Write: Like / Unlike ─────────────────────────────────────────────────────
+
+export async function twitterLikeAction(
+  tweetId: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  return twitterWrite(
+    "twitter/like_tweet_v2",
+    { tweet_id: tweetId },
+    "Liking tweet...",
+    options
+  );
+}
+
+export async function twitterUnlikeAction(
+  tweetId: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  return twitterWrite(
+    "twitter/unlike_tweet_v2",
+    { tweet_id: tweetId },
+    "Unliking tweet...",
+    options
+  );
+}
+
+// ── Write: Retweet ───────────────────────────────────────────────────────────
+
+export async function twitterRetweetAction(
+  tweetId: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  return twitterWrite(
+    "twitter/retweet_tweet_v2",
+    { tweet_id: tweetId },
+    "Retweeting...",
+    options
+  );
+}
+
+// ── Write: Delete ────────────────────────────────────────────────────────────
+
+export async function twitterDeleteAction(
+  tweetId: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  return twitterWrite(
+    "twitter/delete_tweet_v2",
+    { tweet_id: tweetId },
+    "Deleting tweet...",
+    options
+  );
+}
+
+// ── Write: Follow / Unfollow ─────────────────────────────────────────────────
+
+export async function twitterFollowAction(
+  userId: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  return twitterWrite(
+    "twitter/follow_user_v2",
+    { user_id: userId },
+    "Following user...",
+    options
+  );
+}
+
+export async function twitterUnfollowAction(
+  userId: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  return twitterWrite(
+    "twitter/unfollow_user_v2",
+    { user_id: userId },
+    "Unfollowing user...",
+    options
+  );
+}
+
+// ── Write: Upload Media ──────────────────────────────────────────────────────
+
+export async function twitterUploadMediaAction(
+  filePath: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  const key = requireApiKey();
+  const auth = requireCookies();
+  const spinner = ora("Uploading media...").start();
+
+  let formData: InstanceType<typeof globalThis.FormData>;
+  try {
+    const { FormData: NFFormData, fileFromSync } = await import("node-fetch");
+    formData = new NFFormData();
+    formData.append("file", fileFromSync(filePath));
+  } catch {
+    spinner.fail("Failed to read file");
+    error(`Could not read file: ${filePath}`);
+    return;
+  }
+  formData.append("login_cookies", auth.login_cookies);
+  formData.append("proxy", auth.proxy);
+
+  const url = `${APIS_BASE_URL}/twitter/upload_media_v2`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "x-aisa-source": "cli",
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    spinner.fail("Upload failed");
+    const text = await res.text();
+    error(`${res.status}: ${text}`);
+    return;
+  }
+
+  const data = await res.json();
+  spinner.stop();
+
+  if (options.raw) {
+    console.log(JSON.stringify(data));
+  } else {
+    success("Media uploaded!");
+    console.log(formatJson(data));
+  }
+}
+
+// ── Write: Direct Message ────────────────────────────────────────────────────
+
+export async function twitterDmAction(
+  userId: string,
+  text: string,
+  options: { raw?: boolean }
+): Promise<void> {
+  return twitterWrite(
+    "twitter/send_dm_to_user",
+    { user_id: userId, text },
+    "Sending DM...",
+    options
+  );
 }

@@ -8,6 +8,8 @@ const config = new Conf({
     defaultModel: { type: "string", default: "gpt-4.1" },
     baseUrl: { type: "string", default: "https://api.aisa.one/v1" },
     outputFormat: { type: "string", default: "text" },
+    twitterCookies: { type: "string", default: "" },
+    twitterProxy: { type: "string", default: "" },
   },
 });
 

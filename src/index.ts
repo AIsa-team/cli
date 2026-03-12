@@ -20,7 +20,22 @@ import { webSearchAction, scholarAction } from "./commands/search.js";
 // Finance
 import { stockAction, cryptoAction, screenerAction } from "./commands/finance.js";
 // Twitter
-import { tweetAction, twitterSearchAction, twitterUserAction, twitterTrendsAction } from "./commands/twitter.js";
+import {
+  tweetAction, twitterSearchAction, twitterUserAction, twitterTrendsAction,
+  twitterUserAboutAction, twitterBatchUsersAction, twitterUserTweetsAction,
+  twitterMentionsAction, twitterFollowersAction, twitterFollowingAction,
+  twitterVerifiedFollowersAction, twitterCheckFollowAction, twitterUserSearchAction,
+  twitterDetailAction, twitterRepliesAction, twitterQuotesAction,
+  twitterRetweetersAction, twitterThreadAction, twitterArticleAction,
+  twitterListMembersAction, twitterListFollowersAction,
+  twitterCommunityInfoAction, twitterCommunityMembersAction,
+  twitterCommunityModsAction, twitterCommunityTweetsAction, twitterCommunitySearchAction,
+  twitterSpaceAction,
+  twitterLoginAction, twitterLogoutAction,
+  twitterLikeAction, twitterUnlikeAction, twitterRetweetAction,
+  twitterDeleteAction, twitterFollowAction, twitterUnfollowAction,
+  twitterUploadMediaAction, twitterDmAction,
+} from "./commands/twitter.js";
 // Video
 import { videoCreateAction, videoStatusAction } from "./commands/video.js";
 // Skills
@@ -202,20 +217,33 @@ program
 
 program
   .command("tweet <text>")
-  .description("Post a tweet")
+  .description("Post a tweet (requires twitter login)")
   .option("--reply-to <id>", "Reply to tweet ID")
+  .option("--media-ids <ids>", "Comma-separated media IDs")
   .option("--raw", "Raw JSON output")
   .action(wrap(tweetAction));
 
 const twitter = program.command("twitter").description("Twitter/X operations");
 
+// Auth
 twitter
-  .command("search <query>")
-  .description("Search tweets")
-  .option("--limit <n>", "Max results")
+  .command("login")
+  .description("Login to Twitter or import cookies")
+  .option("--username <name>", "Twitter username")
+  .option("--email <email>", "Account email")
+  .option("--password <pass>", "Account password")
+  .option("--proxy <url>", "Proxy URL (required)")
+  .option("--totp <secret>", "2FA TOTP secret")
+  .option("--cookies <cookies>", "Import login_cookies directly")
   .option("--raw", "Raw JSON output")
-  .action(wrap(twitterSearchAction));
+  .action(wrap(twitterLoginAction));
 
+twitter
+  .command("logout")
+  .description("Clear stored Twitter cookies")
+  .action(twitterLogoutAction);
+
+// User read
 twitter
   .command("user <username>")
   .description("Get user profile")
@@ -223,10 +251,229 @@ twitter
   .action(wrap(twitterUserAction));
 
 twitter
+  .command("user-about <username>")
+  .description("Get user profile details (country, verification, name history)")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterUserAboutAction));
+
+twitter
+  .command("batch-users <ids>")
+  .description("Get multiple users by comma-separated IDs")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterBatchUsersAction));
+
+twitter
+  .command("user-tweets <username>")
+  .description("Get user's recent tweets")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterUserTweetsAction));
+
+twitter
+  .command("mentions <username>")
+  .description("Get user mentions")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterMentionsAction));
+
+twitter
+  .command("followers <username>")
+  .description("Get user followers")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterFollowersAction));
+
+twitter
+  .command("following <username>")
+  .description("Get user followings")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterFollowingAction));
+
+twitter
+  .command("verified-followers <user-id>")
+  .description("Get verified followers (requires user ID)")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterVerifiedFollowersAction));
+
+twitter
+  .command("check-follow <source> <target>")
+  .description("Check follow relationship between two usernames")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterCheckFollowAction));
+
+twitter
+  .command("user-search <query>")
+  .description("Search users by keyword")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterUserSearchAction));
+
+// Tweet read
+twitter
+  .command("search <query>")
+  .description("Search tweets")
+  .option("--type <type>", "Query type: latest or top", "latest")
+  .option("--limit <n>", "Max results")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterSearchAction));
+
+twitter
+  .command("detail <ids>")
+  .description("Get tweets by comma-separated IDs")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterDetailAction));
+
+twitter
+  .command("replies <tweet-id>")
+  .description("Get tweet replies")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterRepliesAction));
+
+twitter
+  .command("quotes <tweet-id>")
+  .description("Get tweet quotes")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterQuotesAction));
+
+twitter
+  .command("retweeters <tweet-id>")
+  .description("Get tweet retweeters")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterRetweetersAction));
+
+twitter
+  .command("thread <tweet-id>")
+  .description("Get full conversation thread")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterThreadAction));
+
+twitter
+  .command("article <tweet-id>")
+  .description("Get article content by tweet ID")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterArticleAction));
+
+// Trends
+twitter
   .command("trends")
   .description("Get trending topics")
+  .option("--woeid <id>", "Location WOEID (1 = worldwide)", "1")
+  .option("--count <n>", "Number of trends")
   .option("--raw", "Raw JSON output")
   .action(wrap(twitterTrendsAction));
+
+// Lists
+twitter
+  .command("list-members <list-id>")
+  .description("Get list members")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterListMembersAction));
+
+twitter
+  .command("list-followers <list-id>")
+  .description("Get list followers")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterListFollowersAction));
+
+// Communities
+twitter
+  .command("community-info <community-id>")
+  .description("Get community info")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterCommunityInfoAction));
+
+twitter
+  .command("community-members <community-id>")
+  .description("Get community members")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterCommunityMembersAction));
+
+twitter
+  .command("community-mods <community-id>")
+  .description("Get community moderators")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterCommunityModsAction));
+
+twitter
+  .command("community-tweets <community-id>")
+  .description("Get community tweets")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterCommunityTweetsAction));
+
+twitter
+  .command("community-search <query>")
+  .description("Search tweets across all communities")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterCommunitySearchAction));
+
+// Spaces
+twitter
+  .command("space <space-id>")
+  .description("Get Space details")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterSpaceAction));
+
+// Write operations
+twitter
+  .command("like <tweet-id>")
+  .description("Like a tweet")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterLikeAction));
+
+twitter
+  .command("unlike <tweet-id>")
+  .description("Unlike a tweet")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterUnlikeAction));
+
+twitter
+  .command("retweet <tweet-id>")
+  .description("Retweet a tweet")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterRetweetAction));
+
+twitter
+  .command("delete <tweet-id>")
+  .description("Delete a tweet")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterDeleteAction));
+
+twitter
+  .command("follow <user-id>")
+  .description("Follow a user (requires user ID)")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterFollowAction));
+
+twitter
+  .command("unfollow <user-id>")
+  .description("Unfollow a user (requires user ID)")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterUnfollowAction));
+
+twitter
+  .command("upload-media <file-path>")
+  .description("Upload media file for tweets")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterUploadMediaAction));
+
+twitter
+  .command("dm <user-id> <text>")
+  .description("Send a direct message")
+  .option("--raw", "Raw JSON output")
+  .action(wrap(twitterDmAction));
 
 // ── Video shortcuts ──
 
