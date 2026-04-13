@@ -9,7 +9,7 @@ import { AGENT_DIRS } from "../constants.js";
 
 // --- GitHub-backed skill registry ---
 
-const SKILLS_REPO = "AIsa-team/OpenClaw-Skills";
+const SKILLS_REPO = "AIsa-team/agent-skills";
 const GH_API = `https://api.github.com/repos/${SKILLS_REPO}`;
 const GH_RAW = `https://raw.githubusercontent.com/${SKILLS_REPO}/main`;
 
