@@ -68,7 +68,8 @@ function parseSkillFrontmatter(slug: string, content: string): SkillInfo {
   if (metaMatch) {
     try {
       const meta = JSON.parse(metaMatch[1]);
-      info.emoji = meta?.openclaw?.emoji || "";
+      // agent-skills repo uses metadata.aisa; legacy skills used metadata.openclaw.
+      info.emoji = meta?.aisa?.emoji || meta?.openclaw?.emoji || "";
     } catch {
       // ignore malformed metadata
     }
