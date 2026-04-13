@@ -121,7 +121,7 @@ aisa usage --limit 20       # 🚧 WIP
 
 ## Skills
 
-Skills are markdown files that teach AI coding agents (Claude Code, Cursor, Copilot, etc.) how to use AISA APIs. Skills are sourced from the [OpenClaw-Skills](https://github.com/AIsa-team/OpenClaw-Skills) repository.
+Skills are markdown files that teach AI coding agents (Claude Code, Cursor, Copilot, etc.) how to use AISA APIs. Skills are sourced from the [agent-skills](https://github.com/AIsa-team/agent-skills) repository.
 
 ### Browse & Install
 
@@ -155,7 +155,7 @@ aisa skills init my-skill --template llm           # LLM template
 
 Available templates: `default`, `llm`, `search`, `finance`, `twitter`, `video`
 
-To publish a skill, submit a pull request to [AIsa-team/OpenClaw-Skills](https://github.com/AIsa-team/OpenClaw-Skills).
+To publish a skill, submit a pull request to [AIsa-team/agent-skills](https://github.com/AIsa-team/agent-skills).
 
 ## MCP Server
 
