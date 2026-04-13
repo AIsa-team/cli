@@ -108,8 +108,8 @@ const TEMPLATES: Record<string, string> = {
   default: `---
 name: my-skill
 description: "Describe what this skill does."
-homepage: https://openclaw.ai
-metadata: {"openclaw":{"emoji":"","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY"}}
+homepage: https://aisa.one
+metadata: {"aisa":{"emoji":"","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # My Skill
@@ -132,8 +132,8 @@ aisa run <slug> <path> -q "param=value"
   llm: `---
 name: llm-assistant
 description: "Use AISA's unified LLM gateway to chat with 70+ AI models."
-homepage: https://openclaw.ai
-metadata: {"openclaw":{"emoji":"🤖","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY"}}
+homepage: https://aisa.one
+metadata: {"aisa":{"emoji":"🤖","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # LLM Assistant Skill
@@ -169,8 +169,8 @@ aisa models --provider anthropic
   search: `---
 name: web-search
 description: "Search the web, YouTube, and academic papers via AISA APIs."
-homepage: https://openclaw.ai
-metadata: {"openclaw":{"emoji":"🔍","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY"}}
+homepage: https://aisa.one
+metadata: {"aisa":{"emoji":"🔍","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Web Search Skill
@@ -205,8 +205,8 @@ aisa scholar "transformer architecture"
   finance: `---
 name: finance-analyst
 description: "Access stock prices, earnings, SEC filings, and financial data via AISA."
-homepage: https://openclaw.ai
-metadata: {"openclaw":{"emoji":"📊","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY"}}
+homepage: https://aisa.one
+metadata: {"aisa":{"emoji":"📊","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Finance Analyst Skill
@@ -238,8 +238,8 @@ aisa crypto ETH --period 30d
   twitter: `---
 name: twitter-manager
 description: "Search Twitter, get user profiles and trends via AISA."
-homepage: https://openclaw.ai
-metadata: {"openclaw":{"emoji":"🐦","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY"}}
+homepage: https://aisa.one
+metadata: {"aisa":{"emoji":"🐦","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Twitter Manager Skill
@@ -274,8 +274,8 @@ aisa twitter trends
   video: `---
 name: video-generator
 description: "Generate videos from text prompts using AISA's video synthesis API."
-homepage: https://openclaw.ai
-metadata: {"openclaw":{"emoji":"🎬","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY"}}
+homepage: https://aisa.one
+metadata: {"aisa":{"emoji":"🎬","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Video Generator Skill
