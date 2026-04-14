@@ -128,9 +128,9 @@ Skills are markdown files that teach AI coding agents (Claude Code, Cursor, Copi
 ```bash
 aisa skills list                              # list all available skills
 aisa skills search "financial analysis"       # search by keyword
-aisa skills show market                       # show skill details
-aisa skills install market                     # install to agent directories
-aisa skills remove market                     # uninstall
+aisa skills show marketpulse                  # show skill details
+aisa skills install marketpulse               # install to agent directories
+aisa skills remove marketpulse                # uninstall
 ```
 
 Skills install to agent directories automatically:
