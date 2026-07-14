@@ -23,11 +23,13 @@
     "access": "public"
   },
   "dependencies": {
+    "@aisa-one/agent-spec": "file:../agent-spec",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
     "conf": "^12.0.0",
     "node-fetch": "^3.3.2",
-    "ora": "^8.0.1"
+    "ora": "^8.0.1",
+    "tar": "^7.5.20"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
