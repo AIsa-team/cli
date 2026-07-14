@@ -123,6 +123,22 @@ export async function agentUpdateAction(
     if (r.status === "updated") success(`${r.id}: ${r.from} -> ${r.to}`);
   return results;
 }
-export async function agentGuideAction(_id: string, _opts: { md?: boolean }): Promise<void> {
-  throw new Error("not implemented");
+export async function agentGuideAction(
+  id: string,
+  opts: { md?: boolean },
+  deps: { fetchImpl?: FetchLike } = {},
+): Promise<string> {
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const index = await fetchIndex(deps.fetchImpl);
+  const entry = requireAgent(index, id);
+  const artifact = entry.versions[entry.latest]?.targets["hermes"];
+  if (!artifact) throw new Error(`no hermes artifact for ${id}@${entry.latest}`);
+  const filename = opts.md ? "INSTALL.md" : "guide-prompt.txt";
+  const url = siblingAssetUrl(artifact.url, filename);
+  const res = await fetchImpl(url);
+  if (!res.ok) throw new Error(`failed to fetch ${filename} (${res.status}): ${url}`);
+  const text = await res.text();
+  console.log(text);
+  if (!opts.md) hint("paste the text above into your local AI agent (Claude Code, hermes, …)");
+  return text;
 }

@@ -569,7 +569,7 @@ agent
   .command("guide <id>")
   .description("Print the copy-paste prompt for your local AI agent (--md for INSTALL.md)")
   .option("--md", "print INSTALL.md instead of the guide prompt")
-  .action(wrap(agentGuideAction));
+  .action(wrap(async (id, opts) => { await agentGuideAction(id, opts); }));
 
 // ── MCP ──
 
