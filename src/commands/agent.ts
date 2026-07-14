@@ -1,7 +1,22 @@
 import chalk from "chalk";
+import { readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { execFile } from "node:child_process";
 import { table, success, hint, truncate } from "../utils/display.js";
 import { fetchIndex, requireAgent, siblingAssetUrl, type FetchLike } from "../agent/index-client.js";
+import {
+  hermesRoot, profileDir, downloadArtifact, extractBundle,
+  readBundleManifest, writeMarker, listInstalled,
+} from "../agent/installer.js";
+import { collectEnv, type Prompt } from "../agent/env-setup.js";
 import type { AgentIndex } from "@aisa-one/agent-spec";
+
+export type Exec = (cmd: string, args: string[]) => Promise<{ code: number; stdout: string; stderr: string }>;
+const realExec: Exec = (cmd, args) => new Promise((resolve) => {
+  execFile(cmd, args, (err, stdout, stderr) =>
+    resolve({ code: err ? 1 : 0, stdout: String(stdout), stderr: String(stderr) }));
+});
 
 export async function agentListAction(
   _opts: Record<string, never>,
@@ -32,9 +47,48 @@ export async function agentInfoAction(
 }
 
 export async function agentInstallAction(
-  _id: string, _opts: { version?: string; runtime?: string },
+  id: string,
+  opts: { version?: string; runtime?: string },
+  deps: { fetchImpl?: FetchLike; prompt?: Prompt; exec?: Exec } = {},
 ): Promise<void> {
-  throw new Error("not implemented");
+  const runtime = opts.runtime ?? "hermes";
+  if (runtime !== "hermes")
+    throw new Error(`runtime "${runtime}" not supported yet — v1 supports: hermes`);
+  if (!existsSync(hermesRoot()))
+    throw new Error(
+      `hermes not found at ${hermesRoot()} — install it first:\n` +
+      `  curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash`);
+
+  const index = await fetchIndex(deps.fetchImpl);
+  const entry = requireAgent(index, id);
+  const version = opts.version ?? entry.latest;
+  const versionSpec = entry.versions[version];
+  if (!versionSpec) throw new Error(
+    `version ${version} not found for ${id} — available: ${Object.keys(entry.versions).join(", ")}`);
+  const artifact = versionSpec.targets[runtime];
+  if (!artifact) throw new Error(`no ${runtime} artifact for ${id}@${version}`);
+
+  const dir = profileDir(id);
+  const existingEnv = existsSync(join(dir, ".env"))
+    ? await readFile(join(dir, ".env"), "utf8") : null;
+
+  const buf = await downloadArtifact(artifact.url, artifact.sha256, deps.fetchImpl);
+  await extractBundle(buf, dir);
+
+  const manifest = await readBundleManifest(dir);
+  const envText = await collectEnv(manifest, existingEnv, { prompt: deps.prompt });
+  await writeFile(join(dir, ".env"), envText);
+
+  const exec = deps.exec ?? realExec;
+  const r = await exec("bash", [join(dir, "scripts", "render.sh"), dir]);
+  if (r.code !== 0) throw new Error(`render failed: ${r.stderr}`);
+
+  await writeMarker(dir, {
+    id, version, target: "hermes",
+    pinned: !!opts.version || manifest.update.channel === "pinned",
+  });
+  success(`installed ${entry.name} ${version} -> ${dir}`);
+  hint(`start it with: hermes --profile ${id}`);
 }
 export async function agentUpdateAction(
   _id: string | undefined, _opts: Record<string, never>,
