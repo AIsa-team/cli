@@ -91,9 +91,37 @@ export async function agentInstallAction(
   hint(`start it with: hermes --profile ${id}`);
 }
 export async function agentUpdateAction(
-  _id: string | undefined, _opts: Record<string, never>,
-): Promise<void> {
-  throw new Error("not implemented");
+  id: string | undefined,
+  _opts: Record<string, never>,
+  deps: { fetchImpl?: FetchLike; prompt?: Prompt; exec?: Exec } = {},
+): Promise<{ id: string; from: string; to: string; status: "updated" | "up-to-date" | "pinned" }[]> {
+  const installed = await listInstalled();
+  const targets = id ? installed.filter((i) => i.marker.id === id) : installed;
+  if (id && targets.length === 0)
+    throw new Error(`agent "${id}" is not installed (no .agentspec.json marker found)`);
+  if (targets.length === 0) { hint("no installed agents found"); return []; }
+
+  const index = await fetchIndex(deps.fetchImpl);
+  const results: { id: string; from: string; to: string; status: "updated" | "up-to-date" | "pinned" }[] = [];
+
+  for (const { marker } of targets) {
+    if (marker.pinned) {
+      console.log(`${marker.id}: pinned at ${marker.version} — skipping`);
+      results.push({ id: marker.id, from: marker.version, to: marker.version, status: "pinned" });
+      continue;
+    }
+    const entry = index.agents[marker.id];
+    if (!entry || entry.latest === marker.version) {
+      results.push({ id: marker.id, from: marker.version, to: marker.version, status: "up-to-date" });
+      continue;
+    }
+    await agentInstallAction(marker.id, {}, deps);   // install 已保留 .env、更新 marker
+    results.push({ id: marker.id, from: marker.version, to: entry.latest, status: "updated" });
+  }
+
+  for (const r of results)
+    if (r.status === "updated") success(`${r.id}: ${r.from} -> ${r.to}`);
+  return results;
 }
 export async function agentGuideAction(_id: string, _opts: { md?: boolean }): Promise<void> {
   throw new Error("not implemented");

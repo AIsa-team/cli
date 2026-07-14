@@ -563,7 +563,7 @@ agent
 agent
   .command("update [id]")
   .description("Update installed agents to the latest version")
-  .action(wrap(agentUpdateAction));
+  .action(wrap(async (id, opts) => { await agentUpdateAction(id, opts); }));
 
 agent
   .command("guide <id>")
