@@ -546,12 +546,12 @@ const agent = program.command("agent").description("Install and manage AIsa agen
 agent
   .command("list")
   .description("Browse available agents")
-  .action(wrap(agentListAction));
+  .action(wrap(async (opts) => { await agentListAction(opts); }));
 
 agent
   .command("info <id>")
   .description("Show agent details")
-  .action(wrap(agentInfoAction));
+  .action(wrap(async (id) => { await agentInfoAction(id); }));
 
 agent
   .command("install <id>")
