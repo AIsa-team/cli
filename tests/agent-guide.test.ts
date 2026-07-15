@@ -27,3 +27,19 @@ describe("guide", () => {
       .rejects.toThrow(/guide-prompt.txt/);
   });
 });
+
+describe("guide prefers index asset urls (2026-07-15 schema)", () => {
+  it("fetches the url carried by the index when present", async () => {
+    const idx = indexFor("demo", "1.0.0", "e".repeat(64)) as any;
+    idx.agents.demo.versions["1.0.0"].targets.hermes.guidePrompt = "https://x/guide-prompt-hermes.txt";
+    idx.agents.demo.versions["1.0.0"].targets.hermes.installMd = "https://x/INSTALL-hermes.md";
+    const fetchImpl = async (url: string) => {
+      if (url.endsWith("index.json")) return new Response(JSON.stringify(idx), { status: 200 });
+      if (url === "https://x/guide-prompt-hermes.txt") return new Response("SUFFIXED", { status: 200 });
+      if (url === "https://x/INSTALL-hermes.md") return new Response("# Suffixed Install", { status: 200 });
+      return new Response("nf", { status: 404 });
+    };
+    expect(await agentGuideAction("demo", {}, { fetchImpl: fetchImpl as any })).toBe("SUFFIXED");
+    expect(await agentGuideAction("demo", { md: true }, { fetchImpl: fetchImpl as any })).toBe("# Suffixed Install");
+  });
+});

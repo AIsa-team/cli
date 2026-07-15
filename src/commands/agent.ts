@@ -136,8 +136,12 @@ export async function agentGuideAction(
   const entry = requireAgent(index, id);
   const artifact = entry.versions[entry.latest]?.targets["hermes"];
   if (!artifact) throw new Error(`no hermes artifact for ${id}@${entry.latest}`);
-  const filename = opts.md ? "INSTALL.md" : "guide-prompt.txt";
-  const url = siblingAssetUrl(artifact.url, filename);
+  // 优先读索引携带的资产 URL(2026-07-15 起 publish 写入);老条目回落到
+  // legacy 裸文件名拼接,保证旧版本 Release 仍可用
+  const url = opts.md
+    ? (artifact.installMd ?? siblingAssetUrl(artifact.url, "INSTALL.md"))
+    : (artifact.guidePrompt ?? siblingAssetUrl(artifact.url, "guide-prompt.txt"));
+  const filename = url.split("/").pop()!;
   const res = await fetchImpl(url);
   if (!res.ok) throw new Error(`failed to fetch ${filename} (${res.status}): ${url}`);
   const text = await res.text();
