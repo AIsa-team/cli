@@ -6,6 +6,8 @@ import type { AgentManifest } from "@aisa-one/agent-spec";
 export type Exec = (cmd: string, args: string[]) => Promise<{ code: number; stdout: string; stderr: string }>;
 
 export const SKIP_OPTIONAL_ENV = "AGENT_SKIP_OPTIONAL_SETUP";
+// venv 基础解释器覆盖(如系统 python3 过旧时指向 python3.12)
+export const SETUP_PYTHON_ENV = "AGENT_SETUP_PYTHON";
 
 async function upsertEnvLine(dir: string, key: string, value: string): Promise<void> {
   const envPath = join(dir, ".env");
@@ -37,9 +39,10 @@ export async function runPythonSetup(
     const venvDir = join(profileDir, ".venvs", s.name);
     const venvPython = join(venvDir, "bin", "python");
     const reqPath = join(profileDir, s.requirements);
+    const basePython = process.env[SETUP_PYTHON_ENV] || "python3";
     console.log(`setup ${s.name}: building venv (${s.requirements})…`);
 
-    const created = await exec("python3", ["-m", "venv", venvDir]);
+    const created = await exec(basePython, ["-m", "venv", venvDir]);
     const installed = created.code === 0
       ? await exec(venvPython, ["-m", "pip", "install", "-r", reqPath])
       : created;
@@ -49,6 +52,7 @@ export async function runPythonSetup(
       if (!s.optional)
         throw new Error(`setup ${s.name} failed (required):\n${detail}`);
       console.log(`setup ${s.name}: failed, degrading (optional). ${s.description ?? ""}`);
+      if (detail.trim()) console.log(`  reason: ${detail.trim().split("\n").slice(-3).join(" | ")}`);
       results.push({ name: s.name, status: "failed" });
       continue;
     }
