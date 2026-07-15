@@ -10,6 +10,7 @@ import {
   readBundleManifest, writeMarker, listInstalled,
 } from "../agent/installer.js";
 import { collectEnv, type Prompt } from "../agent/env-setup.js";
+import { runPythonSetup } from "../agent/setup-python.js";
 import type { AgentIndex } from "@aisa-one/agent-spec";
 
 export type Exec = (cmd: string, args: string[]) => Promise<{ code: number; stdout: string; stderr: string }>;
@@ -82,6 +83,8 @@ export async function agentInstallAction(
   const exec = deps.exec ?? realExec;
   const r = await exec("bash", [join(dir, "scripts", "render.sh"), dir]);
   if (r.code !== 0) throw new Error(`render failed: ${r.stderr}`);
+
+  await runPythonSetup(manifest, dir, exec);
 
   await writeMarker(dir, {
     id, version, target: "hermes",
