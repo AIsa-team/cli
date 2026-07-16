@@ -45,6 +45,10 @@ import {
 } from "./commands/skills.js";
 // MCP
 import { mcpSetupAction, mcpStatusAction } from "./commands/mcp.js";
+import {
+  agentListAction, agentInfoAction, agentInstallAction,
+  agentUpdateAction, agentGuideAction,
+} from "./commands/agent.js";
 // Config
 import { configSetAction, configGetAction, configListAction, configResetAction } from "./commands/configCmd.js";
 
@@ -534,6 +538,38 @@ skills
   .option("--template <template>", "Template: llm, search, finance, twitter, video")
   .option("--bare", "Minimal template")
   .action(skillsInitAction);
+
+// ── Agents ──
+
+const agent = program.command("agent").description("Install and manage AIsa agents");
+
+agent
+  .command("list")
+  .description("Browse available agents")
+  .action(wrap(async (opts) => { await agentListAction(opts); }));
+
+agent
+  .command("info <id>")
+  .description("Show agent details")
+  .action(wrap(async (id) => { await agentInfoAction(id); }));
+
+agent
+  .command("install <id>")
+  .description("Install an agent as a local hermes profile")
+  .option("--version <semver>", "install a specific version (pins the agent)")
+  .option("--runtime <runtime>", "target runtime", "hermes")
+  .action(wrap(agentInstallAction));
+
+agent
+  .command("update [id]")
+  .description("Update installed agents to the latest version")
+  .action(wrap(async (id, opts) => { await agentUpdateAction(id, opts); }));
+
+agent
+  .command("guide <id>")
+  .description("Print the copy-paste prompt for your local AI agent (--md for INSTALL.md)")
+  .option("--md", "print INSTALL.md instead of the guide prompt")
+  .action(wrap(async (id, opts) => { await agentGuideAction(id, opts); }));
 
 // ── MCP ──
 

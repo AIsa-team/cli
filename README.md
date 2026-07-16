@@ -157,6 +157,26 @@ Available templates: `default`, `llm`, `search`, `finance`, `twitter`, `video`
 
 To publish a skill, submit a pull request to [AIsa-team/agent-skills](https://github.com/AIsa-team/agent-skills).
 
+## Agents
+
+Install ready-made AIsa agents (an AI CIO, and more) onto your own runtime.
+v1 target: [hermes](https://hermes-agent.nousresearch.com) profiles.
+
+```bash
+aisa agent list                 # browse the agent catalog
+aisa agent info cio             # details, versions, env requirements
+aisa agent install cio          # one-command install as a hermes profile
+aisa agent install cio --version 1.0.0   # pin a specific version
+aisa agent update               # update everything you installed
+aisa agent guide cio            # copy-paste prompt for your local AI agent
+aisa agent guide cio --md       # the full INSTALL.md
+```
+
+`install` reuses your `aisa login` key for `AISA_API_KEY` and never overwrites
+an existing profile `.env`. The index lives at
+`https://raw.githubusercontent.com/AIsa-team/agent-index/main/index.json`
+(override with `AISA_AGENT_INDEX_URL`).
+
 ## MCP Server
 
 Auto-configure AISA's MCP server for your AI agents:
@@ -198,6 +218,10 @@ npm run build       # compile TypeScript
 npm run dev         # watch mode
 npm test            # run tests
 ```
+
+**Publish prerequisite:** `@aisa-one/agent-spec` must be published to npm first,
+and the `"file:../agent-spec"` dependency in `package.json` switched to a semver
+range, before publishing this CLI.
 
 ## Appendix: Architecture Notes for Contributors
 
