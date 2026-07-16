@@ -21,9 +21,13 @@ export async function collectEnv(
   const existing = parseEnvText(existingEnvText);
   const values = new Map<string, string>(existing);
 
-  values.set("PROFILE_ID", manifest.id);
-  if (!values.has("MODEL_DEFAULT")) values.set("MODEL_DEFAULT", manifest.models.default);
-  if (!values.has("MODEL_PROVIDER")) values.set("MODEL_PROVIDER", manifest.models.provider);
+  // .env is user keys only. System defaults travel in the artifact's
+  // agent.json (render reads them; the installer passes them as process
+  // env for old artifacts). Legacy installs seeded system vars into .env
+  // — strip them, or updates would freeze them forever (HERMES_HOME even
+  // overrides hermes' --profile switch).
+  for (const legacy of ["HERMES_HOME", "PROFILE_ID", "MODEL_DEFAULT", "MODEL_PROVIDER"])
+    values.delete(legacy);
 
   for (const v of manifest.env.required) {
     if (values.has(v.name)) continue;

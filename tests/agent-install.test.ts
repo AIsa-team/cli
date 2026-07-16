@@ -32,8 +32,12 @@ describe("install", () => {
     const dir = profileDir("demo");
     expect(existsSync(join(dir, "SOUL.template.md"))).toBe(true);
     expect(readFileSync(join(dir, ".env"), "utf8")).toContain("AISA_API_KEY=sk-test");
-    expect(execCalls[0][0]).toBe("bash");
-    expect(execCalls[0][1]).toContain("render.sh");
+    // render 经 env(1) 拉起:系统变量走进程环境,不进用户 .env
+    expect(execCalls[0][0]).toBe("env");
+    expect(execCalls[0].slice(1)).toContain("PROFILE_ID=demo");
+    expect(execCalls[0].slice(1)).toContain("MODEL_DEFAULT=deepseek-v3.2");
+    expect(execCalls[0].join(" ")).toContain("render.sh");
+    expect(readFileSync(join(dir, ".env"), "utf8")).not.toMatch(/^PROFILE_ID=/m);
     expect((await readMarker(dir))?.version).toBe("1.0.0");
   });
 

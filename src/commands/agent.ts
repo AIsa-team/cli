@@ -81,7 +81,15 @@ export async function agentInstallAction(
   await writeFile(join(dir, ".env"), envText);
 
   const exec = deps.exec ?? realExec;
-  const r = await exec("bash", [join(dir, "scripts", "render.sh"), dir]);
+  // system vars go to render as process env, never into .env — new render.sh
+  // reads them from the bundled agent.json itself, old artifacts (≤1.0.4)
+  // still require them in the environment
+  const r = await exec("env", [
+    `PROFILE_ID=${manifest.id}`,
+    `MODEL_DEFAULT=${manifest.models.default}`,
+    `MODEL_PROVIDER=${manifest.models.provider}`,
+    "bash", join(dir, "scripts", "render.sh"), dir,
+  ]);
   if (r.code !== 0) throw new Error(`render failed: ${r.stderr}`);
 
   await runPythonSetup(manifest, dir, exec);

@@ -29,14 +29,25 @@ describe("collectEnv", () => {
     });
     expect(env).toContain("AISA_API_KEY=sk-from-login");
     expect(env).toContain("FOO_TOKEN=foo-value");
-    expect(env).toContain("PROFILE_ID=demo");
-    expect(env).toContain("MODEL_DEFAULT=deepseek-v4-pro");
     expect(asked.join(" ")).not.toContain("AISA_API_KEY");
+  });
+
+  // .env 是用户密钥文件:系统变量不注入(系统默认来自制品 agent.json,
+  // render 时经环境变量传入),旧安装种下的系统行升级时剥离
+  it("emits no system vars and strips legacy ones from an existing .env", async () => {
+    process.env.AISA_API_KEY = "sk-x";
+    process.env.FOO_TOKEN = "f";
+    const existing =
+      "HERMES_HOME=~/.hermes\nPROFILE_ID=demo\nMODEL_DEFAULT=stale\nMODEL_PROVIDER=aisa\nAISA_API_KEY=sk-old\n";
+    const env = await collectEnv(manifest, existing, { prompt: async () => "" });
+    for (const legacy of ["HERMES_HOME", "PROFILE_ID", "MODEL_DEFAULT", "MODEL_PROVIDER"])
+      expect(env).not.toMatch(new RegExp(`^${legacy}=`, "m"));
+    expect(env).toContain("AISA_API_KEY=sk-old");
   });
 
   it("never overwrites or re-asks existing values", async () => {
     process.env.AISA_API_KEY = "sk-new";
-    const existing = "PROFILE_ID=demo\nAISA_API_KEY=sk-old\nFOO_TOKEN=kept\n";
+    const existing = "AISA_API_KEY=sk-old\nFOO_TOKEN=kept\n";
     const env = await collectEnv(manifest, existing, {
       prompt: async () => { throw new Error("should not prompt"); },
     });
