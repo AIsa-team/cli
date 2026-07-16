@@ -14,7 +14,7 @@ export async function makeArtifact(version = "1.0.0", id = "demo") {
     spec: "agentspec/v1", id, name: "Demo", version, description: "d",
     language: "en", models: { default: "deepseek-v3.2", provider: "aisa" },
     env: { required: [{ name: "AISA_API_KEY", description: "k" }], optional: [] },
-    skills: { inline: [], aisa: [] }, update: { channel: "latest", auto: true },
+    skills: { inline: [], remote: [] }, update: { channel: "latest", auto: true },
   }));
   writeFileSync(join(src, ".env.example"), `PROFILE_ID=${id}\nAISA_API_KEY=\n`);
   const file = join(src, "..", `art-${version}-${Date.now()}.tar.gz`);
