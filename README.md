@@ -47,14 +47,14 @@ aisa whoami               # Show auth status
 Chat with 70+ models (GPT, Claude, Gemini, Qwen, Deepseek, Grok) through a single OpenAI-compatible endpoint.
 
 ```bash
-aisa chat "your message" --model gpt-4.1
+aisa chat "your message" --model gpt-4.1-mini
 aisa chat "explain this" --model claude-opus-4-6 --stream
 aisa chat "respond in JSON" --model gemini-2.5-pro --json
 echo "summarize this" | aisa chat                        # pipe support
 
 aisa models                          # list all models
 aisa models --provider anthropic     # filter by provider
-aisa models show gpt-4.1             # model details
+aisa models show gpt-4.1-mini        # model details
 ```
 
 ### API Discovery & Execution
@@ -178,7 +178,7 @@ aisa config reset                               # reset to defaults
 ```
 
 Settings:
-- `defaultModel` — default model for `aisa chat` (default: `gpt-4.1`)
+- `defaultModel` — default model for `aisa chat` (default: `gpt-4.1-mini`)
 - `baseUrl` — API base URL (default: `https://api.aisa.one`)
 - `outputFormat` — output format: `text` or `json`
 

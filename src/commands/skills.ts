@@ -2,7 +2,6 @@ import ora from "ora";
 import chalk from "chalk";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import fetch from "node-fetch";
 import { error, success, hint, truncate } from "../utils/display.js";
 import { expandHome, ensureDir, writeSkillFiles, removeDir, detectAgents } from "../utils/file.js";
 import { AGENT_DIRS } from "../constants.js";
@@ -150,7 +149,7 @@ export AISA_API_KEY=sk-your-key
 ## Chat Completion
 
 \`\`\`bash
-aisa chat "Your question here" --model gpt-4.1
+aisa chat "Your question here" --model gpt-4.1-mini
 \`\`\`
 
 ## Streaming

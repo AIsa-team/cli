@@ -38,7 +38,7 @@ export async function chatAction(
     process.exit(1);
   }
 
-  const model = options.model || (getConfig("defaultModel") as string) || "gpt-4.1";
+  const model = options.model || (getConfig("defaultModel") as string) || "gpt-4.1-mini";
   const stream = options.stream !== false; // default true
 
   const messages: Array<{ role: string; content: string }> = [];

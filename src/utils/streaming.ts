@@ -1,5 +1,3 @@
-import type { Response } from "node-fetch";
-
 export async function handleSSEStream(
   res: Response,
   onToken: (token: string) => void,
@@ -8,11 +6,12 @@ export async function handleSSEStream(
   const body = res.body;
   if (!body) throw new Error("No response body");
 
+  const decoder = new TextDecoder();
   let buffer = "";
   let usage: { prompt_tokens: number; completion_tokens: number } | undefined;
 
   for await (const chunk of body) {
-    buffer += chunk.toString();
+    buffer += decoder.decode(chunk, { stream: true });
 
     const lines = buffer.split("\n");
     buffer = lines.pop() || "";

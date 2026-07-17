@@ -50,7 +50,7 @@ export async function runAction(
     | "PUT"
     | "DELETE";
 
-  const endpoint = `${slug}${path}`;
+  const endpoint = path.startsWith("/") ? `${slug}${path}` : `${slug}/${path}`;
 
   // Auto-detect domain API vs LLM API based on slug
   const domainSlugs = ["financial", "search", "youtube", "scholar", "tavily", "querit", "twitter", "services", "crypto"];

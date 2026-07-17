@@ -1,4 +1,3 @@
-import fetch, { type Response } from "node-fetch";
 import { CLI_BASE_URL, APIS_BASE_URL } from "./constants.js";
 import { getConfig } from "./config.js";
 import type { ApiResponse } from "./types.js";
