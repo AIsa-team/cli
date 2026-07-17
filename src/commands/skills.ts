@@ -149,7 +149,7 @@ export AISA_API_KEY=sk-your-key
 ## Chat Completion
 
 \`\`\`bash
-aisa chat "Your question here" --model gpt-4.1
+aisa chat "Your question here" --model gpt-4.1-mini
 \`\`\`
 
 ## Streaming

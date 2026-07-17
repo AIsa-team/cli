@@ -5,7 +5,7 @@ const config = new Conf({
   projectName: "aisa-cli",
   schema: {
     apiKey: { type: "string", default: "" },
-    defaultModel: { type: "string", default: "gpt-4.1" },
+    defaultModel: { type: "string", default: "gpt-4.1-mini" },
     baseUrl: { type: "string", default: "https://api.aisa.one/v1" },
     outputFormat: { type: "string", default: "text" },
     twitterCookies: { type: "string", default: "" },

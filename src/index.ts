@@ -149,7 +149,7 @@ program
 program
   .command("chat [message]")
   .description("Chat with AI models via the AISA gateway")
-  .option("--model <model>", "Model ID (default: gpt-4.1)")
+  .option("--model <model>", "Model ID (default: gpt-4.1-mini)")
   .option("--system <prompt>", "System prompt")
   .option("--no-stream", "Disable streaming")
   .option("--json", "Output raw JSON response")
