@@ -1,6 +1,5 @@
 import ora from "ora";
 import chalk from "chalk";
-import fetch from "node-fetch";
 import { requireApiKey, getConfig, setConfig } from "../config.js";
 import { apiRequest } from "../api.js";
 import { APIS_BASE_URL } from "../constants.js";
@@ -667,11 +666,12 @@ export async function twitterUploadMediaAction(
   const auth = requireCookies();
   const spinner = ora("Uploading media...").start();
 
-  let formData: InstanceType<typeof globalThis.FormData>;
+  let formData: FormData;
   try {
-    const { FormData: NFFormData, fileFromSync } = await import("node-fetch");
-    formData = new NFFormData();
-    formData.append("file", fileFromSync(filePath));
+    const { readFileSync } = await import("node:fs");
+    const { basename } = await import("node:path");
+    formData = new FormData();
+    formData.append("file", new Blob([readFileSync(filePath)]), basename(filePath));
   } catch {
     spinner.fail("Failed to read file");
     error(`Could not read file: ${filePath}`);

@@ -2,7 +2,6 @@ import ora from "ora";
 import chalk from "chalk";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import fetch from "node-fetch";
 import { error, success, hint, truncate } from "../utils/display.js";
 import { expandHome, ensureDir, writeSkillFiles, removeDir, detectAgents } from "../utils/file.js";
 import { AGENT_DIRS } from "../constants.js";
