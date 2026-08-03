@@ -5,13 +5,6 @@ const balance = {
   currency: "USD",
   account_balance_micros_usd: 2_500_000,
   available_balance_micros_usd: 1_000_000,
-  wallet: {
-    cash_micros_usd: 500_000,
-    trial_micros_usd: 2_000_000,
-    promo_micros_usd: 0,
-    credit_micros_usd: 0,
-    trial_expires_at: null,
-  },
   api_key: {
     unlimited: false,
     remaining_micros_usd: 1_000_000,
