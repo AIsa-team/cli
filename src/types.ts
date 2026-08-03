@@ -30,8 +30,22 @@ export interface Model {
 }
 
 export interface BalanceResponse {
-  balance: number;
   currency: string;
+  account_balance_micros_usd: number;
+  available_balance_micros_usd: number;
+  wallet: {
+    cash_micros_usd: number;
+    trial_micros_usd: number;
+    promo_micros_usd: number;
+    credit_micros_usd: number;
+    trial_expires_at: string | null;
+  };
+  api_key: {
+    unlimited: boolean;
+    remaining_micros_usd: number;
+    used_micros_usd: number;
+  };
+  as_of: string;
 }
 
 export interface UsageRecord {

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`aisa balance` now queries the live account wallet through the API-key
+  balance endpoint.** It reports both the account balance and the amount
+  available to the current API key, with `--json` support for automation.
+
 ### Fixed
 
 - **Skills registry now points at the canonical `agent-skills` repo.** The
