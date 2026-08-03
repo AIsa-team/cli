@@ -1,4 +1,4 @@
-export const VERSION = "0.2.0";
+export const VERSION = "0.2.1";
 export const BASE_URL = "https://api.aisa.one";
 export const CLI_BASE_URL = `${BASE_URL}/v1`;
 export const APIS_BASE_URL = `${BASE_URL}/apis/v1`;

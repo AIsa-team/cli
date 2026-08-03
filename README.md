@@ -115,7 +115,8 @@ aisa video status <task-id>                      # check status
 ### Account
 
 ```bash
-aisa balance                # 🚧 WIP — check https://aisa.one/dashboard
+aisa balance                # Show wallet and API key credit balance
+aisa balance --json         # Output the balance response as JSON
 aisa usage --limit 20       # 🚧 WIP
 ```
 

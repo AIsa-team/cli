@@ -87,7 +87,8 @@ program
 
 program
   .command("balance")
-  .description("Show credit balance (WIP)")
+  .description("Show credit balance")
+  .option("--json", "Output raw JSON")
   .action(wrap(balanceAction));
 
 program
