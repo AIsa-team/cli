@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-08-03
+
 ### Added
 
 - **`aisa balance` now queries the live account wallet through the API-key
@@ -64,5 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Config commands (`aisa config get|set|list|reset`) and auth
   (`aisa login|logout|whoami`).
 
-[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/AIsa-team/cli/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/AIsa-team/cli/releases/tag/v0.2.1
 [0.2.0]: https://github.com/AIsa-team/cli/releases/tag/v0.2.0
