@@ -4,6 +4,11 @@ import { requireApiKey } from "../config.js";
 import { apiRequest } from "../api.js";
 import { error, badge } from "../utils/display.js";
 import type { Model } from "../types.js";
+import { writeCache } from "../cache.js";
+import { cacheScope } from "../api.js";
+
+const modelsCacheKey = () => `models/${cacheScope()}.json`;
+const MODELS_TTL_MS = 24 * 60 * 60 * 1000;
 
 export async function modelsListAction(options: { provider?: string }): Promise<void> {
   const key = requireApiKey();
@@ -19,6 +24,9 @@ export async function modelsListAction(options: { provider?: string }): Promise<
 
   spinner.stop();
   let models = res.data.data;
+
+  // Cached purely so shell completion can offer model ids without a request.
+  writeCache(modelsCacheKey(), models, MODELS_TTL_MS);
 
   // Filter by provider if specified
   if (options.provider) {

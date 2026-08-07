@@ -75,8 +75,33 @@ export interface VideoTask {
   createdAt: string;
 }
 
+/**
+ * Billing facts the gateway reports in response headers.
+ *
+ * Metered providers (DataForSEO, Jina) bill per consumed credit, so the
+ * catalog's flat `per_request` price does not describe what a call actually
+ * cost — these headers are the only accurate source. Plain integration
+ * responses carry just a price key, and the LLM gateway sends nothing at all,
+ * so every field is optional.
+ */
+export interface CostInfo {
+  /** Dollars charged, e.g. "0.012000". Metered responses only. */
+  priceUsd?: string;
+  pricingStrategy?: string;
+  pricingVersion?: string;
+  creditModel?: string;
+  estimatedCredits?: string;
+  accountedCredits?: string;
+  requestMultiplier?: string;
+  /** Opaque pricing identifier; present on integration responses. */
+  priceKey?: string;
+  requestId?: string;
+}
+
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
+  /** Present when the response carried any billing header. */
+  cost?: CostInfo;
 }

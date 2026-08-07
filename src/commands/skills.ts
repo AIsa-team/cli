@@ -1,106 +1,21 @@
 import ora from "ora";
 import chalk from "chalk";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { error, success, hint, truncate } from "../utils/display.js";
 import { expandHome, ensureDir, writeSkillFiles, removeDir, detectAgents } from "../utils/file.js";
 import { AGENT_DIRS } from "../constants.js";
-
-// --- GitHub-backed skill registry ---
-
-const SKILLS_REPO = "AIsa-team/agent-skills";
-const GH_API = `https://api.github.com/repos/${SKILLS_REPO}`;
-const GH_RAW = `https://raw.githubusercontent.com/${SKILLS_REPO}/main`;
-
-interface GHTreeEntry {
-  path: string;
-  type: "blob" | "tree";
-}
-
-interface SkillInfo {
-  slug: string;
-  name: string;
-  description: string;
-  emoji: string;
-}
-
-/** Fetch the repo tree and extract top-level skill folder names. */
-async function fetchSkillSlugs(): Promise<string[]> {
-  const res = await fetch(`${GH_API}/git/trees/main`);
-  if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
-  const data = (await res.json()) as { tree: GHTreeEntry[] };
-  // Top-level directories (excluding dotfiles, LICENSE, README) are skills
-  return data.tree
-    .filter(
-      (e) =>
-        e.type === "tree" &&
-        !e.path.startsWith(".") &&
-        e.path !== "node_modules"
-    )
-    .map((e) => e.path);
-}
-
-/** Fetch and parse SKILL.md frontmatter for a single skill. */
-async function fetchSkillMeta(slug: string): Promise<SkillInfo | null> {
-  const res = await fetch(`${GH_RAW}/${slug}/SKILL.md`);
-  if (!res.ok) return null;
-  const text = await res.text();
-  return parseSkillFrontmatter(slug, text);
-}
-
-/** Parse YAML frontmatter from SKILL.md content. */
-function parseSkillFrontmatter(slug: string, content: string): SkillInfo {
-  const info: SkillInfo = { slug, name: slug, description: "", emoji: "" };
-
-  const match = content.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return info;
-
-  const frontmatter = match[1];
-
-  const nameMatch = frontmatter.match(/^name:\s*(.+)$/m);
-  if (nameMatch) info.name = nameMatch[1].trim().replace(/^["']|["']$/g, "");
-
-  const descMatch = frontmatter.match(/^description:\s*(.+)$/m);
-  if (descMatch) info.description = descMatch[1].trim().replace(/^["']|["']$/g, "");
-
-  const metaMatch = frontmatter.match(/^metadata:\s*(.+)$/m);
-  if (metaMatch) {
-    try {
-      const meta = JSON.parse(metaMatch[1]);
-      // agent-skills repo uses metadata.aisa; legacy skills used metadata.openclaw.
-      info.emoji = meta?.aisa?.emoji || meta?.openclaw?.emoji || "";
-    } catch {
-      // ignore malformed metadata
-    }
-  }
-
-  return info;
-}
-
-/** Fetch all files in a skill folder from GitHub. */
-async function fetchSkillFiles(slug: string): Promise<Array<{ path: string; content: string }>> {
-  const treeRes = await fetch(`${GH_API}/git/trees/main?recursive=1`);
-  if (!treeRes.ok) throw new Error(`GitHub API error: ${treeRes.status}`);
-  const treeData = (await treeRes.json()) as { tree: GHTreeEntry[] };
-
-  const prefix = `${slug}/`;
-  const blobs = treeData.tree.filter(
-    (e) => e.type === "blob" && e.path.startsWith(prefix)
-  );
-
-  const files: Array<{ path: string; content: string }> = [];
-  await Promise.all(
-    blobs.map(async (entry) => {
-      const res = await fetch(`${GH_RAW}/${entry.path}`);
-      if (!res.ok) return;
-      const content = await res.text();
-      const relativePath = entry.path.slice(prefix.length);
-      files.push({ path: relativePath, content });
-    })
-  );
-
-  return files;
-}
+import {
+  SKILLS_REPO,
+  getSkillIndex,
+  listSkills,
+  resolveSlug,
+  leafName,
+  fetchSkillFiles,
+  fetchSkillMarkdown,
+  parseSkillFrontmatter,
+  type SkillInfo,
+} from "../skills-registry.js";
 
 // --- Skill Templates (for init) ---
 
@@ -186,7 +101,7 @@ export AISA_API_KEY=sk-your-key
 ## Smart Search
 
 \`\`\`bash
-aisa web-search "latest AI research" --type smart
+aisa web-search "latest AI research" --type tavily
 \`\`\`
 
 ## YouTube Search
@@ -310,33 +225,55 @@ aisa video status <task-id>
 
 // --- Commands ---
 
-export async function skillsListAction(_options: { category?: string; limit?: string }): Promise<void> {
+function printSkill(s: SkillInfo): void {
+  const emoji = s.emoji ? `${s.emoji} ` : "";
+  console.log(`  ${emoji}${chalk.cyan.bold(s.name)} ${chalk.gray(s.slug)}`);
+  if (s.description) {
+    console.log(`    ${chalk.gray(truncate(s.description, 80))}`);
+  }
+  console.log();
+}
+
+export async function skillsListAction(options: {
+  category?: string;
+  limit?: string;
+  refresh?: boolean;
+}): Promise<void> {
   const spinner = ora("Fetching skills from GitHub...").start();
 
   try {
-    const slugs = await fetchSkillSlugs();
+    const index = await getSkillIndex({ refresh: options.refresh });
+    let skills = await listSkills(index);
 
-    // Fetch all SKILL.md frontmatters in parallel
-    const metas = await Promise.all(slugs.map((s) => fetchSkillMeta(s)));
-    const skills = metas.filter((m): m is SkillInfo => m !== null);
+    if (options.category) {
+      const cat = options.category.toLowerCase();
+      skills = skills.filter((s) => s.slug.split("/")[0].toLowerCase() === cat);
+    }
+
+    const total = skills.length;
+    if (options.limit) skills = skills.slice(0, parseInt(options.limit));
 
     spinner.stop();
 
     if (skills.length === 0) {
-      console.log("  No skills found.");
+      console.log(
+        options.category
+          ? `  No skills in category "${options.category}".`
+          : "  No skills found."
+      );
+      if (options.category) {
+        const categories = [...new Set(index.slugs.map((s) => s.split("/")[0]))];
+        hint(`Categories: ${categories.join(", ")}`);
+      }
       return;
     }
 
-    console.log(chalk.bold(`\n  ${skills.length} skills available\n`));
-
-    for (const s of skills) {
-      const emoji = s.emoji ? `${s.emoji} ` : "";
-      console.log(`  ${emoji}${chalk.cyan.bold(s.name)} ${chalk.gray(s.slug)}`);
-      if (s.description) {
-        console.log(`    ${chalk.gray(truncate(s.description, 80))}`);
-      }
-      console.log();
-    }
+    console.log(
+      chalk.bold(
+        `\n  ${skills.length}${skills.length < total ? ` of ${total}` : ""} skills available\n`
+      )
+    );
+    for (const s of skills) printSkill(s);
 
     hint("Install: aisa skills install <slug>");
     hint("Details: aisa skills show <slug>");
@@ -346,21 +283,26 @@ export async function skillsListAction(_options: { category?: string; limit?: st
   }
 }
 
-export async function skillsSearchAction(query: string, _options: { limit?: string }): Promise<void> {
+export async function skillsSearchAction(
+  query: string,
+  options: { limit?: string; refresh?: boolean }
+): Promise<void> {
   const spinner = ora(`Searching skills: "${query}"...`).start();
 
   try {
-    const slugs = await fetchSkillSlugs();
-    const metas = await Promise.all(slugs.map((s) => fetchSkillMeta(s)));
-    const skills = metas.filter((m): m is SkillInfo => m !== null);
+    const index = await getSkillIndex({ refresh: options.refresh });
+    const skills = await listSkills(index);
 
     const q = query.toLowerCase();
-    const matches = skills.filter(
+    let matches = skills.filter(
       (s) =>
         s.name.toLowerCase().includes(q) ||
         s.slug.toLowerCase().includes(q) ||
         s.description.toLowerCase().includes(q)
     );
+
+    const total = matches.length;
+    if (options.limit) matches = matches.slice(0, parseInt(options.limit));
 
     spinner.stop();
 
@@ -369,16 +311,10 @@ export async function skillsSearchAction(query: string, _options: { limit?: stri
       return;
     }
 
-    console.log(chalk.bold(`\n  ${matches.length} result(s)\n`));
-
-    for (const s of matches) {
-      const emoji = s.emoji ? `${s.emoji} ` : "";
-      console.log(`  ${emoji}${chalk.cyan.bold(s.name)} ${chalk.gray(s.slug)}`);
-      if (s.description) {
-        console.log(`    ${chalk.gray(truncate(s.description, 80))}`);
-      }
-      console.log();
-    }
+    console.log(
+      chalk.bold(`\n  ${matches.length}${matches.length < total ? ` of ${total}` : ""} result(s)\n`)
+    );
+    for (const s of matches) printSkill(s);
 
     hint("Install: aisa skills install <slug>");
   } catch (err) {
@@ -391,33 +327,22 @@ export async function skillsShowAction(slug: string): Promise<void> {
   const spinner = ora(`Loading ${slug}...`).start();
 
   try {
-    // Fetch SKILL.md
-    const res = await fetch(`${GH_RAW}/${slug}/SKILL.md`);
-    if (!res.ok) {
-      spinner.fail("Skill not found");
-      error(`No skill "${slug}" in ${SKILLS_REPO}`);
-      return;
-    }
+    const index = await getSkillIndex();
+    const canonical = resolveSlug(slug, index);
 
-    const content = await res.text();
-    const meta = parseSkillFrontmatter(slug, content);
-
-    // Fetch file list
-    const treeRes = await fetch(`${GH_API}/git/trees/main?recursive=1`);
-    const treeData = (await treeRes.json()) as { tree: GHTreeEntry[] };
-    const prefix = `${slug}/`;
-    const files = treeData.tree
-      .filter((e) => e.type === "blob" && e.path.startsWith(prefix))
-      .map((e) => e.path.slice(prefix.length));
+    const content = await fetchSkillMarkdown(canonical);
+    const meta = parseSkillFrontmatter(canonical, content);
+    const prefix = `${canonical}/`;
+    const files = (index.blobs[canonical] || []).map((b) => b.path.slice(prefix.length));
 
     spinner.stop();
 
     const emoji = meta.emoji ? `${meta.emoji} ` : "";
     console.log(`\n  ${emoji}${chalk.cyan.bold(meta.name)}`);
     console.log(`  ${meta.description}`);
-    console.log(`  Slug: ${chalk.gray(slug)}`);
+    console.log(`  Slug: ${chalk.gray(canonical)}`);
     console.log(`  Files: ${files.join(", ")}`);
-    console.log(`  Source: ${chalk.gray(`https://github.com/${SKILLS_REPO}/tree/main/${slug}`)}`);
+    console.log(`  Source: ${chalk.gray(`https://github.com/${SKILLS_REPO}/tree/main/${canonical}`)}`);
 
     // Print SKILL.md body (after frontmatter)
     const body = content.replace(/^---\n[\s\S]*?\n---\n*/, "").trim();
@@ -427,22 +352,100 @@ export async function skillsShowAction(slug: string): Promise<void> {
     }
 
     console.log();
-    hint(`Install: aisa skills install ${slug}`);
+    hint(`Install: aisa skills install ${leafName(canonical)}`);
   } catch (err) {
     spinner.fail("Failed to load skill");
     error((err as Error).message);
   }
 }
 
-export async function skillsInstallAction(slug: string, options: { agent?: string }): Promise<void> {
+/** Agent skill loaders expect one directory level, named to match SKILL.md's `name:`. */
+function installedName(canonical: string): string {
+  return leafName(canonical);
+}
+
+/**
+ * Marker recording which skill owns an installed directory.
+ *
+ * Frontmatter `name:` is not an identity: two skills in different categories can
+ * share both a leaf name and a `name:`, and comparing those would let the second
+ * install silently overwrite the first. The canonical slug is the only unique
+ * key, and nothing in SKILL.md carries it.
+ */
+const MARKER_FILE = ".aisa-skill.json";
+
+interface InstallMarker {
+  slug: string;
+  installedAt: string;
+}
+
+function readMarker(dir: string): InstallMarker | undefined {
+  try {
+    const parsed = JSON.parse(readFileSync(join(dir, MARKER_FILE), "utf-8"));
+    return typeof parsed?.slug === "string" ? (parsed as InstallMarker) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Identify the skill currently installed at `dir`. Falls back to frontmatter for
+ * directories written before markers existed, where the name is all we have.
+ */
+function occupant(dir: string): { slug?: string; name?: string } | undefined {
+  const marker = readMarker(dir);
+  if (marker) return { slug: marker.slug };
+
+  const skillMd = join(dir, "SKILL.md");
+  if (!existsSync(skillMd)) return undefined;
+  try {
+    return { name: parseSkillFrontmatter("", readFileSync(skillMd, "utf-8")).name };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Why replacing what is already installed would be unsafe, or undefined when it
+ * is the same skill.
+ *
+ * Frontmatter `name:` cannot settle ownership: two skills in different
+ * categories may share both a leaf name and a `name:`. That ambiguity is only
+ * reachable when the caller named a category — a bare name would have been
+ * rejected as ambiguous before we got here — so an unmarked directory is
+ * treated as unverifiable exactly in that case.
+ */
+function describeConflict(
+  present: { slug?: string; name?: string } | undefined,
+  canonical: string,
+  expectedName: string,
+  requestedCanonical: boolean
+): string | undefined {
+  if (!present) return undefined;
+
+  if (present.slug) {
+    return present.slug === canonical ? undefined : `holds a different skill (${present.slug})`;
+  }
+  if (requestedCanonical) {
+    return `holds an unmarked install that cannot be verified as ${canonical}`;
+  }
+  return present.name === expectedName ? undefined : `holds a different skill ("${present.name}")`;
+}
+
+export async function skillsInstallAction(
+  slug: string,
+  options: { agent?: string; force?: boolean }
+): Promise<void> {
   const spinner = ora(`Fetching skill '${slug}' from GitHub...`).start();
 
   try {
-    const files = await fetchSkillFiles(slug);
+    const index = await getSkillIndex();
+    const canonical = resolveSlug(slug, index);
+    const files = await fetchSkillFiles(canonical, index);
 
     if (files.length === 0) {
       spinner.fail("Skill not found");
-      error(`No skill "${slug}" in ${SKILLS_REPO}`);
+      error(`No files found for "${canonical}" in ${SKILLS_REPO}`);
       return;
     }
 
@@ -467,23 +470,76 @@ export async function skillsInstallAction(slug: string, options: { agent?: strin
       }
     }
 
+    const dirName = installedName(canonical);
+    const expectedName = parseSkillFrontmatter(
+      canonical,
+      files.find((f) => f.path === "SKILL.md")?.content.toString("utf-8") || ""
+    ).name;
+    const marker: InstallMarker = { slug: canonical, installedAt: new Date().toISOString() };
+
+    // A bare name is only resolvable when the leaf is unique across the repo —
+    // resolveSlug rejects it otherwise — so whatever occupies the directory must
+    // be this skill. A canonical slug bypasses that check, which is exactly when
+    // an unmarked directory becomes unverifiable.
+    const requestedCanonical = slug.includes("/");
+
     let installed = 0;
     for (const agent of targets) {
-      const dir = expandHome(join(AGENT_DIRS[agent], slug));
+      const dir = expandHome(join(AGENT_DIRS[agent], dirName));
+
+      // A different skill already occupying this directory name means the
+      // install would replace it. Compare canonical slugs where we have them —
+      // names collide across categories.
+      const exists = existsSync(dir);
+      const present = exists ? occupant(dir) : undefined;
+      const conflict =
+        exists && !present
+          ? // No marker and no readable SKILL.md: an interrupted install, or a
+            // directory the user put there. Neither is safe to delete silently.
+            "exists but is not a recognizable skill install"
+          : describeConflict(present, canonical, expectedName, requestedCanonical);
+
+      if (conflict && !options.force) {
+        error(`${AGENT_DIRS[agent]}${dirName}/ ${conflict} — pass --force to replace`);
+        continue;
+      }
+
+      // Replace rather than merge: writing over a directory only overwrites
+      // files that happen to share a name, leaving the previous skill's scripts
+      // and assets behind for an agent to keep loading. Keyed on the directory
+      // existing, not on identifying its occupant — an unidentifiable directory
+      // still must not be merged into.
+      if (exists) removeDir(dir);
+
       ensureDir(dir);
       writeSkillFiles(dir, files);
-      console.log(`  ${chalk.green("✓")} ${AGENT_DIRS[agent]} (${agent})`);
+      writeFileSync(join(dir, MARKER_FILE), JSON.stringify(marker, null, 2) + "\n", "utf-8");
+      console.log(`  ${chalk.green("✓")} ${AGENT_DIRS[agent]}${dirName} (${agent})`);
       installed++;
     }
 
-    success(`Skill '${slug}' installed to ${installed} agent(s)`);
+    if (installed === 0) {
+      error("Nothing installed.");
+      return;
+    }
+    success(`Skill '${canonical}' installed to ${installed} agent(s)`);
   } catch (err) {
     spinner.fail("Failed to install skill");
     error((err as Error).message);
   }
 }
 
-export function skillsRemoveAction(slug: string, options: { agent?: string }): void {
+export function skillsRemoveAction(
+  slug: string,
+  options: { agent?: string; force?: boolean }
+): void {
+  // Installed directories use the leaf name, so a bare name is what's on disk.
+  const requested = slug.replace(/^\/+|\/+$/g, "");
+  const dirName = leafName(requested);
+  // A canonical slug names one specific skill; a bare name names whatever holds
+  // that directory.
+  const wantsCanonical = requested.includes("/");
+
   let targets: string[];
   if (options.agent && options.agent !== "all") {
     targets = [options.agent];
@@ -492,20 +548,50 @@ export function skillsRemoveAction(slug: string, options: { agent?: string }): v
   }
 
   let removed = 0;
+  let refused = 0;
+
   for (const agent of targets) {
-    const dir = expandHome(join(AGENT_DIRS[agent], slug));
-    if (existsSync(dir)) {
-      removeDir(dir);
-      console.log(`  ${chalk.green("✓")} Removed from ${AGENT_DIRS[agent]}`);
-      removed++;
+    const dir = expandHome(join(AGENT_DIRS[agent], dirName));
+    if (!existsSync(dir)) continue;
+
+    const marker = readMarker(dir);
+
+    // Leaf names collide across categories, so deleting by name alone can take
+    // out a different skill than the one asked for.
+    if (wantsCanonical && !options.force) {
+      if (marker && marker.slug !== requested) {
+        error(`${AGENT_DIRS[agent]}${dirName}/ holds ${marker.slug}, not ${requested} — skipped`);
+        refused++;
+        continue;
+      }
+      // Pre-marker installs carry no slug, and a same-named skill from another
+      // category is indistinguishable from the requested one.
+      if (!marker) {
+        error(
+          `${AGENT_DIRS[agent]}${dirName}/ has no install marker — cannot verify it is ${requested} — skipped`
+        );
+        refused++;
+        continue;
+      }
     }
+    if (!marker) {
+      hint(`${AGENT_DIRS[agent]}${dirName}/ has no install marker — removing by directory name`);
+    }
+
+    removeDir(dir);
+    console.log(`  ${chalk.green("✓")} Removed from ${AGENT_DIRS[agent]}`);
+    removed++;
   }
 
   if (removed === 0) {
-    console.log("  Skill not found in any agent directory.");
-  } else {
-    success(`Removed '${slug}' from ${removed} agent(s)`);
+    console.log(
+      refused > 0
+        ? "  Nothing removed — pass --force to remove regardless of what is installed."
+        : "  Skill not found in any agent directory."
+    );
+    return;
   }
+  success(`Removed '${dirName}' from ${removed} agent(s)`);
 }
 
 export function skillsInitAction(

@@ -1,15 +1,21 @@
 {
   "name": "@aisa-one/cli",
-  "version": "0.2.2",
-  "description": "CLI for the AISA unified AI infrastructure platform - access 70+ LLMs, web search, finance, Twitter, and video generation APIs",
+  "version": "0.2.3",
+  "description": "CLI for the AISA unified AI infrastructure platform - one API key for 80+ LLMs and 900+ endpoints across finance, search, social, and video APIs",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
   "bin": {
     "aisa": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc",
     "dev": "tsc -w",
     "start": "node dist/index.js",
     "test": "vitest run",

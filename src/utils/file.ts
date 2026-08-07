@@ -15,15 +15,19 @@ export function ensureDir(dirPath: string): void {
   }
 }
 
+/**
+ * Content is written as raw bytes: skills may ship images or fonts alongside
+ * SKILL.md, and round-tripping those through a UTF-8 string corrupts them.
+ */
 export function writeSkillFiles(
   targetDir: string,
-  files: Array<{ path: string; content: string }>
+  files: Array<{ path: string; content: string | Uint8Array }>
 ): void {
   for (const file of files) {
     const safePath = sanitizePath(file.path);
     const fullPath = join(targetDir, safePath);
     ensureDir(join(fullPath, ".."));
-    writeFileSync(fullPath, file.content, "utf-8");
+    writeFileSync(fullPath, file.content);
   }
 }
 

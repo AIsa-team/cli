@@ -1,6 +1,8 @@
 # @aisa-one/cli
 
-CLI for the [AISA](https://aisa.one) unified AI infrastructure platform. Access 70+ LLMs, web search, financial data, Twitter/X, and video generation APIs — all from one command line.
+Command-line access to [AISA](https://aisa.one): **one API key for 80+ LLMs and
+950+ endpoints** across 29 API providers — finance, web search, social,
+research, and video generation.
 
 ## Install
 
@@ -11,77 +13,99 @@ npm install -g @aisa-one/cli
 ## Quick Start
 
 ```bash
-# Authenticate
+# Authenticate (or set AISA_API_KEY)
 aisa login --key sk-your-api-key
 
-# Chat with any LLM
+# See what's available — no API key needed for this part
+aisa api list
+aisa api search "insider trades"
+
+# Chat with any model
 aisa chat "Explain quantum computing" --model claude-opus-4-6
+
+# Look up a stock
+aisa stock AAPL
 
 # Search the web
 aisa web-search "latest AI research"
 
-# Look up stock data
-aisa stock AAPL
-
-# Post a tweet
-aisa tweet "Hello from AISA CLI!"
-
-# Generate a video
-aisa video create "A cat playing piano" --wait
+# Call any endpoint in the catalog directly
+aisa run financial /insider-trades -q "ticker=AAPL"
 ```
 
-Get your API key at [aisa.one/dashboard](https://aisa.one/dashboard). New accounts receive $5 in free credits.
+Get your API key at [aisa.one/dashboard](https://aisa.one/dashboard). New
+accounts receive $5 in free credits.
 
-## Commands
+## API Catalog
 
-### Authentication
+The catalog is the fastest way to find what the platform can do. It reads a
+public endpoint, so `list`, `show`, `search`, and `code` all work before you log
+in.
 
 ```bash
-aisa login --key <key>    # Store API key (also reads AISA_API_KEY env var)
-aisa logout               # Remove stored key
-aisa whoami               # Show auth status
+aisa api list                          # all 29 providers
+aisa api list --category finance       # finance, search, social, productivity, other
+aisa api list --health                 # include provider health
+
+aisa api show financial                # every endpoint in one provider
+aisa api show financial /news          # one endpoint: params, price, run command
+aisa api show dataforseo --all         # 453 endpoints (truncated to 40 by default)
+
+aisa api search "stock screener"       # search across all 950+ endpoints
+aisa api search rank --provider dataforseo
+
+aisa api code financial /news --lang curl     # curl, python, node, typescript
 ```
 
-### LLM Gateway
+Two things worth knowing: a provider's **id is not always its URL slug** —
+`brave-search` serves `/apis/v1/brave/...`, and `api show` prints the path you
+actually call. And the catalog reports every method as `GET`; pass `--method` to
+`api code` when an endpoint takes a POST.
 
-Chat with 70+ models (GPT, Claude, Gemini, Qwen, Deepseek, Grok) through a single OpenAI-compatible endpoint.
+The catalog is cached in `~/.aisa/cache` (override with `AISA_CACHE_DIR`). Pass
+`--refresh` to any command to bypass it, or `aisa cache clear`.
+
+## Execute Any Endpoint
+
+```bash
+aisa run financial /insider-trades -q "ticker=AAPL"
+aisa run coingecko /simple/price -q "ids=bitcoin&vs_currencies=usd"
+aisa run brave /web/search -q "q=AI agents"
+aisa run tavily /search -d '{"query": "AI news"}'
+aisa run twitter /tweet/advanced_search -q "query=AI agents" --raw
+aisa run dataforseo /serp/google/organic/live -d '{...}' --show-cost
+```
+
+`run` sends anything that isn't a known LLM gateway route to the integration
+APIs, so providers added to the platform work without a CLI upgrade. Use
+`--llm` or `--domain` to force a base.
+
+`--show-cost` prints the gateway's billing headers on stderr, so it stays out of
+the way of `--raw | jq`. Metered providers (DataForSEO, Jina) report the amount
+actually charged and the credits consumed — for those the catalog's flat
+per-request price is not what you pay. Other routes report only a price key, and
+the LLM gateway reports nothing; the output says so rather than implying a call
+was free.
+
+## LLM Gateway
+
+80+ models (GPT, Claude, Gemini, Qwen, Deepseek, Grok) behind one
+OpenAI-compatible endpoint.
 
 ```bash
 aisa chat "your message" --model gpt-4.1-mini
-aisa chat "explain this" --model claude-opus-4-6 --stream
+aisa chat "explain this" --model claude-opus-4-6
 aisa chat "respond in JSON" --model gemini-2.5-pro --json
-echo "summarize this" | aisa chat                        # pipe support
+echo "summarize this" | aisa chat                  # pipe support
 
 aisa models                          # list all models
 aisa models --provider anthropic     # filter by provider
 aisa models show gpt-4.1-mini        # model details
 ```
 
-### API Discovery & Execution
+Streaming is on by default; pass `--no-stream` to disable it.
 
-```bash
-aisa api list                                # 🚧 WIP — not yet available
-aisa api search "email finder"               # 🚧 WIP
-aisa api show finance /stock/price           # 🚧 WIP
-aisa api code finance /stock/price --lang python  # 🚧 WIP
-
-# Execute any API (works now)
-aisa run financial /insider-trades -q "ticker=AAPL"
-aisa run tavily /search -d '{"query": "AI news"}'
-aisa run twitter /tweet/advanced_search -q "query=AI agents" --raw
-```
-
-### Web Search
-
-```bash
-aisa web-search "query"                     # smart search (default)
-aisa web-search "query" --type full         # full-text search
-aisa web-search "query" --type youtube      # YouTube search
-aisa web-search "query" --type tavily       # Tavily deep search
-aisa scholar "transformer architecture"     # academic papers
-```
-
-### Finance
+## Finance
 
 ```bash
 aisa stock AAPL                     # summary: company info + estimates + news
@@ -90,51 +114,117 @@ aisa stock AAPL --field news        # company news
 aisa stock TSLA --field filings     # SEC filings
 aisa stock MSFT --field estimates   # analyst EPS & revenue estimates
 aisa stock AAPL --field financials  # balance sheets, income statements
-aisa crypto BTC                     # crypto price snapshot
-aisa crypto ETH --period 30d       # historical
-aisa screener --sector Technology   # stock screener
+
+aisa crypto BTC                     # price, 24h change, market cap
+aisa crypto ETH --period 30d        # historical
+aisa crypto --id render-token RNDR  # exact CoinGecko id when a symbol is ambiguous
+
+aisa screener --sector "Information Technology"
+aisa screener --min-market-cap 1000000000000 --limit 10
+aisa screener --filter market_cap:gt:1e12 --filter sector:eq:Financials
 ```
 
-### Twitter/X
+Sectors use GICS names; short forms like `Technology` are mapped automatically.
+
+## Web Search
+
+```bash
+aisa web-search "query"                     # Tavily (default)
+aisa web-search "query" --type youtube      # YouTube search
+aisa scholar "transformer architecture"     # academic papers
+```
+
+`--type smart` and `--type full` are currently degraded upstream and return 404
+regardless of parameters. Use `tavily` until that is resolved.
+
+## Twitter/X
 
 ```bash
 aisa twitter user elonmusk                  # user profile
 aisa twitter search "AI agents" --limit 20  # search tweets
 aisa twitter trends                         # trending topics
-aisa tweet "Hello world!"                   # post (⚠️ requires login cookies, see docs)
+aisa twitter user-tweets elonmusk           # recent tweets
+aisa twitter thread <tweet-id>              # full conversation
 ```
 
-### Video Generation
+Read operations work with just your API key. **Write operations** (`aisa tweet`,
+`like`, `retweet`, `follow`, `dm`) additionally require Twitter login cookies
+and a proxy — run `aisa twitter login --username <u> --password <p> --proxy <url>`
+first. Run `aisa twitter --help` for the full list of 30+ subcommands.
+
+## Video Generation
 
 ```bash
-aisa video create "A sunset timelapse"           # create task
-aisa video create "Dancing robot" --wait         # wait for result
-aisa video status <task-id>                      # check status
+aisa video create "A sunset timelapse"                  # returns a task id
+aisa video create "Dancing robot" --wait                # poll until done
+aisa video create "A cat" --output cat.mp4              # wait and download
+aisa video status <task-id>
+
+# image-to-video: --image is shorthand for --media first_frame=<url>
+aisa video create "the bird turns its head" --model wan2.7-i2v --image https://…/photo.jpg
+aisa video create "extend this clip" --model wan2.7-r2v --media first_clip=https://…/in.mp4
+
+# Seedance uses a different request shape; the CLI handles it
+aisa video create "a cat walking" --model dreamina-seedance-2-0-fast-260128
 ```
 
-### Account
+| Model | Needs | Billing |
+|-------|-------|---------|
+| `wan2.7-t2v` (default), `happyhorse-1.1-t2v` | prompt only | per second |
+| `wan2.7-i2v`, `happyhorse-1.1-i2v` | `--image` / `--media first_frame=` | per second |
+| `wan2.7-r2v`, `happyhorse-1.1-r2v` | `--media first_clip=` | per second |
+| `dreamina-seedance-2-0-260128`, `…-fast-260128` | prompt only | per token |
+
+Media types: `first_frame`, `last_frame`, `driving_audio`, `first_clip`.
+
+The gateway forwards the request body to whichever vendor owns the model, so the
+shape differs per family — the CLI builds it for you and refuses up front if a
+model needs source media you did not supply (the upstream would otherwise accept
+the job, bill it, and fail a minute later). For a vendor or parameter the CLI
+does not model, `--body '<json>'` is sent verbatim.
+
+## Account
 
 ```bash
-aisa balance                # Show wallet and API key credit balance
-aisa balance --json         # Output the balance response as JSON
-aisa usage --limit 20       # 🚧 WIP
+aisa balance                        # wallet and API key credit balance
+aisa balance --json
 ```
+
+`aisa usage` is not available yet — the gateway does not serve
+`GET /v1/credits/usage` (it 404s, while `/v1/credits/balance` on the same route
+group works). Use the [dashboard](https://aisa.one/dashboard) for usage history
+in the meantime.
 
 ## Skills
 
-Skills are markdown files that teach AI coding agents (Claude Code, Cursor, Copilot, etc.) how to use AISA APIs. Skills are sourced from the [agent-skills](https://github.com/AIsa-team/agent-skills) repository.
-
-### Browse & Install
+Skills are markdown files that teach AI coding agents (Claude Code, Cursor,
+Copilot, …) how to use AISA APIs. They come from the
+[agent-skills](https://github.com/AIsa-team/agent-skills) repository — 42 skills
+across six categories.
 
 ```bash
-aisa skills list                              # list all available skills
-aisa skills search "financial analysis"       # search by keyword
-aisa skills show marketpulse                  # show skill details
-aisa skills install marketpulse               # install to agent directories
-aisa skills remove marketpulse                # uninstall
+aisa skills list                              # all skills
+aisa skills list --category financial         # one category
+aisa skills search "financial analysis"
+aisa skills show marketpulse                  # bare name or financial/marketpulse
+aisa skills install marketpulse               # install to detected agent directories
+aisa skills install marketpulse --force       # replace whatever occupies that directory
+aisa skills remove marketpulse
 ```
 
-Skills install to agent directories automatically:
+Installing replaces the target directory rather than merging into it, so a
+previous skill's scripts and assets cannot linger and keep being loaded, and a
+partial download aborts without touching what is already there. Each install
+writes a small `.aisa-skill.json` recording which skill owns the directory —
+that marker is what lets the CLI tell two same-named skills apart.
+
+Naming a category (`financial/marketpulse`) means "this specific skill", so the
+CLI checks the marker before replacing or removing anything. A directory
+installed before markers existed cannot be verified that way, so those need
+`--force`. A bare name (`marketpulse`) means "whatever holds that directory" and
+always works — it only resolves when the leaf name is unique across the repo.
+
+Skills install to whichever agent directories exist on your machine:
 
 | Agent | Directory |
 |-------|-----------|
@@ -149,45 +239,80 @@ Skills install to agent directories automatically:
 ### Create Skills
 
 ```bash
-aisa skills init my-skill                          # create from default template
-aisa skills init my-skill --template finance       # finance template
-aisa skills init my-skill --template llm           # LLM template
+aisa skills init my-skill                          # default template
+aisa skills init my-skill --template finance       # finance, llm, search, twitter, video
 ```
 
-Available templates: `default`, `llm`, `search`, `finance`, `twitter`, `video`
-
-To publish a skill, submit a pull request to [AIsa-team/agent-skills](https://github.com/AIsa-team/agent-skills).
+To publish a skill, open a pull request against
+[AIsa-team/agent-skills](https://github.com/AIsa-team/agent-skills).
 
 ## MCP Server
 
-Auto-configure AISA's MCP server for your AI agents:
-
 ```bash
-aisa mcp setup                          # configure all detected agents
-aisa mcp setup --agent cursor           # Cursor only
-aisa mcp setup --agent claude-desktop   # Claude Desktop only
+aisa mcp setup                          # configure detected agents
 aisa mcp status                         # check configuration
 ```
+
+> **Not currently usable.** These commands write
+> `https://docs.aisa.one/mcp`, which has no DNS record, and `mcp setup`
+> overwrites an agent config file it cannot parse — a `mcp.json` with comments
+> or a trailing comma will be emptied. Avoid `aisa mcp setup` until this is
+> fixed.
+
+## Shell Completion
+
+```bash
+# zsh
+aisa completion zsh > "${fpath[1]}/_aisa"      # then restart your shell
+# or, without touching fpath:
+echo 'eval "$(aisa completion zsh)"' >> ~/.zshrc
+
+# bash
+aisa completion bash > /usr/local/etc/bash_completion.d/aisa
+# or:
+echo 'eval "$(aisa completion bash)"' >> ~/.bashrc
+
+# fish
+aisa completion fish > ~/.config/fish/completions/aisa.fish
+```
+
+`aisa completion` with no argument detects your shell from `$SHELL`.
+
+Completion covers commands, subcommands, and options, plus values pulled from
+the local cache:
+
+```
+aisa run <TAB>                 → 29 provider slugs
+aisa run financial <TAB>       → that provider's endpoints
+aisa api show <TAB>            → provider ids
+aisa skills show <TAB>         → 42 skill names
+aisa chat --model <TAB>        → model ids
+aisa web-search --type <TAB>   → tavily, youtube, scholar, …
+```
+
+The cache-backed suggestions only appear once the relevant command has been run
+at least once — completion never makes a network request, so a cold cache
+completes commands and flags but no dynamic values. Run `aisa api list`,
+`aisa models`, and `aisa skills list` once to warm everything up.
 
 ## Configuration
 
 ```bash
-aisa config set defaultModel claude-opus-4-6   # change default model
-aisa config get defaultModel                    # read a value
-aisa config list                                # show all settings
-aisa config reset                               # reset to defaults
+aisa config set defaultModel claude-opus-4-6
+aisa config get defaultModel
+aisa config list                                # also shows derived base URLs
+aisa config reset
 ```
 
 Settings:
 - `defaultModel` — default model for `aisa chat` (default: `gpt-4.1-mini`)
-- `baseUrl` — API base URL (default: `https://api.aisa.one`)
-- `outputFormat` — output format: `text` or `json`
+- `baseUrl` — platform root; the LLM (`/v1`), integration (`/apis/v1`), and
+  catalog bases are all derived from it
+- `outputFormat` — `text` or `json`
 
-Environment variable `AISA_API_KEY` takes precedence over stored key.
-
-## Known Issues
-
-**GPT-4.1 streaming returns empty output.** The AISA gateway currently strips `choices[].delta.content` from GPT model SSE chunks, so streaming mode produces blank output for GPT models. Workaround: use `--no-stream` or switch to Claude/Qwen models which stream correctly. Non-streaming GPT works fine.
+Environment variables: `AISA_API_KEY` takes precedence over the stored key.
+`AISA_CACHE_DIR` relocates the cache. `GITHUB_TOKEN` raises the GitHub rate
+limit for skills commands.
 
 ## Development
 
@@ -200,23 +325,44 @@ npm run dev         # watch mode
 npm test            # run tests
 ```
 
-## Appendix: Architecture Notes for Contributors
+## Appendix: Notes for Contributors
 
-**Two base URLs.** The AISA platform uses separate base paths:
-- LLM endpoints (chat, models): `https://api.aisa.one/v1/`
-- Domain API endpoints (search, finance, twitter, video): `https://api.aisa.one/apis/v1/`
+**Three bases, one root.** `resolveBases()` in `src/api.ts` derives the LLM base
+(`/v1`), the integration base (`/apis/v1`), and the catalog root from a single
+configured `baseUrl`. It tolerates a value with either suffix already attached,
+because the shipped default has always included `/v1` and is persisted in every
+existing user's config.
 
-The `domain: true` option in `RequestOptions` (see `src/api.ts`) selects which base URL to use. The `run` command auto-detects based on the slug prefix.
+**Routing in `run`.** `resolveRunTarget()` (`src/commands/run.ts`) treats the LLM
+gateway routes as the whitelist and everything else as an integration API. That
+direction matters: gateway routes are hardcoded server-side and change roughly
+annually, while provider slugs are database rows that operations edit
+continuously.
 
-**Parameter naming varies by endpoint.** Smart/full search uses `q`, scholar uses `query`, finance uses `ticker` (not `symbol`), Twitter uses `userName` (camelCase). Always check the [API Reference](https://docs.aisa.one/reference) for exact parameter names.
+**The catalog's shape has three traps.** `endpoints[].method` is hardcoded to
+`GET` server-side. `endpoint_groups[].name` is an operator-entered label
+(`Zero`, `One`, `default`) with no business meaning, which is why `api show`
+flattens by default. And health is tracked per provider, not per endpoint, so
+per-endpoint counts are one value repeated.
 
-**Video generation is async.** POST to `/services/aigc/video-generation/video-synthesis` with header `X-DashScope-Async: enable`, then poll `GET /services/aigc/tasks?task_id=<id>` for status. Response shape uses `output.task_id`, `output.task_status`, `output.video_url`.
+**Parameter naming varies by endpoint.** Scholar uses `query`, finance uses
+`ticker` (not `symbol`), Twitter uses `userName`. `aisa api show <api> <path>`
+prints each endpoint's description and path parameters.
 
-**Twitter write operations require login cookies.** `create_tweet_v2` and other action endpoints need `login_cookies` and `proxy` fields — they don't work with just the API key.
+**Video generation is async.** `POST /v1/video/generations` returns `202` with a
+gateway-local `video_task_<hex>` id. Poll `GET /v1/video/generations/:id` until
+`status` is one of `completed`, `failed`, or `cancelled`. The finished URL sits
+at a different place in `result` for each vendor, so `findVideoUrl()` searches
+for it.
 
-**Models API follows OpenAI format.** The `/v1/models` endpoint returns `owned_by` (not `provider`) and has no `name`, `pricing`, or `contextWindow` fields.
+**Twitter write operations require login cookies.** `create_tweet_v2` and the
+other action endpoints need `login_cookies` and `proxy` in the body — the
+gateway does not hold your Twitter session.
 
-**Some financial endpoints return empty data.** `financial/prices` and `financial/financial-metrics/snapshot` return `{}` for all tickers (backend issue). The default `aisa stock` now fetches `company/facts` + `analyst-estimates` + `news` instead. Working fields: `info`, `estimates`, `financials`, `filings`, `insider`, `institutional`, `news`.
+**Some financial endpoints return empty data.** `financial/prices` and
+`financial/financial-metrics/snapshot` return `{}` for all tickers. `aisa stock`
+uses `company/facts` + `analyst-estimates` + `news` instead. Working fields:
+`info`, `estimates`, `financials`, `filings`, `insider`, `institutional`, `news`.
 
 ## License
 

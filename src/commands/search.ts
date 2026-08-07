@@ -2,14 +2,14 @@ import ora from "ora";
 import chalk from "chalk";
 import { requireApiKey } from "../config.js";
 import { apiRequest } from "../api.js";
-import { error, formatJson } from "../utils/display.js";
+import { error, formatJson, hint } from "../utils/display.js";
 
 export async function webSearchAction(
   query: string,
   options: { type?: string; limit?: string; raw?: boolean }
 ): Promise<void> {
   const key = requireApiKey();
-  const type = options.type || "smart";
+  const type = options.type || "tavily";
   const spinner = ora(`Searching (${type})...`).start();
 
   const endpointMap: Record<string, { endpoint: string; method: "GET" | "POST"; paramStyle: "query" | "body" }> = {
@@ -23,7 +23,7 @@ export async function webSearchAction(
   const config = endpointMap[type];
   if (!config) {
     spinner.fail(`Unknown search type: ${type}`);
-    error("Valid types: smart, full, youtube, scholar, tavily");
+    error("Valid types: tavily, youtube, scholar, smart, full");
     return;
   }
 
@@ -53,6 +53,11 @@ export async function webSearchAction(
   if (!res.success) {
     spinner.fail("Search failed");
     error(res.error || "Unknown error");
+    // smart/full currently proxy to an upstream that 404s for every parameter
+    // shape; steer users to a working backend rather than to parameter tweaks.
+    if (type === "smart" || type === "full") {
+      hint(`The '${type}' backend is currently degraded — try --type tavily`);
+    }
     return;
   }
 
