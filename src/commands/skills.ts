@@ -46,14 +46,14 @@ aisa run <slug> <path> -q "param=value"
 
   llm: `---
 name: llm-assistant
-description: "Use AISA's unified LLM gateway to chat with 70+ AI models."
+description: "Use AIsa's unified LLM gateway to chat with 70+ AI models."
 homepage: https://aisa.one
 metadata: {"aisa":{"emoji":"🤖","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # LLM Assistant Skill
 
-Use the AISA unified gateway to access 70+ language models through a single API.
+Use the AIsa unified gateway to access 70+ language models through a single API.
 
 ## Authentication
 
@@ -83,14 +83,14 @@ aisa models --provider anthropic
 
   search: `---
 name: web-search
-description: "Search the web, YouTube, and academic papers via AISA APIs."
+description: "Search the web, YouTube, and academic papers via AIsa APIs."
 homepage: https://aisa.one
 metadata: {"aisa":{"emoji":"🔍","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Web Search Skill
 
-Search the web, YouTube, and academic papers through AISA's unified search APIs.
+Search the web, YouTube, and academic papers through AIsa's unified search APIs.
 
 ## Authentication
 
@@ -119,14 +119,14 @@ aisa scholar "transformer architecture"
 
   finance: `---
 name: finance-analyst
-description: "Access stock prices, earnings, SEC filings, and financial data via AISA."
+description: "Access stock prices, earnings, SEC filings, and financial data via AIsa."
 homepage: https://aisa.one
 metadata: {"aisa":{"emoji":"📊","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Finance Analyst Skill
 
-Access real-time and historical financial data through AISA's finance APIs.
+Access real-time and historical financial data through AIsa's finance APIs.
 
 ## Authentication
 
@@ -152,14 +152,14 @@ aisa crypto ETH --period 30d
 
   twitter: `---
 name: twitter-manager
-description: "Search Twitter, get user profiles and trends via AISA."
+description: "Search Twitter, get user profiles and trends via AIsa."
 homepage: https://aisa.one
 metadata: {"aisa":{"emoji":"🐦","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Twitter Manager Skill
 
-Interact with Twitter/X through AISA's Twitter APIs.
+Interact with Twitter/X through AIsa's Twitter APIs.
 
 ## Authentication
 
@@ -188,14 +188,14 @@ aisa twitter trends
 
   video: `---
 name: video-generator
-description: "Generate videos from text prompts using AISA's video synthesis API."
+description: "Generate videos from text prompts using AIsa's video synthesis API."
 homepage: https://aisa.one
 metadata: {"aisa":{"emoji":"🎬","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Video Generator Skill
 
-Generate videos from text prompts using AISA's AI video generation APIs.
+Generate videos from text prompts using AIsa's AI video generation APIs.
 
 ## Authentication
 

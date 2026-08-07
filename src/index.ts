@@ -66,14 +66,14 @@ const program = new Command();
 
 program
   .name("aisa")
-  .description("AISA CLI - Unified AI infrastructure platform")
+  .description("AIsa CLI - Unified AI infrastructure platform")
   .version(VERSION);
 
 // ── Auth ──
 
 program
   .command("login")
-  .description("Authenticate with your AISA API key")
+  .description("Authenticate with your AIsa API key")
   .option("--key <key>", "API key")
   .action(loginAction);
 
@@ -172,7 +172,7 @@ program
 
 program
   .command("chat [message]")
-  .description("Chat with AI models via the AISA gateway")
+  .description("Chat with AI models via the AIsa gateway")
   .option("--model <model>", "Model ID (default: gpt-4.1-mini)")
   .option("--system <prompt>", "System prompt")
   .option("--no-stream", "Disable streaming")
@@ -585,7 +585,7 @@ const mcp = program.command("mcp").description("MCP server integration");
 
 mcp
   .command("setup")
-  .description("Configure AISA MCP server for AI agents")
+  .description("Configure AIsa MCP server for AI agents")
   .option("--agent <agent>", "Target agent: cursor, claude-desktop, windsurf, all")
   .action(mcpSetupAction);
 

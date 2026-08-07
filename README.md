@@ -1,6 +1,6 @@
 # @aisa-one/cli
 
-Command-line access to [AISA](https://aisa.one): **one API key for 80+ LLMs and
+Command-line access to [AIsa](https://aisa.one): **one API key for 80+ LLMs and
 950+ endpoints** across 29 API providers — finance, web search, social,
 research, and video generation.
 
@@ -198,7 +198,7 @@ in the meantime.
 ## Skills
 
 Skills are markdown files that teach AI coding agents (Claude Code, Cursor,
-Copilot, …) how to use AISA APIs. They come from the
+Copilot, …) how to use AIsa APIs. They come from the
 [agent-skills](https://github.com/AIsa-team/agent-skills) repository — 42 skills
 across six categories.
 

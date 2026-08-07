@@ -1,7 +1,7 @@
 {
   "name": "@aisa-one/cli",
   "version": "0.2.3",
-  "description": "CLI for the AISA unified AI infrastructure platform - one API key for 80+ LLMs and 900+ endpoints across finance, search, social, and video APIs",
+  "description": "CLI for the AIsa unified AI infrastructure platform - one API key for 80+ LLMs and 900+ endpoints across finance, search, social, and video APIs",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -60,5 +60,5 @@
     "url": "https://github.com/AIsa-team/cli/issues"
   },
   "homepage": "https://aisa.one",
-  "author": "AISA Team <support@aisa.one> (https://aisa.one)"
+  "author": "AIsa Team <support@aisa.one> (https://aisa.one)"
 }
