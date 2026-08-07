@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] — 2026-08-07
+
+Text-only follow-up to 0.2.3: no behavioural change, but the URL it printed
+sent people to a 404.
+
+### Fixed
+
+- **`aisa usage` and `aisa login` pointed at `aisa.one/dashboard`, which
+  returns 404.** The customer console is served at `console.aisa.one`; the
+  API-key and usage-log pages are `/api-keys` and `/logs`. Both commands and
+  both README references now say so.
+
+### Changed
+
+- **The brand is written `AIsa`, not `AISA`,** in `--help` output, the npm
+  package description, the skill templates, and the README. The `AISA_*`
+  environment variables and `X-AISA-*` response headers are technical
+  identifiers and keep their existing casing.
+
 ## [0.2.3] — 2026-08-07
 
 Every command documented in the README was checked against the live gateway.
@@ -198,7 +217,8 @@ supports today; nothing here depends on a backend change.
 - Config commands (`aisa config get|set|list|reset`) and auth
   (`aisa login|logout|whoami`).
 
-[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/AIsa-team/cli/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/AIsa-team/cli/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/AIsa-team/cli/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/AIsa-team/cli/releases/tag/v0.2.1
