@@ -12,7 +12,7 @@ export function loginAction(options: { key?: string }): void {
 
   setApiKey(key);
   success(`Authenticated: ${maskKey(key)}`);
-  console.log(chalk.gray("  Get your API key at https://aisa.one/dashboard"));
+  console.log(chalk.gray("  Get your API key at https://console.aisa.one/api-keys"));
 }
 
 export function logoutAction(): void {

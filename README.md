@@ -33,8 +33,9 @@ aisa web-search "latest AI research"
 aisa run financial /insider-trades -q "ticker=AAPL"
 ```
 
-Get your API key at [aisa.one/dashboard](https://aisa.one/dashboard). New
-accounts receive $5 in free credits.
+Get your API key at
+[console.aisa.one/api-keys](https://console.aisa.one/api-keys). New accounts
+receive $5 in free credits.
 
 ## API Catalog
 
@@ -192,7 +193,7 @@ aisa balance --json
 
 `aisa usage` is not available yet — the gateway does not serve
 `GET /v1/credits/usage` (it 404s, while `/v1/credits/balance` on the same route
-group works). Use the [dashboard](https://aisa.one/dashboard) for usage history
+group works). Use the [console](https://console.aisa.one/logs) for usage history
 in the meantime.
 
 ## Skills
