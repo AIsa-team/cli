@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
-import { VERSION } from "./constants.js";
+import { VERSION, DEFAULT_VIDEO_MODEL } from "./constants.js";
 
 // Auth
 import { loginAction, logoutAction, whoamiAction } from "./commands/auth.js";
@@ -47,6 +47,10 @@ import {
 import { mcpSetupAction, mcpStatusAction } from "./commands/mcp.js";
 // Config
 import { configSetAction, configGetAction, configListAction, configResetAction } from "./commands/configCmd.js";
+// Cache
+import { cacheClearAction, cachePathAction } from "./commands/cacheCmd.js";
+// Completion
+import { completionAction, completeAction } from "./commands/completionCmd.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function wrap(fn: (...args: any[]) => Promise<void>): (...args: any[]) => void {
@@ -93,36 +97,49 @@ program
 
 program
   .command("usage")
-  .description("Show usage history (WIP)")
+  .description("Show usage history (awaiting gateway support)")
   .option("--limit <n>", "Max records")
   .option("--days <n>", "Lookback days")
   .action(wrap(usageAction));
 
 // ── API ──
 
-const api = program.command("api").description("Discover and inspect APIs (WIP)");
+const api = program.command("api").description("Discover and inspect APIs");
 
 api
   .command("list")
-  .description("List available API endpoints (WIP)")
-  .option("--category <cat>", "Filter by category (llm, search, finance, twitter, video, scholar)")
+  .description("List available APIs")
+  .option("--category <cat>", "Filter by category (client-side grouping): finance, search, social, productivity, other")
+  .option("--health", "Include provider health status")
+  .option("--json", "Output raw JSON")
+  .option("--refresh", "Bypass the cached catalog")
   .action(wrap(apiListAction));
 
 api
   .command("search <query>")
-  .description("Search APIs by keyword (WIP)")
-  .option("--limit <n>", "Max results")
+  .description("Search APIs and endpoints by keyword")
+  .option("--provider <id>", "Restrict to one API")
+  .option("--limit <n>", "Max results", "20")
+  .option("--json", "Output raw JSON")
+  .option("--refresh", "Bypass the cached catalog")
   .action(wrap(apiSearchAction));
 
 api
-  .command("show <slug> [path]")
-  .description("Show API endpoint details (WIP)")
+  .command("show <api> [path]")
+  .description("Show an API's endpoints, or one endpoint's details")
+  .option("--all", "Show every endpoint instead of the first 40")
+  .option("--group", "Group by the provider's raw endpoint groups")
+  .option("--health", "Include provider health status")
+  .option("--json", "Output raw JSON")
+  .option("--refresh", "Bypass the cached catalog")
   .action(wrap(apiShowAction));
 
 api
   .command("code <slug> <path>")
-  .description("Generate code snippet (WIP)")
-  .option("--lang <language>", "Language: typescript, python, curl", "typescript")
+  .description("Generate a request snippet for an endpoint")
+  .option("--lang <language>", "Language: curl, python, node, typescript", "curl")
+  .option("--method <method>", "HTTP method (the catalog's method is advisory)", "GET")
+  .option("--refresh", "Bypass the cached catalog")
   .action(wrap(apiCodeAction));
 
 // ── Run ──
@@ -135,6 +152,9 @@ program
   .option("--method <method>", "HTTP method")
   .option("--raw", "Raw JSON output")
   .option("--stream", "Stream response")
+  .option("--domain", "Force the integration API base (/apis/v1) — the default")
+  .option("--llm", "Force the LLM gateway base (/v1)")
+  .option("--show-cost", "Print the billing headers the gateway reported (stderr)")
   .action((slug: string, path: string, opts: Record<string, unknown>) =>
     wrap(runAction)(slug, path, {
       q: opts.query as string[] | undefined,
@@ -142,6 +162,9 @@ program
       method: opts.method as string | undefined,
       raw: opts.raw as boolean | undefined,
       stream: opts.stream as boolean | undefined,
+      llm: opts.llm as boolean | undefined,
+      domain: opts.domain as boolean | undefined,
+      showCost: opts.showCost as boolean | undefined,
     })
   );
 
@@ -178,7 +201,11 @@ models
 program
   .command("web-search <query>")
   .description("Search the web")
-  .option("--type <type>", "Search type: smart, full, youtube, scholar, tavily", "smart")
+  .option(
+    "--type <type>",
+    "Search type: tavily, youtube, scholar, smart (degraded), full (degraded)",
+    "tavily"
+  )
   .option("--limit <n>", "Max results")
   .option("--raw", "Raw JSON output")
   .action(wrap(webSearchAction));
@@ -202,14 +229,18 @@ program
 program
   .command("crypto <symbol>")
   .description("Look up crypto price")
-  .option("--period <period>", "Time period: current, 1d, 7d, 30d, 1y")
+  .option("--period <period>", "Time period: current, 1d, 7d, 30d, 90d, 1y")
+  .option("--id <coingecko-id>", "Use an exact CoinGecko id instead of resolving the symbol")
+  .option("--source <source>", "Data source: coingecko (default) or financial")
   .option("--raw", "Raw JSON output")
   .action(wrap(cryptoAction));
 
 program
   .command("screener")
   .description("Screen stocks by criteria")
-  .option("--sector <sector>", "Filter by sector")
+  .option("--sector <sector>", "Filter by GICS sector (e.g. 'Information Technology')")
+  .option("--min-market-cap <n>", "Minimum market cap in USD")
+  .option("--filter <f...>", "Extra filter as field:operator:value (e.g. market_cap:gt:1e12)")
   .option("--limit <n>", "Max results")
   .option("--raw", "Raw JSON output")
   .action(wrap(screenerAction));
@@ -483,15 +514,23 @@ const video = program.command("video").description("AI video generation");
 video
   .command("create <prompt>")
   .description("Create a video generation task")
-  .option("--model <model>", "Generation model")
+  .option("--model <model>", `Generation model (default: ${DEFAULT_VIDEO_MODEL})`)
+  .option("--image <url...>", "Source image for i2v models (shorthand for --media first_frame=<url>)")
+  .option("--media <type=url...>", "Source media: first_frame, last_frame, driving_audio, first_clip")
+  .option("--resolution <res>", "Resolution, e.g. 720P or 1080P", "720P")
+  .option("--duration <seconds>", "Clip duration in seconds", "5")
+  .option("--body <json>", "Send this request body verbatim (escape hatch for unmodelled vendors)")
   .option("--wait", "Wait for completion")
-  .option("--output <path>", "Download output path")
+  .option("--output <path>", "Download the finished video to this path (implies --wait)")
   .option("--raw", "Raw JSON output")
-  .action(wrap(videoCreateAction));
+  .action((prompt: string, opts: Record<string, unknown>) =>
+    wrap(videoCreateAction)(prompt, { ...opts, wait: Boolean(opts.wait || opts.output) })
+  );
 
 video
   .command("status <task-id>")
   .description("Check video task status")
+  .option("--output <path>", "Download the finished video to this path")
   .option("--raw", "Raw JSON output")
   .action(wrap(videoStatusAction));
 
@@ -502,14 +541,16 @@ const skills = program.command("skills").description("Browse and manage agent sk
 skills
   .command("list")
   .description("List available skills")
-  .option("--category <cat>", "Filter by category")
+  .option("--category <cat>", "Filter by category (ai-models, financial, marketing, ...)")
   .option("--limit <n>", "Max results")
+  .option("--refresh", "Bypass the cached skill index")
   .action(wrap(skillsListAction));
 
 skills
   .command("search <query>")
   .description("Search skills by keyword")
   .option("--limit <n>", "Max results")
+  .option("--refresh", "Bypass the cached skill index")
   .action(wrap(skillsSearchAction));
 
 skills
@@ -521,12 +562,14 @@ skills
   .command("install <slug>")
   .description("Install a skill to agent directories")
   .option("--agent <agent>", "Target agent: claude, cursor, copilot, windsurf, codex, gemini, openclaw, all")
+  .option("--force", "Overwrite a directory holding a different skill")
   .action(wrap(skillsInstallAction));
 
 skills
   .command("remove <slug>")
   .description("Remove an installed skill")
   .option("--agent <agent>", "Target agent")
+  .option("--force", "Remove even if the directory holds a different skill")
   .action(skillsRemoveAction);
 
 skills
@@ -579,15 +622,46 @@ configCmd
 
 program
   .command("search <query>")
-  .description("Search APIs (alias for 'api search') (WIP)")
-  .option("--limit <n>", "Max results")
+  .description("Search APIs (alias for 'api search')")
+  .option("--provider <id>", "Restrict to one API")
+  .option("--limit <n>", "Max results", "20")
+  .option("--json", "Output raw JSON")
+  .option("--refresh", "Bypass the cached catalog")
   .action(wrap(apiSearchAction));
 
 program
   .command("code <slug> <path>")
-  .description("Generate code (alias for 'api code') (WIP)")
-  .option("--lang <language>", "Language", "typescript")
+  .description("Generate a request snippet (alias for 'api code')")
+  .option("--lang <language>", "Language: curl, python, node, typescript", "curl")
+  .option("--method <method>", "HTTP method")
   .action(wrap(apiCodeAction));
+
+const cache = program.command("cache").description("Manage the local catalog and skills cache");
+
+cache
+  .command("clear")
+  .description("Delete all cached catalog and skills data")
+  .action(cacheClearAction);
+
+cache
+  .command("path")
+  .description("Print the cache directory")
+  .action(cachePathAction);
+
+// ── Shell completion ──
+
+program
+  .command("completion [shell]")
+  .description("Print a shell completion script (bash, zsh, fish)")
+  .action(completionAction);
+
+// Called by the generated scripts on every Tab press. Hidden, and tolerant of
+// whatever half-typed input the shell hands it.
+program
+  .command("__complete [words...]", { hidden: true })
+  .allowUnknownOption()
+  .allowExcessArguments()
+  .action((words: string[] = []) => completeAction(program, words));
 
 // ── Parse ──
 

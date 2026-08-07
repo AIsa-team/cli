@@ -42,6 +42,8 @@ export async function balanceAction(options: { json?: boolean } = {}): Promise<v
 
 export async function usageAction(_options: { limit?: string; days?: string }): Promise<void> {
   requireApiKey();
-  console.log(chalk.yellow("  Usage API is not yet available."));
+  // The gateway does not serve /v1/credits/usage yet — it 404s in production
+  // even though /v1/credits/balance on the same route group works.
+  console.log(chalk.yellow("  Usage API is not yet available on the gateway."));
   hint("View usage history at https://aisa.one/dashboard");
 }

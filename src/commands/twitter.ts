@@ -1,8 +1,7 @@
 import ora from "ora";
 import chalk from "chalk";
 import { requireApiKey, getConfig, setConfig } from "../config.js";
-import { apiRequest } from "../api.js";
-import { APIS_BASE_URL } from "../constants.js";
+import { apiRequest, resolveBases } from "../api.js";
 import { error, success, formatJson } from "../utils/display.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -680,7 +679,7 @@ export async function twitterUploadMediaAction(
   formData.append("login_cookies", auth.login_cookies);
   formData.append("proxy", auth.proxy);
 
-  const url = `${APIS_BASE_URL}/twitter/upload_media_v2`;
+  const url = `${resolveBases().domain}/twitter/upload_media_v2`;
 
   const res = await fetch(url, {
     method: "POST",
