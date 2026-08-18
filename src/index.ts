@@ -585,13 +585,14 @@ const mcp = program.command("mcp").description("MCP server integration");
 
 mcp
   .command("setup")
-  .description("Configure AIsa MCP server for AI agents")
+  .description("Configure AIsa MCP servers (from the live manifest) for AI agents")
   .option("--agent <agent>", "Target agent: cursor, claude-desktop, windsurf, all")
+  .option("--all", "Configure every live server, not just the default set")
   .action(mcpSetupAction);
 
 mcp
   .command("status")
-  .description("Check MCP server configuration status")
+  .description("Check MCP configuration and ping each configured endpoint")
   .action(mcpStatusAction);
 
 // ── Config ──

@@ -2,7 +2,34 @@ export const VERSION = "0.2.4";
 /** Root of the platform. Per-surface bases are derived in api.ts#resolveBases. */
 export const BASE_URL = "https://api.aisa.one";
 export const ENV_VAR_NAME = "AISA_API_KEY";
-export const MCP_URL = "https://docs.aisa.one/mcp";
+/**
+ * The MCP discovery manifest — the single source of truth for which servers
+ * exist and where they live. The CLI deliberately knows no server list of its
+ * own: servers ship and retire on the platform side, and reading the manifest
+ * at setup time means a new server works without a CLI release (the same
+ * philosophy as LLM_ROUTE_PREFIXES below, applied to the fast-moving side).
+ *
+ * History: until v0.2.4 this file hardcoded MCP_URL = "https://docs.aisa.one/mcp",
+ * a host that does not resolve — every `aisa mcp setup` wrote a dead entry into
+ * users' configs, and nothing noticed because the command had no tests.
+ */
+export const MCP_MANIFEST_URL = "https://aisa.one/.well-known/mcp.json";
+
+/** Mintlify's docs-search MCP (3 tools: search/read/feedback). Unauthenticated. */
+export const DOCS_MCP_URL = "https://aisa.one/docs/mcp";
+
+/**
+ * Servers configured by default. Eleven entries per client is a lot of config;
+ * these five cover the broadest agent needs, and `--all` configures everything
+ * the manifest lists as live.
+ */
+export const MCP_DEFAULT_SLUGS: readonly string[] = [
+  "web-search",
+  "twitter-api",
+  "crypto-market-data",
+  "marketpulse",
+  "stock-pulse",
+];
 
 /**
  * First path segment of every route the LLM gateway serves under /v1 (plus
@@ -38,15 +65,24 @@ export const AGENT_DIRS: Record<string, string> = {
   openclaw: "~/.openclaw/skills/",
 };
 
-export const MCP_CONFIGS: Record<string, { path: string; key: string }> = {
-  cursor: { path: "~/.cursor/mcp.json", key: "mcpServers" },
+/**
+ * Per-client config shape. This is the part v0.2.4 got wrong even apart from
+ * the dead URL: it wrote `{url}` everywhere, but Claude Desktop's mcpServers
+ * only executes command/args (stdio) entries and silently ignores url ones.
+ * Stdio clients get an `npx mcp-remote` bridge instead — verified end to end
+ * against mcp.aisa.one (initialize -> tools/list -> tools/call) on 2026-08-18.
+ */
+export const MCP_CONFIGS: Record<string, { path: string; key: string; shape: "url" | "stdio" }> = {
+  cursor: { path: "~/.cursor/mcp.json", key: "mcpServers", shape: "url" },
   "claude-desktop": {
     path: "~/Library/Application Support/Claude/claude_desktop_config.json",
     key: "mcpServers",
+    shape: "stdio",
   },
   windsurf: {
     path: "~/.codeium/windsurf/mcp_config.json",
     key: "mcpServers",
+    shape: "stdio",
   },
 };
 
