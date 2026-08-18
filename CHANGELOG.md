@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`aisa mcp setup` wrote a dead URL.** It hardcoded
+  `https://docs.aisa.one/mcp`, a hostname with no DNS record, and wrote it
+  into every client's config. Setup now reads the live discovery manifest at
+  `aisa.one/.well-known/mcp.json` and writes one entry per live server
+  (default set of five; `--all` for everything), so new servers work without
+  a CLI release. If the manifest cannot be fetched, nothing is written.
+- **`{url}` entries were written for clients that cannot execute them.**
+  Claude Desktop and Windsurf spawn stdio processes and silently ignore url
+  entries; they now get an `npx mcp-remote` bridge, verified end to end
+  against production.
+- **A config file that failed to parse was replaced with `{}`.** A
+  hand-edited `mcp.json` with comments or a trailing comma was wiped by
+  setup. It is now left untouched, with an error.
+
+### Added
+
+- Entries carry the configured API key as a Bearer header; without a key
+  they are written credential-less and the server's OAuth challenge drives
+  the browser flow on first use.
+- `aisa mcp status` now pings every configured endpoint with a real
+  initialize request instead of checking that a JSON key exists — a 401 is
+  reported as healthy (the auth challenge), an unresolvable hostname as the
+  failure it is.
+- The stale dead entry earlier releases wrote is removed on the next setup.
+
 ## [0.2.4] — 2026-08-07
 
 Text-only follow-up to 0.2.3: no behavioural change, but the URL it printed

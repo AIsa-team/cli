@@ -250,15 +250,20 @@ To publish a skill, open a pull request against
 ## MCP Server
 
 ```bash
-aisa mcp setup                          # configure detected agents
-aisa mcp status                         # check configuration
+aisa mcp setup                          # configure the default servers for every detected client
+aisa mcp setup --all                    # every live server, not just the defaults
+aisa mcp setup --agent cursor           # one client only
+aisa mcp status                         # list entries and ping each configured endpoint
 ```
 
-> **Not currently usable.** These commands write
-> `https://docs.aisa.one/mcp`, which has no DNS record, and `mcp setup`
-> overwrites an agent config file it cannot parse — a `mcp.json` with comments
-> or a trailing comma will be emptied. Avoid `aisa mcp setup` until this is
-> fixed.
+`setup` reads the platform's discovery manifest (`aisa.one/.well-known/mcp.json`)
+at run time and writes one entry per live server, in the shape each client
+executes: a `url` entry for Cursor, an `npx mcp-remote` stdio bridge for
+Claude Desktop and Windsurf. With an API key configured the entries carry it
+as a Bearer header; without one they carry no credentials and the server's
+OAuth flow opens in your browser on first use. A config file that exists but
+does not parse is never overwritten. The docs-search MCP is always included
+as `aisa-docs`.
 
 ## Shell Completion
 
