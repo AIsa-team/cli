@@ -259,9 +259,13 @@ Opens a small local page (served by this process on `127.0.0.1`, shut down
 when finished) where you tick the AIsa MCP servers you want and the coding
 agents to install them into. Claude Code is configured through its own
 `claude mcp add` (user scope); Cursor, Claude Desktop and Windsurf get config
-entries. No daemon stays behind and no credentials are collected — each
-client opens the AIsa sign-in on first use. `--no-open` prints the URL
-instead of launching a browser; `--dry-run` shows what would be written.
+entries. Sign-in is part of the same visit: paste a key from
+[console.aisa.one/api-keys](https://console.aisa.one/api-keys) and it is
+validated against the platform, stored for the CLI, and written into every
+entry — your agents work from the first call. Leave it empty to stay
+keyless; each client then opens the AIsa sign-in on first use. No daemon
+stays behind. `--no-open` prints the URL instead of launching a browser;
+`--dry-run` shows what would be written.
 
 ### Scripted: `mcp setup`
 

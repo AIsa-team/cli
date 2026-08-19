@@ -8,7 +8,8 @@ import chalk from "chalk";
 import { success, error, info, hint } from "../utils/display.js";
 import { expandHome } from "../utils/file.js";
 import { MCP_CONFIGS, MCP_DEFAULT_SLUGS } from "../constants.js";
-import { getApiKey } from "../config.js";
+import { getApiKey, setApiKey } from "../config.js";
+import { apiRequest } from "../api.js";
 import { fetchLiveServers, writeClientConfig, stripped, type LiveServer } from "./mcp.js";
 
 /**
@@ -25,10 +26,13 @@ import { fetchLiveServers, writeClientConfig, stripped, type LiveServer } from "
  * - It is a *visitor*, not a resident: pick servers, pick clients, apply,
  *   exit. No daemon, no terminal takeover, no prompt or skill injection into
  *   the user's agent. The user stays in their own Claude Code.
- * - No credentials are collected here. Entries are written keyless by default
- *   and the server's 401 challenge drives each client through the OAuth flow
- *   on first use — auth exactly as lazy as it can be. A configured `aisa`
- *   API key is used if present (same rule as `aisa mcp setup`).
+ * - Sign-in happens in the same visit when possible: the page links to the
+ *   Console's api-keys page and takes a paste, which is validated against the
+ *   platform, stored for the CLI, and written into every entry — the agents
+ *   are authenticated from their first call. Left empty, entries are keyless
+ *   and each client's 401 challenge drives OAuth on first use instead. (A
+ *   true browser→loopback key handoff needs a Console endpoint that does not
+ *   exist yet; see CONSOLE_KEYS_URL.)
  *
  * Claude Code is configured through its own CLI (`claude mcp add`) because
  * its user-scope config is not a file we should edit; every other client is
@@ -106,6 +110,31 @@ interface ApplyResult {
   message: string;
 }
 
+/** Where a key is minted today. A true browser→loopback key handoff needs a
+ *  Console endpoint the platform does not have yet; until then the page links
+ *  here and takes a paste. */
+export const CONSOLE_KEYS_URL = "https://console.aisa.one/api-keys";
+
+/**
+ * A pasted key is checked against the platform's `credits/balance` (free,
+ * properly authenticated) before anything is written with it. The MCP
+ * endpoints themselves are useless for this — probed 2026-08-19, their
+ * `initialize` answers 200 for ANY Bearer value and only 401s when the
+ * header is absent entirely, so token authenticity is never checked there.
+ * A definite 401/403 damns the key; a flaky network must not eat the
+ * user's paste, so anything else counts as "accept and move on".
+ */
+async function validateKey(key: string): Promise<"ok" | "bad" | "unknown"> {
+  try {
+    const res = await apiRequest(key, "credits/balance");
+    if (res.success) return "ok";
+    if (/^40[13]:/.test(res.error ?? "")) return "bad";
+    return "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 async function applySelection(
   clientIds: string[],
   chosen: LiveServer[],
@@ -170,9 +199,20 @@ function renderPage(servers: LiveServer[], clients: ClientInfo[], token: string,
         <span class="meta">${c.detail}</span></label>`;
     })
     .join("\n");
+  const authSection = keyed
+    ? ""
+    : `<h2>Sign in</h2>
+<p class="note" style="margin-top:.2rem">Grab a key from
+<a href="${CONSOLE_KEYS_URL}" target="_blank" rel="noopener">console.aisa.one/api-keys</a>
+(opens in a new tab) and paste it here. It is checked against a live server,
+stored for the <code>aisa</code> CLI, and written into each entry — so your
+agents are signed in from the first call.<br>
+Leave it empty to stay keyless: each client then opens the AIsa sign-in on first use.</p>
+<input type="password" id="apikey" placeholder="aisa-..." autocomplete="off"
+  style="width:100%;font:inherit;padding:.5rem .6rem;border-radius:8px;border:1px solid rgba(128,128,128,.4);background:transparent">`;
   const authNote = keyed
     ? "Using your configured AIsa API key."
-    : "No key is written. Each client opens the AIsa sign-in in your browser the first time a tool is used.";
+    : "This page is served by the local <code>aisa connect</code> process; the key goes to 127.0.0.1 only.";
 
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>AIsa Connect</title>
@@ -203,8 +243,9 @@ function renderPage(servers: LiveServer[], clients: ClientInfo[], token: string,
 ${serverRows}
 <h2>Install into</h2>
 ${clientRows}
+${authSection}
 <button id="apply">Connect</button>
-<p class="note">${authNote}<br>This page is served by the <code>aisa connect</code> process on your machine and shuts down when finished.</p>
+<p class="note">${authNote}<br>This page shuts down when finished.</p>
 <div id="result"></div>
 <script>
 const btn = document.getElementById("apply");
@@ -213,10 +254,12 @@ btn.addEventListener("click", async () => {
   const servers = picked("server"), clients = picked("client");
   const out = document.getElementById("result");
   if (!servers.length || !clients.length) { out.textContent = "Pick at least one server and one client."; return; }
+  const keyInput = document.getElementById("apikey");
+  const apiKey = keyInput ? keyInput.value.trim() : "";
   btn.disabled = true; btn.textContent = "Connecting…";
   const res = await fetch("/apply", { method: "POST",
     headers: { "content-type": "application/json", "x-connect-token": ${JSON.stringify(token)} },
-    body: JSON.stringify({ servers, clients }) });
+    body: JSON.stringify({ servers, clients, apiKey: apiKey || undefined }) });
   const data = await res.json();
   out.textContent = data.results.map(r => (r.ok ? "✓ " : "✗ ") + r.client + ": " + r.message).join("\\n");
   if (data.done) {
@@ -293,7 +336,7 @@ export async function connectAction(options: {
         res.writeHead(403).end();
         return;
       }
-      let body: { servers?: string[]; clients?: string[] };
+      let body: { servers?: string[]; clients?: string[]; apiKey?: string };
       try {
         body = JSON.parse(await readBody(req));
       } catch {
@@ -301,7 +344,31 @@ export async function connectAction(options: {
         return;
       }
       const chosen = servers.filter((s) => body.servers?.includes(s.slug));
-      const results = await applySelection(body.clients ?? [], chosen, key, Boolean(options.dryRun));
+
+      // A pasted key completes the sign-in right here: verify it against a
+      // live endpoint, persist it for the CLI, and write it into every entry.
+      // A key that answers 401 is rejected before anything is written.
+      let applyKey = key;
+      if (body.apiKey) {
+        const verdict = await validateKey(body.apiKey);
+        if (verdict === "bad") {
+          res.writeHead(200, { "content-type": "application/json" }).end(
+            JSON.stringify({
+              results: [
+                { client: "sign-in", ok: false, message: "the platform rejected this key — check it and retry" },
+              ],
+              done: false,
+            })
+          );
+          console.log(`  ${chalk.red("✗")} sign-in: pasted key rejected by the platform`);
+          return;
+        }
+        if (!options.dryRun) setApiKey(body.apiKey);
+        applyKey = body.apiKey;
+        console.log(`  ${chalk.green("✓")} sign-in: key verified and stored for the aisa CLI`);
+      }
+
+      const results = await applySelection(body.clients ?? [], chosen, applyKey, Boolean(options.dryRun));
       const done = results.length > 0 && results.every((r) => r.ok);
       res
         .writeHead(200, { "content-type": "application/json" })

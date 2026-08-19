@@ -14,8 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Claude Desktop and Windsurf; Claude Code entries go through `claude mcp add`
   (user scope), the rest through the same config writer as `mcp setup`. The
   process serves one token-guarded page on 127.0.0.1, applies the selection,
-  and exits — no daemon, no credentials collected (each client runs the OAuth
-  flow on first use).
+  and exits — no daemon left behind. Sign-in happens in the same visit: a key
+  pasted from the Console is validated against `credits/balance`, stored for
+  the CLI, and written into every entry (the MCP endpoints' own `initialize`
+  accepts any Bearer value, so validation has to go through the platform API).
+  Left empty, entries are keyless and each client runs the OAuth flow on
+  first use.
 - CI on every push/PR (build + tests), and a tag-triggered release workflow that
   publishes to npm via Trusted Publishing (OIDC — no stored token, 2FA stays on).
   From the next release, `git push origin vX.Y.Z` is the publish button.
