@@ -1,0 +1,25 @@
+# CI — runs on every push and PR. Does NOT publish; it only proves the code
+# builds and the tests pass.
+#
+# This exists because the dead-URL bug in `aisa mcp setup` shipped to users
+# undetected: the mcp command had zero tests and the repo had no CI, so nothing
+# could catch it. A red check here now blocks that class of regression.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test

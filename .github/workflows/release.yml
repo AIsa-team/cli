@@ -1,0 +1,59 @@
+# Release — publish to npm when a v* tag is pushed.
+#
+# The whole point: the tag IS the publish button. `git push origin v0.4.0`
+# triggers this, and nothing else does. A plain push to main only runs CI
+# (ci.yml); it never publishes.
+#
+# Auth is Trusted Publishing (OIDC): GitHub proves to npm that this workflow,
+# in this repo, is running — no token is stored anywhere, so there is no token
+# to leak and no 90-day rotation. Account 2FA stays ON and is never in the way,
+# because OIDC is not a "token that bypasses 2FA".
+#
+# One-time setup on npmjs.com before the first tagged release works (needs a
+# maintainer): the @aisa-one/cli package page → Settings → Trusted Publishing →
+# add this repository (AIsa-team/cli) and workflow (release.yml). Until that is
+# configured, the publish step 403s and the tag is harmless — CI still ran.
+#
+# A guard refuses to publish if the tag and package.json disagree, so a
+# mistyped tag can never ship a version the code does not claim.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write        # required for Trusted Publishing (OIDC)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+
+      - name: Tag must match package.json version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::tag v$tag does not match package.json $pkg — refusing to publish"
+            exit 1
+          fi
+          echo "tag and package.json agree on $pkg"
+
+      # Trusted Publishing needs npm >= 11.5.1 for the OIDC handshake; node 20
+      # ships npm 10.x, so upgrade first.
+      - run: npm install -g npm@latest
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+      # npm does the OIDC handshake itself; no NODE_AUTH_TOKEN, no stored secret.
+      - name: Publish to npm (Trusted Publishing)
+        run: npm publish

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- CI on every push/PR (build + tests), and a tag-triggered release workflow that
+  publishes to npm via Trusted Publishing (OIDC — no stored token, 2FA stays on).
+  From the next release, `git push origin vX.Y.Z` is the publish button.
+
 ## [0.3.0] — 2026-08-18
 
 ### Fixed
