@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`aisa connect`** — a one-shot local page (`npx @aisa-one/cli connect`) to
+  wire AIsa MCP servers into local coding agents. Detects Claude Code, Cursor,
+  Claude Desktop and Windsurf; Claude Code entries go through `claude mcp add`
+  (user scope), the rest through the same config writer as `mcp setup`. The
+  process serves one token-guarded page on 127.0.0.1, applies the selection,
+  and exits — no daemon, no credentials collected (each client runs the OAuth
+  flow on first use).
 - CI on every push/PR (build + tests), and a tag-triggered release workflow that
   publishes to npm via Trusted Publishing (OIDC — no stored token, 2FA stays on).
   From the next release, `git push origin vX.Y.Z` is the publish button.

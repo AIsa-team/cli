@@ -249,6 +249,22 @@ To publish a skill, open a pull request against
 
 ## MCP Server
 
+### One-liner: `connect`
+
+```bash
+npx @aisa-one/cli connect
+```
+
+Opens a small local page (served by this process on `127.0.0.1`, shut down
+when finished) where you tick the AIsa MCP servers you want and the coding
+agents to install them into. Claude Code is configured through its own
+`claude mcp add` (user scope); Cursor, Claude Desktop and Windsurf get config
+entries. No daemon stays behind and no credentials are collected — each
+client opens the AIsa sign-in on first use. `--no-open` prints the URL
+instead of launching a browser; `--dry-run` shows what would be written.
+
+### Scripted: `mcp setup`
+
 ```bash
 aisa mcp setup                          # configure the default servers for every detected client
 aisa mcp setup --all                    # every live server, not just the defaults
