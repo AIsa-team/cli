@@ -1,4 +1,4 @@
-import { execFile, spawnSync } from "node:child_process";
+import { execFile, spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { existsSync } from "node:fs";
@@ -8,8 +8,7 @@ import chalk from "chalk";
 import { success, error, info, hint } from "../utils/display.js";
 import { expandHome } from "../utils/file.js";
 import { MCP_CONFIGS, MCP_DEFAULT_SLUGS } from "../constants.js";
-import { getApiKey, setApiKey } from "../config.js";
-import { apiRequest } from "../api.js";
+import { getApiKey } from "../config.js";
 import { fetchLiveServers, writeClientConfig, stripped, type LiveServer } from "./mcp.js";
 
 /**
@@ -26,13 +25,14 @@ import { fetchLiveServers, writeClientConfig, stripped, type LiveServer } from "
  * - It is a *visitor*, not a resident: pick servers, pick clients, apply,
  *   exit. No daemon, no terminal takeover, no prompt or skill injection into
  *   the user's agent. The user stays in their own Claude Code.
- * - Sign-in happens in the same visit when possible: the page links to the
- *   Console's api-keys page and takes a paste, which is validated against the
- *   platform, stored for the CLI, and written into every entry — the agents
- *   are authenticated from their first call. Left empty, entries are keyless
- *   and each client's 401 challenge drives OAuth on first use instead. (A
- *   true browser→loopback key handoff needs a Console endpoint that does not
- *   exist yet; see CONSOLE_KEYS_URL.)
+ * - Sign-in is the platform's own OAuth, driven through each client's own
+ *   machinery: after the entries are added, `claude mcp login <name>` is run
+ *   per server — Claude Code opens the browser authorization (Clerk), and
+ *   the tokens land in Claude Code's own store, where Claude Code refreshes
+ *   them. No API key, nothing pasted, nothing for us to store or expire.
+ *   File-based clients (mcp-remote bridges) run the same OAuth themselves on
+ *   first use. A configured `aisa` API key short-circuits all of it (entries
+ *   carry it as a Bearer header and no login is needed).
  *
  * Claude Code is configured through its own CLI (`claude mcp add`) because
  * its user-scope config is not a file we should edit; every other client is
@@ -104,35 +104,34 @@ async function claudeCodeAdd(name: string, endpoint: string, key: string | undef
   await execFileP("claude", args, { timeout: 15_000 });
 }
 
+/**
+ * Drive Claude Code's own OAuth for one server: `claude mcp login` opens the
+ * browser authorization and stores the tokens in Claude Code's own store,
+ * where Claude Code also refreshes them. stdio is inherited on purpose — the
+ * login needs the user's real terminal (it prompts on stdin as a headless
+ * fallback), and its progress lines belong in front of the user.
+ */
+function claudeCodeLogin(name: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const child = spawn("claude", ["mcp", "login", name], { stdio: "inherit" });
+    const timer = setTimeout(() => {
+      child.kill("SIGTERM");
+    }, 180_000);
+    child.once("close", (code) => {
+      clearTimeout(timer);
+      resolve(code === 0);
+    });
+    child.once("error", () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
+  });
+}
+
 interface ApplyResult {
   client: string;
   ok: boolean;
   message: string;
-}
-
-/** Where a key is minted today. A true browser→loopback key handoff needs a
- *  Console endpoint the platform does not have yet; until then the page links
- *  here and takes a paste. */
-export const CONSOLE_KEYS_URL = "https://console.aisa.one/api-keys";
-
-/**
- * A pasted key is checked against the platform's `credits/balance` (free,
- * properly authenticated) before anything is written with it. The MCP
- * endpoints themselves are useless for this — probed 2026-08-19, their
- * `initialize` answers 200 for ANY Bearer value and only 401s when the
- * header is absent entirely, so token authenticity is never checked there.
- * A definite 401/403 damns the key; a flaky network must not eat the
- * user's paste, so anything else counts as "accept and move on".
- */
-async function validateKey(key: string): Promise<"ok" | "bad" | "unknown"> {
-  try {
-    const res = await apiRequest(key, "credits/balance");
-    if (res.success) return "ok";
-    if (/^40[13]:/.test(res.error ?? "")) return "bad";
-    return "unknown";
-  } catch {
-    return "unknown";
-  }
 }
 
 async function applySelection(
@@ -155,7 +154,7 @@ async function applySelection(
         results.push({
           client: id,
           ok: true,
-          message: `${chosen.length} servers added (user scope)${key ? "" : " — run /mcp in Claude Code and Authenticate to sign in"}`,
+          message: `${chosen.length} servers added (user scope)${key ? "" : " — browser authorization starts next"}`,
         });
       } catch (e) {
         results.push({ client: id, ok: false, message: (e as Error).message });
@@ -199,20 +198,9 @@ function renderPage(servers: LiveServer[], clients: ClientInfo[], token: string,
         <span class="meta">${c.detail}</span></label>`;
     })
     .join("\n");
-  const authSection = keyed
-    ? ""
-    : `<h2>Sign in</h2>
-<p class="note" style="margin-top:.2rem">Grab a key from
-<a href="${CONSOLE_KEYS_URL}" target="_blank" rel="noopener">console.aisa.one/api-keys</a>
-(opens in a new tab) and paste it here. It is checked against a live server,
-stored for the <code>aisa</code> CLI, and written into each entry — so your
-agents are signed in from the first call.<br>
-Leave it empty to stay keyless: each client then opens the AIsa sign-in on first use.</p>
-<input type="password" id="apikey" placeholder="aisa-..." autocomplete="off"
-  style="width:100%;font:inherit;padding:.5rem .6rem;border-radius:8px;border:1px solid rgba(128,128,128,.4);background:transparent">`;
   const authNote = keyed
-    ? "Using your configured AIsa API key."
-    : "This page is served by the local <code>aisa connect</code> process; the key goes to 127.0.0.1 only.";
+    ? "Using your configured AIsa API key — no sign-in needed."
+    : "No keys, nothing to paste. After you press Connect, your browser opens the AIsa authorization for each server — Claude Code stores and refreshes the tokens itself. Other clients sign in the same way on first use.";
 
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>AIsa Connect</title>
@@ -243,39 +231,26 @@ Leave it empty to stay keyless: each client then opens the AIsa sign-in on first
 ${serverRows}
 <h2>Install into</h2>
 ${clientRows}
-${authSection}
 <button id="apply">Connect</button>
 <p class="note">${authNote}<br>This page shuts down when finished.</p>
 <div id="result"></div>
 <script>
 const btn = document.getElementById("apply");
-let keylessConfirmed = false;
 btn.addEventListener("click", async () => {
   const picked = (name) => [...document.querySelectorAll('input[name="'+name+'"]:checked')].map(i => i.value);
   const servers = picked("server"), clients = picked("client");
   const out = document.getElementById("result");
   if (!servers.length || !clients.length) { out.textContent = "Pick at least one server and one client."; return; }
-  const keyInput = document.getElementById("apikey");
-  const apiKey = keyInput ? keyInput.value.trim() : "";
-  // No key pasted: open the Console sign-in right now instead of silently
-  // proceeding keyless. A second click is the explicit "skip" choice.
-  if (keyInput && !apiKey && !keylessConfirmed) {
-    keylessConfirmed = true;
-    window.open(${JSON.stringify(CONSOLE_KEYS_URL)}, "_blank");
-    out.textContent = "Opened console.aisa.one/api-keys in a new tab — copy a key and paste it above.\nOr press the button again to continue without signing in (each agent will then ask on first use).";
-    btn.textContent = "Connect without key";
-    keyInput.focus();
-    return;
-  }
-  keyInput && apiKey && (keylessConfirmed = false);
   btn.disabled = true; btn.textContent = "Connecting…";
   const res = await fetch("/apply", { method: "POST",
     headers: { "content-type": "application/json", "x-connect-token": ${JSON.stringify(token)} },
-    body: JSON.stringify({ servers, clients, apiKey: apiKey || undefined }) });
+    body: JSON.stringify({ servers, clients }) });
   const data = await res.json();
   out.textContent = data.results.map(r => (r.ok ? "✓ " : "✗ ") + r.client + ": " + r.message).join("\\n");
   if (data.done) {
-    out.textContent += "\\n\\nAll set — restart your agent (or run /mcp in Claude Code). You can close this tab.";
+    out.textContent += data.authNext
+      ? "\\n\\nAuthorization tabs are opening now — approve each one, then you're done. You can close this tab."
+      : "\\n\\nAll set — restart your agent (or run /mcp in Claude Code). You can close this tab.";
     btn.textContent = "Done";
   } else { btn.disabled = false; btn.textContent = "Retry"; }
 });
@@ -348,7 +323,7 @@ export async function connectAction(options: {
         res.writeHead(403).end();
         return;
       }
-      let body: { servers?: string[]; clients?: string[]; apiKey?: string };
+      let body: { servers?: string[]; clients?: string[] };
       try {
         body = JSON.parse(await readBody(req));
       } catch {
@@ -357,34 +332,19 @@ export async function connectAction(options: {
       }
       const chosen = servers.filter((s) => body.servers?.includes(s.slug));
 
-      // A pasted key completes the sign-in right here: verify it against a
-      // live endpoint, persist it for the CLI, and write it into every entry.
-      // A key that answers 401 is rejected before anything is written.
-      let applyKey = key;
-      if (body.apiKey) {
-        const verdict = await validateKey(body.apiKey);
-        if (verdict === "bad") {
-          res.writeHead(200, { "content-type": "application/json" }).end(
-            JSON.stringify({
-              results: [
-                { client: "sign-in", ok: false, message: "the platform rejected this key — check it and retry" },
-              ],
-              done: false,
-            })
-          );
-          console.log(`  ${chalk.red("✗")} sign-in: pasted key rejected by the platform`);
-          return;
-        }
-        if (!options.dryRun) setApiKey(body.apiKey);
-        applyKey = body.apiKey;
-        console.log(`  ${chalk.green("✓")} sign-in: key verified and stored for the aisa CLI`);
-      }
-
-      const results = await applySelection(body.clients ?? [], chosen, applyKey, Boolean(options.dryRun));
+      const results = await applySelection(body.clients ?? [], chosen, key, Boolean(options.dryRun));
       const done = results.length > 0 && results.every((r) => r.ok);
+      // Entries added for Claude Code without a key still need tokens; that
+      // is the login pass below, announced to the page via authNext.
+      const authNext =
+        done &&
+        !options.dryRun &&
+        !key &&
+        (body.clients ?? []).includes("claude-code") &&
+        chosen.length > 0;
       res
         .writeHead(200, { "content-type": "application/json" })
-        .end(JSON.stringify({ results, done }));
+        .end(JSON.stringify({ results, done, authNext }));
 
       for (const r of results) {
         const mark = r.ok ? chalk.green("✓") : chalk.red("✗");
@@ -393,16 +353,35 @@ export async function connectAction(options: {
       if (done && !settled) {
         settled = true;
         clearTimeout(idle);
+        let authFailures = 0;
+        if (authNext) {
+          // The platform's own OAuth, through Claude Code's own machinery:
+          // one browser authorization per server, tokens stored and refreshed
+          // by Claude Code. Sequential on purpose — parallel logins would
+          // race the browser with several consent tabs at once.
+          info("Starting browser authorization for each server…");
+          for (const s of chosen) {
+            const name = `aisa-${s.slug}`;
+            const ok = await claudeCodeLogin(name);
+            if (!ok) authFailures++;
+            console.log(
+              `  ${ok ? chalk.green("✓") : chalk.red("✗")} ${name}: ${ok ? "authorized" : "authorization failed or timed out"}`
+            );
+          }
+        }
+        if (authFailures > 0) {
+          error(`${authFailures} server(s) not authorized — run 'claude mcp login <name>' to retry.`);
+        }
         success(
           options.dryRun
             ? "Dry run complete — nothing was written."
             : `Connected ${chosen.length} servers to ${results.length} client(s)`
         );
-        hint("Restart your agent to activate (or run /mcp inside Claude Code)");
+        hint("Run /mcp inside Claude Code to verify — entries should show Connected");
         // Give the response a moment to flush before tearing the server down.
         setTimeout(() => {
           srv.close();
-          process.exit(0);
+          process.exit(authFailures > 0 ? 1 : 0);
         }, 300);
       }
       return;
