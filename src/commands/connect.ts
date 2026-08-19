@@ -155,7 +155,7 @@ async function applySelection(
         results.push({
           client: id,
           ok: true,
-          message: `${chosen.length} servers added (user scope) — run /mcp inside Claude Code to see them`,
+          message: `${chosen.length} servers added (user scope)${key ? "" : " — run /mcp in Claude Code and Authenticate to sign in"}`,
         });
       } catch (e) {
         results.push({ client: id, ok: false, message: (e as Error).message });
@@ -249,6 +249,7 @@ ${authSection}
 <div id="result"></div>
 <script>
 const btn = document.getElementById("apply");
+let keylessConfirmed = false;
 btn.addEventListener("click", async () => {
   const picked = (name) => [...document.querySelectorAll('input[name="'+name+'"]:checked')].map(i => i.value);
   const servers = picked("server"), clients = picked("client");
@@ -256,6 +257,17 @@ btn.addEventListener("click", async () => {
   if (!servers.length || !clients.length) { out.textContent = "Pick at least one server and one client."; return; }
   const keyInput = document.getElementById("apikey");
   const apiKey = keyInput ? keyInput.value.trim() : "";
+  // No key pasted: open the Console sign-in right now instead of silently
+  // proceeding keyless. A second click is the explicit "skip" choice.
+  if (keyInput && !apiKey && !keylessConfirmed) {
+    keylessConfirmed = true;
+    window.open(${JSON.stringify(CONSOLE_KEYS_URL)}, "_blank");
+    out.textContent = "Opened console.aisa.one/api-keys in a new tab — copy a key and paste it above.\nOr press the button again to continue without signing in (each agent will then ask on first use).";
+    btn.textContent = "Connect without key";
+    keyInput.focus();
+    return;
+  }
+  keyInput && apiKey && (keylessConfirmed = false);
   btn.disabled = true; btn.textContent = "Connecting…";
   const res = await fetch("/apply", { method: "POST",
     headers: { "content-type": "application/json", "x-connect-token": ${JSON.stringify(token)} },
