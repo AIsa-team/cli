@@ -45,6 +45,7 @@ import {
 } from "./commands/skills.js";
 // MCP
 import { mcpSetupAction, mcpStatusAction } from "./commands/mcp.js";
+import { connectAction } from "./commands/connect.js";
 // Config
 import { configSetAction, configGetAction, configListAction, configResetAction } from "./commands/configCmd.js";
 // Cache
@@ -580,6 +581,15 @@ skills
   .action(skillsInitAction);
 
 // ── MCP ──
+
+// Top-level so the zero-install one-liner works: `npx @aisa-one/cli connect`.
+program
+  .command("connect")
+  .description("Connect AIsa MCP servers to your local coding agents via a one-shot local page")
+  .option("--no-open", "Print the URL instead of opening the browser")
+  .option("--port <port>", "Bind a specific port (default: random)")
+  .option("--dry-run", "Show what would be configured without writing anything")
+  .action(wrap(connectAction));
 
 const mcp = program.command("mcp").description("MCP server integration");
 
