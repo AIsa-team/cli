@@ -393,6 +393,10 @@ const BEFORE_HANDOFF_MS = 3000;
  *  the CLI's own AISA_API_KEY so a user who already exports it needs nothing
  *  further. */
 const CODEX_KEY_ENV_VAR = "AISA_API_KEY";
+
+/** Where a key comes from until the platform can mint one for an OAuth
+ *  caller directly. */
+const CONSOLE_KEYS_URL = "https://console.aisa.one/api-keys";
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Mutate one step in place; the page picks it up on its next poll. */
@@ -558,12 +562,28 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
     if (input.dryRun) {
       ok("llm", "dry run — nothing written");
     } else if (!input.key) {
-      // The provider entry needs a key to put in it, and we have none to
-      // give: skipped is the honest state, with the way out named.
+      // A dead end here is the worst place for one: the user has installed an
+      // agent that has no model backend at all, and the next thing they see is
+      // its vendor asking them to sign in somewhere else. So we open the page
+      // that hands out keys and say exactly what to do with it.
+      //
+      // The keyless MCP path works because each server authorises over OAuth;
+      // a provider entry has nowhere to put a token, so it needs the key. A
+      // mint endpoint would close this — see dev/oauth-cli-requirements.md.
+      setStep(state, "llm", {
+        state: "running",
+        detail: "opening console.aisa.one/api-keys — copy a key from there…",
+      });
+      await pause(BEFORE_HANDOFF_MS);
+      openBrowser(CONSOLE_KEYS_URL);
       setStep(state, "llm", {
         state: "skip",
-        detail: "needs an API key — run 'aisa login --key <key>', then connect again",
+        detail:
+          "waiting on a key — run 'aisa login --key <key>' with the one you just copied, then 'aisa connect' again",
       });
+      error("No API key yet, so the model provider was not written.");
+      hint(`Copy a key from ${CONSOLE_KEYS_URL}`);
+      hint("Then: aisa login --key <key>   and run connect again");
     } else {
       const target = input.clients[0];
       const models = defaultModelsFor(target);
@@ -864,9 +884,11 @@ function renderPage(
   );
   const authCopy = keyed
     ? `Your configured AIsa API key is written into each entry — <b>no sign-in needed</b>.`
-    : `<b>No API keys, nothing to paste.</b> After you press Connect, your browser opens the
-       AIsa authorization once per server. Approve each one; Claude Code keeps and refreshes
-       the tokens itself. Other clients sign in the same way on their first call.`;
+    : `<b>No API keys, nothing to paste.</b> Your browser opens the AIsa authorization
+       <b>once per server</b> — each one is a separate resource, so three servers means three
+       approvals. Your agent keeps and refreshes the tokens itself.
+       <br>Prefer a single sign-in? Run <code>aisa login --key &lt;key&gt;</code> first and
+       every server is configured without a browser round trip.`;
 
   const body = `
 <div class="eyebrow">Connect</div>

@@ -143,8 +143,11 @@ describe("mcp setup", () => {
 
     let names = Object.keys(cursorConfig().mcpServers);
     expect(names).toContain("aisa-web-search");
-    expect(names).toContain("aisa-twitter-api");
-    expect(names).not.toContain("aisa-reddit"); // live but not a default
+    // The default set is deliberately one server: each is its own OAuth
+    // resource, so every extra default costs a keyless user another browser
+    // approval. Everything else is live but opt-in.
+    expect(names).not.toContain("aisa-twitter-api");
+    expect(names).not.toContain("aisa-reddit");
 
     await mcpSetupAction({ agent: "cursor", all: true });
     names = Object.keys(cursorConfig().mcpServers);

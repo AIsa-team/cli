@@ -38,13 +38,18 @@ export const AISA_PROVIDER_ID = "aisa";
  * these five cover the broadest agent needs, and `--all` configures everything
  * the manifest lists as live.
  */
-export const MCP_DEFAULT_SLUGS: readonly string[] = [
-  "web-search",
-  "twitter-api",
-  "crypto-market-data",
-  "marketpulse",
-  "stock-pulse",
-];
+export const MCP_DEFAULT_SLUGS: readonly string[] = ["web-search"];
+
+/**
+ * Why one and not five.
+ *
+ * Each server is its own OAuth resource — the authorization URL carries
+ * `resource=https://mcp.aisa.one/<slug>/mcp` (RFC 8707) — so a keyless
+ * install authorises once per server. Defaulting to five meant five browser
+ * round trips before anything worked, observed 2026-08-20. Web search is the
+ * one every agent reaches for; the rest are one tick away, and a configured
+ * API key skips authorization for all of them anyway.
+ */
 
 /**
  * First path segment of every route the LLM gateway serves under /v1 (plus
