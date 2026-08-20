@@ -22,6 +22,17 @@ export const DOCS_MCP_URL = "https://aisa.one/docs/mcp";
  *  hosted page owns the card details, and 3-D Secure needs one. */
 export const CONSOLE_BILLING_URL = "https://console.aisa.one/billing";
 
+/** Anthropic-shaped base for Claude Code: it appends /v1/messages itself. */
+export const LLM_BASE_URL = "https://api.aisa.one";
+
+/** Codex speaks the Responses API and appends /responses, so it needs the
+ *  /v1 root rather than the host. */
+export const LLM_RESPONSES_BASE_URL = "https://api.aisa.one/v1";
+
+/** The provider name written into Codex's config.toml. Frozen: renaming it
+ *  orphans the block we would otherwise remove cleanly. */
+export const AISA_PROVIDER_ID = "aisa";
+
 /**
  * Servers configured by default. Eleven entries per client is a lot of config;
  * these five cover the broadest agent needs, and `--all` configures everything
