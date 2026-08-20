@@ -308,9 +308,9 @@ function shell(title: string, body: string): string {
     gap: .55rem; padding: .8rem 1.4rem; font-weight: 600; }
   .bar .tag { margin-left: .4rem; font-weight: 400; opacity: .55; font-size: .85rem; }
   .bar .local { margin-left: auto; font-weight: 400; font-size: .78rem; opacity: .5; }
-  main { padding: 2.8rem 12% 4rem; }
+  main { padding: 1.7rem 12% 4rem; }
   .cols { display: grid; grid-template-columns: minmax(0, 1fr) 480px; gap: 2.6rem;
-    align-items: start; margin-top: 1.6rem; }
+    align-items: start; margin-top: 1rem; }
   .rail { position: sticky; top: 1.4rem; }
   .rail h2:first-child { margin-top: .4rem; }
   @media (max-width: 1180px) {
@@ -321,9 +321,9 @@ function shell(title: string, body: string): string {
   .eyebrow { display: flex; align-items: center; gap: .55rem; color: var(--muted);
     font-size: .74rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
   .eyebrow::before { content: ""; width: 26px; height: 3px; background: var(--red); }
-  h1 { font-size: 2.7rem; font-weight: 800; letter-spacing: -.02em; margin: .6rem 0 .6rem; }
+  h1 { font-size: 2.05rem; font-weight: 800; letter-spacing: -.02em; margin: .4rem 0 .35rem; }
   h1 em { font-style: normal; color: var(--red); }
-  .lede { color: var(--muted); max-width: 56rem; font-size: 1.08rem; }
+  .lede { color: var(--muted); max-width: none; font-size: .98rem; }
   h2 { display: flex; align-items: center; gap: .55rem; font-size: 1.08rem; font-weight: 700;
     margin: 2rem 0 .9rem; }
   h2 .n { display: inline-flex; align-items: center; justify-content: center; width: 24px;
@@ -346,10 +346,11 @@ function shell(title: string, body: string): string {
     border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
   .badge.ok { border-color: color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
   .card .brief { color: var(--muted); font-size: .93rem; }
-  .card .more { color: var(--red); font-weight: 600; font-size: .82rem; cursor: pointer;
-    white-space: nowrap; }
-  .card .desc { color: var(--muted); font-size: .9rem; margin-top: .35rem; display: none; }
-  .card.open .desc { display: block; }
+  .card .desc { color: var(--muted); font-size: .93rem; margin-top: .25rem;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card.open .desc { display: block; -webkit-line-clamp: unset; }
+  .card .more { display: inline-block; margin-top: .15rem; color: var(--red); font-weight: 600;
+    font-size: .82rem; cursor: pointer; }
   .chips { color: var(--muted); font-size: .82rem; margin: .2rem 0 .4rem; line-height: 1.9; }
   .chips b { color: var(--ink); font-weight: 600; }
   .authnote { display: flex; gap: .7rem; align-items: flex-start; background: var(--card);
@@ -409,22 +410,15 @@ function renderPage(servers: LiveServer[], clients: ClientInfo[], token: string,
       const rows = list
         .map((s) => {
           const checked = MCP_DEFAULT_SLUGS.includes(s.slug) ? "checked" : "";
-          // Manifest descriptions open with "What it is" before a colon, an
-          // em-dash or the first period — cut at whichever comes first for a
-          // one-line brief (hard cap as a backstop: MarketPulse's description
-          // is one long dash-joined sentence), and expand the full text
-          // behind "more" so eleven cards stay scannable.
-          const d = s.description;
-          const marks = [d.indexOf(":"), d.indexOf(" — "), d.indexOf(". ")].filter((i) => i > 10);
-          let brief = d.slice(0, marks.length ? Math.min(...marks) : d.length);
-          if (brief.length > 88) brief = brief.slice(0, 88).replace(/\s+\S*$/, "") + "…";
-          const rest = d;
+          // The full manifest description, CSS-clamped to two lines; "more"
+          // expands it and is hidden by the page script when the text already
+          // fits — so short cards carry no dead link and long ones stay tidy.
           return `<label class="card ${checked ? "on" : ""}" data-kind="server">
   <input type="checkbox" name="server" value="${s.slug}" ${checked}>
   <span class="body"><span class="head"><span class="name">${stripped(s.name)}</span>
     <span class="badge">${s.toolCount} tools</span></span>
-    <span class="brief">${brief} · <span class="more" data-more>more</span></span>
-    <span class="desc">${rest}</span></span></label>`;
+    <span class="desc">${s.description}</span>
+    <span class="more" data-more>more</span></span></label>`;
         })
         .join("\n");
       return `<div class="cat">${CATEGORY_ICON[cat] ?? I.sparkles}${cat}</div>\n${rows}`;
@@ -499,6 +493,8 @@ machine except the OAuth you approve. The process exits when everything is conne
   });
 
   document.querySelectorAll("[data-more]").forEach(function (m) {
+    var d = m.previousElementSibling;
+    if (d && d.scrollHeight <= d.clientHeight + 8) { m.style.display = "none"; return; }
     m.addEventListener("click", function (ev) {
       ev.preventDefault(); ev.stopPropagation();
       var card = m.closest(".card");
