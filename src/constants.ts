@@ -18,6 +18,10 @@ export const MCP_MANIFEST_URL = "https://aisa.one/.well-known/mcp.json";
 /** Mintlify's docs-search MCP (3 tools: search/read/feedback). Unauthenticated. */
 export const DOCS_MCP_URL = "https://aisa.one/docs/mcp";
 
+/** Where credit is added. Payment always finishes in a browser — Stripe's
+ *  hosted page owns the card details, and 3-D Secure needs one. */
+export const CONSOLE_BILLING_URL = "https://console.aisa.one/billing";
+
 /**
  * Servers configured by default. Eleven entries per client is a lot of config;
  * these five cover the broadest agent needs, and `--all` configures everything

@@ -189,7 +189,13 @@ does not model, `--body '<json>'` is sent verbatim.
 ```bash
 aisa balance                        # wallet and API key credit balance
 aisa balance --json
+aisa topup                          # open the console billing page to add credit
+aisa topup 20                       # same, deep-linked to $20
 ```
+
+Payment always finishes in the browser: card details belong to Stripe's hosted
+page, not to us, and a bank's 3-D Secure step needs one. `topup` opens the
+right page; `--no-open` prints the URL instead.
 
 `aisa usage` is not available yet — the gateway does not serve
 `GET /v1/credits/usage` (it 404s, while `/v1/credits/balance` on the same route

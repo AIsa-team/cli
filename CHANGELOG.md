@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shows per-server authorization progress live, and finishes by opening a
   success page with copy-paste example prompts that name each `aisa-*`
   server explicitly so the request routes to AIsa.
+- **`aisa topup [amount]`** — opens the console billing page to add credit,
+  deep-linking `?amount=` when one is given and rejecting anything that is not
+  a positive number of dollars. Payment finishes in the browser by necessity
+  (Stripe's hosted page owns the card details; 3-D Secure needs a browser).
+  `aisa balance` now points at it when the account is out of credit.
 - CI on every push/PR (build + tests), and a tag-triggered release workflow that
   publishes to npm via Trusted Publishing (OIDC — no stored token, 2FA stays on).
   From the next release, `git push origin vX.Y.Z` is the publish button.
