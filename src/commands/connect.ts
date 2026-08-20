@@ -286,7 +286,7 @@ function shell(title: string, body: string): string {
   }
   * { box-sizing: border-box; margin: 0; }
   body { background: var(--paper); color: var(--ink);
-    font: 15px/1.55 Inter, "Inter Fallback", "PingFang SC", ui-sans-serif, system-ui, sans-serif;
+    font: 16px/1.6 Inter, "Inter Fallback", "PingFang SC", ui-sans-serif, system-ui, sans-serif;
     background-image: radial-gradient(color-mix(in srgb, var(--muted) 22%, transparent) 1px, transparent 1px);
     background-size: 22px 22px; }
   .bar { background: var(--bar); color: #fff; display: flex; align-items: center;
@@ -294,49 +294,58 @@ function shell(title: string, body: string): string {
   .bar .ai { color: #f26522; font-weight: 800; } .bar .sa { color: #fff; font-weight: 800; }
   .bar .tag { margin-left: .4rem; font-weight: 400; opacity: .55; font-size: .85rem; }
   .bar .local { margin-left: auto; font-weight: 400; font-size: .78rem; opacity: .5; }
-  main { max-width: 46rem; margin: 0 auto; padding: 2.6rem 1.4rem 4rem; }
+  main { padding: 2.8rem 12% 4rem; }
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 2.4rem;
+    align-items: start; margin-top: 1.6rem; }
+  .rail { position: sticky; top: 1.4rem; }
+  .rail h2:first-child { margin-top: .4rem; }
+  @media (max-width: 1180px) {
+    main { padding: 2.4rem 6% 4rem; }
+    .cols { grid-template-columns: 1fr; }
+    .rail { position: static; }
+  }
   .eyebrow { display: flex; align-items: center; gap: .55rem; color: var(--muted);
     font-size: .74rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
   .eyebrow::before { content: ""; width: 26px; height: 3px; background: var(--red); }
-  h1 { font-size: 2.1rem; font-weight: 800; letter-spacing: -.02em; margin: .55rem 0 .5rem; }
+  h1 { font-size: 2.7rem; font-weight: 800; letter-spacing: -.02em; margin: .6rem 0 .6rem; }
   h1 em { font-style: normal; color: var(--red); }
-  .lede { color: var(--muted); max-width: 38rem; }
-  h2 { display: flex; align-items: center; gap: .5rem; font-size: .95rem; font-weight: 700;
-    margin: 2.2rem 0 .8rem; }
-  h2 .n { display: inline-flex; align-items: center; justify-content: center; width: 22px;
-    height: 22px; border-radius: 50%; background: var(--red); color: #fff; font-size: .75rem; }
+  .lede { color: var(--muted); max-width: 56rem; font-size: 1.08rem; }
+  h2 { display: flex; align-items: center; gap: .55rem; font-size: 1.08rem; font-weight: 700;
+    margin: 2rem 0 .9rem; }
+  h2 .n { display: inline-flex; align-items: center; justify-content: center; width: 24px;
+    height: 24px; border-radius: 50%; background: var(--red); color: #fff; font-size: .8rem; }
   .cat { display: flex; align-items: center; gap: .45rem; color: var(--muted);
-    font-size: .74rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
-    margin: 1.1rem 0 .45rem; }
+    font-size: .8rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+    margin: 1.2rem 0 .5rem; }
   .cat svg { width: 15px; height: 15px; }
-  .card { display: flex; gap: .8rem; align-items: flex-start; background: var(--card);
+  .card { display: flex; gap: .9rem; align-items: flex-start; background: var(--card);
     border: 1px solid var(--line); border-left: 3px solid var(--line); border-radius: 8px;
-    padding: .85rem .95rem; margin-bottom: .55rem; cursor: pointer; transition: border-color .15s; }
+    padding: 1rem 1.1rem; margin-bottom: .6rem; cursor: pointer; transition: border-color .15s; }
   .card:hover { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); }
   .card.on { border-left-color: var(--red); background: color-mix(in srgb, var(--tint) 55%, var(--card)); }
   .card.off { opacity: .55; cursor: default; }
-  .card input { width: 18px; height: 18px; margin-top: .15rem; accent-color: var(--red-cta); flex: none; }
+  .card input { width: 20px; height: 20px; margin-top: .2rem; accent-color: var(--red-cta); flex: none; }
   .card .body { min-width: 0; }
   .card .head { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
   .card .name { font-weight: 700; }
   .badge { font-size: .7rem; font-weight: 600; padding: .1rem .5rem; border-radius: 99px;
     border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
   .badge.ok { border-color: color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
-  .card .desc { color: var(--muted); font-size: .86rem; margin-top: .25rem; }
+  .card .desc { color: var(--muted); font-size: .93rem; margin-top: .3rem; }
   .authnote { display: flex; gap: .7rem; align-items: flex-start; background: var(--card);
-    border: 1px solid var(--line); border-radius: 8px; padding: .9rem 1rem; color: var(--muted);
-    font-size: .88rem; }
+    border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.1rem; color: var(--muted);
+    font-size: .93rem; }
   .authnote svg { flex: none; margin-top: .1rem; color: var(--red); }
   .authnote b { color: var(--ink); }
-  .cta { display: inline-flex; align-items: center; gap: .6rem; margin-top: 1.8rem;
-    background: var(--red-cta); color: #fff; border: none; border-radius: 6px;
-    font: inherit; font-weight: 600; font-size: 1.02rem; padding: .8rem 2.2rem; cursor: pointer; }
+  .cta { display: flex; width: 100%; align-items: center; justify-content: center; gap: .6rem;
+    margin-top: 1.6rem; background: var(--red-cta); color: #fff; border: none; border-radius: 6px;
+    font: inherit; font-weight: 600; font-size: 1.12rem; padding: .95rem 2.2rem; cursor: pointer; }
   .cta:hover { background: color-mix(in srgb, var(--red-cta) 88%, black); }
   .cta:disabled { opacity: .55; cursor: default; }
-  .fine { color: var(--muted); font-size: .8rem; margin-top: .8rem; }
+  .fine { color: var(--muted); font-size: .84rem; margin-top: .8rem; }
   #progress { margin-top: 1.6rem; display: none; }
-  .step { display: flex; align-items: center; gap: .6rem; padding: .5rem .2rem;
-    border-bottom: 1px dashed var(--line); font-size: .92rem; }
+  .step { display: flex; align-items: center; gap: .6rem; padding: .55rem .2rem;
+    border-bottom: 1px dashed var(--line); font-size: .95rem; }
   .step .st { margin-left: auto; font-size: .8rem; font-weight: 600; color: var(--muted); }
   .step.ok .st { color: var(--ok); } .step.fail .st { color: var(--red); }
   .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line);
@@ -345,9 +354,11 @@ function shell(title: string, body: string): string {
   .bigcheck { width: 64px; height: 64px; border-radius: 50%; background: var(--red);
     color: #fff; display: flex; align-items: center; justify-content: center; margin-bottom: 1.2rem; }
   .bigcheck svg { width: 34px; height: 34px; }
+  .examples { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: .8rem; }
   .example { background: var(--card); border: 1px solid var(--line); border-radius: 8px;
-    padding: .9rem 1rem; margin-bottom: .6rem; display: flex; gap: .8rem; align-items: flex-start; }
-  .example .txt { font-size: .9rem; }
+    padding: 1rem 1.1rem; display: flex; gap: .9rem; align-items: flex-start; }
+  .example .txt { font-size: .95rem; }
   .example .srv { color: var(--red); font-weight: 600; font-size: .74rem; letter-spacing: .06em;
     text-transform: uppercase; display: block; margin-bottom: .25rem; }
   .example button { margin-left: auto; flex: none; display: inline-flex; align-items: center;
@@ -419,9 +430,13 @@ function renderPage(servers: LiveServer[], clients: ClientInfo[], token: string,
 X/Twitter, Reddit, Instagram, stocks, crypto, prediction markets and B2B data — inside the
 coding agent you already use. Pick what you need, press Connect, approve in the browser. Done.</p>
 
+<div class="cols">
+<div class="left">
 <h2><span class="n">1</span>Choose capabilities</h2>
 ${serverGroups}
+</div>
 
+<aside class="rail">
 <h2><span class="n">2</span>Install into</h2>
 ${clientRows}
 
@@ -434,6 +449,8 @@ machine except the OAuth you approve. The process exits when everything is conne
 
 <div id="progress"></div>
 <div id="result" class="fine"></div>
+</aside>
+</div>
 
 <script>
 (function () {
@@ -539,7 +556,9 @@ installed and authorized in <b>${clientNames}</b>. Tokens live in your client an
 automatically — nothing else to configure.</p>
 ${failBlock}
 <h2>${I.sparkles} Try it now — paste one of these into ${clientNames.split(",")[0]}</h2>
+<div class="examples">
 ${examples || '<p class="fine">Ask your agent to use any of the aisa-* MCP tools.</p>'}
+</div>
 <p class="fine">Each prompt names its <code>aisa-*</code> server explicitly, so the request
 routes to AIsa instead of any other tool your agent has. Verify anytime with <code>/mcp</code>
 inside Claude Code — the entries should show <b>Connected</b>.</p>
