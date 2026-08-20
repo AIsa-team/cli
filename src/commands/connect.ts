@@ -99,55 +99,56 @@ const CATEGORY_ICON: Record<string, string> = {
 };
 
 /**
- * One try-it-now prompt per server, shown on the success page for what the
- * user actually installed. Every prompt names the `aisa-<slug>` server
- * explicitly — the one phrasing that reliably routes to our MCP instead of
- * whatever other search/social tool the agent also has.
+ * Try-it-now prompts per server, shown on the success page for what the user
+ * actually installed. Each mentions "AIsa" once — enough of an anchor to
+ * route the first run to our tools (they are all prefixed aisa-*) without
+ * teaching users a scary full-slug incantation; day to day the agent picks
+ * AIsa tools on its own and no naming is needed at all.
  */
 const EXAMPLES: Record<string, string[]> = {
   "web-search": [
-    "Use the aisa-web-search MCP tools to search the web for this week's biggest AI news and summarize the top 3 results with links.",
-    "Use the aisa-web-search MCP tools to research how teams are adopting MCP servers in production and give me a sourced brief.",
+    "Using AIsa, search the web for this week's biggest AI news and summarize the top 3 results with links.",
+    "Using AIsa, research how teams are adopting MCP servers in production and give me a sourced brief.",
   ],
   "twitter-api": [
-    "Use the aisa-twitter-api MCP tools to fetch the latest tweets from @AnthropicAI and summarize the main themes.",
-    "Use the aisa-twitter-api MCP tools to pull @sama's five most recent tweets with their engagement numbers.",
+    "Using AIsa, fetch the latest tweets from @AnthropicAI and summarize the main themes.",
+    "Using AIsa, pull @sama's five most recent tweets with their engagement numbers.",
   ],
   "crypto-market-data": [
-    "Use the aisa-crypto-market-data MCP tools to get Bitcoin's current price and 24h change, then compare it with Ethereum.",
-    "Use the aisa-crypto-market-data MCP tools to list today's trending coins with prices and market caps.",
+    "Using AIsa, get Bitcoin's current price and 24h change, then compare it with Ethereum.",
+    "Using AIsa's crypto data, list today's trending coins with prices and market caps.",
   ],
   marketpulse: [
-    "Use the aisa-marketpulse MCP tools to pull AAPL's latest income statement and summarize the revenue and margin trend.",
-    "Use the aisa-marketpulse MCP tools to screen for US stocks with a market cap above $1T and compare their P/E ratios.",
+    "Using AIsa, pull AAPL's latest income statement and summarize the revenue and margin trend.",
+    "Using AIsa's market data, screen for US stocks with a market cap above $1T and compare their P/E ratios.",
   ],
   "stock-pulse": [
-    "Use the aisa-stock-pulse MCP tools to show what X/Twitter is saying about NVDA today, joined with its market data.",
-    "Use the aisa-stock-pulse MCP tools to find which tickers are trending on X right now and why.",
+    "Using AIsa, show what X/Twitter is saying about NVDA today, joined with its market data.",
+    "Using AIsa, find which tickers are trending on X right now and why.",
   ],
   "prediction-market-data": [
-    "Use the aisa-prediction-market-data MCP tools to list the most active prediction markets right now with their implied probabilities.",
-    "Use the aisa-prediction-market-data MCP tools to compare what Polymarket and Kalshi imply about the next Fed rate decision.",
+    "Using AIsa, list the most active prediction markets right now with their implied probabilities.",
+    "Using AIsa, compare what Polymarket and Kalshi imply about the next Fed rate decision.",
   ],
   reddit: [
-    "Use the aisa-reddit MCP tools to find today's top posts in r/MachineLearning and summarize the discussion.",
-    "Use the aisa-reddit MCP tools to search Reddit for real-world Claude Code workflows people recommend.",
+    "Using AIsa, find today's top posts in r/MachineLearning and summarize the discussion.",
+    "Using AIsa, search Reddit for real-world Claude Code workflows people recommend.",
   ],
   "youtube-search": [
-    "Use the aisa-youtube-search MCP tools to find the three most relevant videos about MCP servers and list their channels.",
-    "Use the aisa-youtube-search MCP tools to find beginner tutorials for Claude Code and pick the best one to start with.",
+    "Using AIsa, find the three most relevant YouTube videos about MCP servers and list their channels.",
+    "Using AIsa, find beginner YouTube tutorials for Claude Code and pick the best one to start with.",
   ],
   instagram: [
-    "Use the aisa-instagram MCP tools to fetch the profile and recent posts of @nasa and describe their content strategy.",
-    "Use the aisa-instagram MCP tools to compare the recent engagement of @natgeo and @nasa.",
+    "Using AIsa, fetch the Instagram profile and recent posts of @nasa and describe their content strategy.",
+    "Using AIsa, compare the recent Instagram engagement of @natgeo and @nasa.",
   ],
   pinterest: [
-    "Use the aisa-pinterest MCP tools to search pins for 'mid-century interior' and summarize the visual trends.",
-    "Use the aisa-pinterest MCP tools to find trending home-office ideas and summarize them with links.",
+    "Using AIsa, search Pinterest for 'mid-century interior' and summarize the visual trends.",
+    "Using AIsa, find trending home-office ideas on Pinterest and summarize them with links.",
   ],
   apollo: [
-    "Use the aisa-apollo MCP tools to enrich the company anthropic.com — size, industry, and key people.",
-    "Use the aisa-apollo MCP tools to find five AI infrastructure startups in San Francisco with their CEOs.",
+    "Using AIsa, enrich the company anthropic.com — size, industry, and key people.",
+    "Using AIsa, find five AI infrastructure startups in San Francisco with their CEOs.",
   ],
 };
 
@@ -648,9 +649,10 @@ ${failBlock}
 <div class="examples">
 ${examples || '<p class="fine">Ask your agent to use any of the aisa-* MCP tools.</p>'}
 </div>
-<p class="fine">Each prompt names its <code>aisa-*</code> server explicitly, so the request
-routes to AIsa instead of any other tool your agent has. Verify anytime with <code>/mcp</code>
-inside Claude Code — the entries should show <b>Connected</b>.</p>
+<p class="fine">These first-run prompts mention <b>AIsa</b> once so the demo reliably lands on
+your new tools. After that, plain natural language is enough — your agent reaches for AIsa on
+its own whenever a task needs live data. Verify anytime with <code>/mcp</code> inside
+Claude Code — the entries should show <b>Connected</b>.</p>
 <p class="fine">This page keeps working after the local process exits.</p>
 <script>
 document.querySelectorAll("[data-copy]").forEach(function (b) {
