@@ -104,29 +104,51 @@ const CATEGORY_ICON: Record<string, string> = {
  * explicitly — the one phrasing that reliably routes to our MCP instead of
  * whatever other search/social tool the agent also has.
  */
-const EXAMPLES: Record<string, string> = {
-  "web-search":
+const EXAMPLES: Record<string, string[]> = {
+  "web-search": [
     "Use the aisa-web-search MCP tools to search the web for this week's biggest AI news and summarize the top 3 results with links.",
-  "twitter-api":
+    "Use the aisa-web-search MCP tools to research how teams are adopting MCP servers in production and give me a sourced brief.",
+  ],
+  "twitter-api": [
     "Use the aisa-twitter-api MCP tools to fetch the latest tweets from @AnthropicAI and summarize the main themes.",
-  "crypto-market-data":
+    "Use the aisa-twitter-api MCP tools to pull @sama's five most recent tweets with their engagement numbers.",
+  ],
+  "crypto-market-data": [
     "Use the aisa-crypto-market-data MCP tools to get Bitcoin's current price and 24h change, then compare it with Ethereum.",
-  marketpulse:
+    "Use the aisa-crypto-market-data MCP tools to list today's trending coins with prices and market caps.",
+  ],
+  marketpulse: [
     "Use the aisa-marketpulse MCP tools to pull AAPL's latest income statement and summarize the revenue and margin trend.",
-  "stock-pulse":
+    "Use the aisa-marketpulse MCP tools to screen for US stocks with a market cap above $1T and compare their P/E ratios.",
+  ],
+  "stock-pulse": [
     "Use the aisa-stock-pulse MCP tools to show what X/Twitter is saying about NVDA today, joined with its market data.",
-  "prediction-market-data":
+    "Use the aisa-stock-pulse MCP tools to find which tickers are trending on X right now and why.",
+  ],
+  "prediction-market-data": [
     "Use the aisa-prediction-market-data MCP tools to list the most active prediction markets right now with their implied probabilities.",
-  reddit:
+    "Use the aisa-prediction-market-data MCP tools to compare what Polymarket and Kalshi imply about the next Fed rate decision.",
+  ],
+  reddit: [
     "Use the aisa-reddit MCP tools to find today's top posts in r/MachineLearning and summarize the discussion.",
-  "youtube-search":
+    "Use the aisa-reddit MCP tools to search Reddit for real-world Claude Code workflows people recommend.",
+  ],
+  "youtube-search": [
     "Use the aisa-youtube-search MCP tools to find the three most relevant videos about MCP servers and list their channels.",
-  instagram:
+    "Use the aisa-youtube-search MCP tools to find beginner tutorials for Claude Code and pick the best one to start with.",
+  ],
+  instagram: [
     "Use the aisa-instagram MCP tools to fetch the profile and recent posts of @nasa and describe their content strategy.",
-  pinterest:
+    "Use the aisa-instagram MCP tools to compare the recent engagement of @natgeo and @nasa.",
+  ],
+  pinterest: [
     "Use the aisa-pinterest MCP tools to search pins for 'mid-century interior' and summarize the visual trends.",
-  apollo:
+    "Use the aisa-pinterest MCP tools to find trending home-office ideas and summarize them with links.",
+  ],
+  apollo: [
     "Use the aisa-apollo MCP tools to enrich the company anthropic.com — size, industry, and key people.",
+    "Use the aisa-apollo MCP tools to find five AI infrastructure startups in San Francisco with their CEOs.",
+  ],
 };
 
 interface ClientInfo {
@@ -363,6 +385,7 @@ function shell(title: string, body: string): string {
     font: inherit; font-weight: 600; font-size: 1.12rem; padding: .95rem 2.2rem; cursor: pointer; }
   .cta:hover { background: color-mix(in srgb, var(--red-cta) 88%, black); }
   .cta:disabled { opacity: .55; cursor: default; }
+  a.cta { text-decoration: none; margin-top: .9rem; }
   .fine { color: var(--muted); font-size: .84rem; margin-top: .8rem; }
   #progress { margin-top: 1.6rem; display: none; }
   .step { display: flex; align-items: center; gap: .6rem; padding: .55rem .2rem;
@@ -375,8 +398,7 @@ function shell(title: string, body: string): string {
   .bigcheck { width: 64px; height: 64px; border-radius: 50%; background: var(--red);
     color: #fff; display: flex; align-items: center; justify-content: center; margin-bottom: 1.2rem; }
   .bigcheck svg { width: 34px; height: 34px; }
-  .examples { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-    gap: .8rem; }
+  .examples { display: grid; grid-template-columns: 1fr; gap: .8rem; max-width: 62rem; }
   .example { background: var(--card); border: 1px solid var(--line); border-radius: 8px;
     padding: 1rem 1.1rem; display: flex; gap: .9rem; align-items: flex-start; }
   .example .txt { font-size: .95rem; }
@@ -452,7 +474,7 @@ function renderPage(servers: LiveServer[], clients: ClientInfo[], token: string,
 
   const body = `
 <div class="eyebrow">Connect</div>
-<h1>Give your agent <em>real-world reach</em></h1>
+<h1><em>AIsa MCP</em> — powerful real-world reach for your agent</h1>
 <p class="lede">One connection puts <b>${totalTools} live tools</b> — web search &amp; research,
 X/Twitter, Reddit, Instagram, stocks, crypto, prediction markets and B2B data — inside the
 coding agent you already use. Pick what you need, press Connect, approve in the browser. Done.</p>
@@ -527,7 +549,10 @@ machine except the OAuth you approve. The process exits when everything is conne
       renderAuth(s.auth || {});
       if (s.phase === "done") {
         document.title = "\\u2713 AIsa Connected";
-        result.innerHTML = "<b>All connected.</b> A success page with try-it-now examples just opened in a new tab.";
+        var link = s.doneUrl
+          ? "<a class='cta' href='" + s.doneUrl + "'>See how to use it \\u2192</a>"
+          : "";
+        result.innerHTML = "<b>All connected.</b> A success page with try-it-now examples just opened in a new tab." + link;
         btn.textContent = "Connected";
         return;
       }
@@ -552,12 +577,8 @@ machine except the OAuth you approve. The process exits when everything is conne
       result.innerHTML = data.results.map(function (r) {
         return (r.ok ? "\\u2713 " : "\\u2717 ") + r.client + ": " + r.message;
       }).join("<br>");
-      if (data.authNext) { poll(); }
-      else if (data.done) {
-        document.title = "\\u2713 AIsa Connected";
-        result.innerHTML += "<br><b>All set.</b> A success page just opened in a new tab.";
-        btn.textContent = "Connected";
-      } else { btn.disabled = false; btn.textContent = "Retry"; }
+      if (data.authNext || data.done) { poll(); }
+      else { btn.disabled = false; btn.textContent = "Retry"; }
     });
   });
 })();
@@ -566,17 +587,27 @@ machine except the OAuth you approve. The process exits when everything is conne
 }
 
 // ── page C: success + try-it-now examples ───────────────────────────────────
-function renderDone(chosen: LiveServer[], clientIds: string[], failures: string[]): string {
+function renderDone(
+  chosen: LiveServer[],
+  clientIds: string[],
+  failures: string[],
+  allServers: LiveServer[]
+): string {
   const clientNames = clientIds
     .map((id) => (id === "claude-code" ? "Claude Code" : FILE_CLIENT_LABELS[id] ?? id))
     .join(", ");
-  const examples = chosen
-    .filter((s) => EXAMPLES[s.slug])
-    .slice(0, 3)
+  // One selected server gets two prompts so the page never feels thin; two or
+  // more get one prompt each (capped at four cards).
+  const withEx = chosen.filter((s) => EXAMPLES[s.slug]);
+  const cards =
+    withEx.length === 1
+      ? EXAMPLES[withEx[0].slug].slice(0, 2).map((text) => ({ slug: withEx[0].slug, text }))
+      : withEx.slice(0, 4).map((s) => ({ slug: s.slug, text: EXAMPLES[s.slug][0] }));
+  const examples = cards
     .map(
-      (s) => `<div class="example"><div><span class="srv">aisa-${s.slug}</span>
-<div class="txt">${EXAMPLES[s.slug]}</div></div>
-<button data-copy="${EXAMPLES[s.slug].replace(/"/g, "&quot;")}">${I.copy} Copy</button></div>`
+      (c) => `<div class="example"><div><span class="srv">aisa-${c.slug}</span>
+<div class="txt">${c.text}</div></div>
+<button data-copy="${c.text.replace(/"/g, "&quot;")}">${I.copy} Copy</button></div>`
     )
     .join("\n");
   const failBlock = failures.length
@@ -584,14 +615,34 @@ function renderDone(chosen: LiveServer[], clientIds: string[], failures: string[
        <b>${failures.length} server(s) were not authorized:</b> ${failures.join(", ")}.
        Retry from your terminal with <code>claude mcp login &lt;name&gt;</code>.</div></div>`
     : "";
+  const toolCount = chosen.reduce((n, s) => n + s.toolCount, 0);
+  const remaining = allServers.length - chosen.length;
+  const remainingTools = allServers.reduce((n, s) => n + s.toolCount, 0) - toolCount;
 
   const body = `
+<style>
+  h1 { font-size: 2.5rem; }
+  .lede { font-size: 1.08rem; }
+  .example .txt { font-size: 1.02rem; }
+  .example .srv { font-size: .8rem; }
+  h2 { font-size: 1.2rem; }
+  .fine { font-size: .9rem; }
+</style>
 <div class="bigcheck">${I.check}</div>
 <div class="eyebrow">Connected</div>
-<h1>Your agent just got <em>${chosen.reduce((n, s) => n + s.toolCount, 0)} new tools</em></h1>
+<h1>Congratulations — your agent just got <em>${toolCount} powerful new tool${toolCount > 1 ? "s" : ""}</em></h1>
 <p class="lede">${chosen.length} AIsa MCP server${chosen.length > 1 ? "s are" : " is"} now
 installed and authorized in <b>${clientNames}</b>. Tokens live in your client and refresh
 automatically — nothing else to configure.</p>
+<p class="lede" style="margin-top:.6rem">You are now connected to <b>AIsa</b> — a powerful capability layer for agents: one account for
+<b>100+ LLMs</b> and <b>950+ live data endpoints</b> built for agents.${
+    remaining > 0
+      ? ` ${remaining} more MCP server${remaining > 1 ? "s" : ""} (${remainingTools} tools) are one
+<code>npx @aisa-one/cli connect</code> away.`
+      : ""
+  }
+Explore the platform at <a href="https://aisa.one" target="_blank" rel="noopener">aisa.one</a> ·
+usage &amp; billing at <a href="https://console.aisa.one" target="_blank" rel="noopener">console.aisa.one</a>.</p>
 ${failBlock}
 <h2>${I.sparkles} Try it now — paste one of these into ${clientNames.split(",")[0]}</h2>
 <div class="examples">
@@ -610,7 +661,7 @@ document.querySelectorAll("[data-copy]").forEach(function (b) {
   });
 });
 </script>`;
-  return shell("✓ AIsa Connected", body);
+  return shell("\u2713 AIsa Connected", body);
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -700,7 +751,7 @@ export async function connectAction(options: {
         .map(([n]) => n);
       res
         .writeHead(200, { "content-type": "text/html; charset=utf-8" })
-        .end(renderDone(chosenServers, chosenClients, failures));
+        .end(renderDone(chosenServers, chosenClients, failures, servers));
       return;
     }
     if (req.method === "POST" && url.pathname === "/apply") {
