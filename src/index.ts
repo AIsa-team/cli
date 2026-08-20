@@ -6,7 +6,7 @@ import { VERSION, DEFAULT_VIDEO_MODEL } from "./constants.js";
 // Auth
 import { loginAction, logoutAction, whoamiAction } from "./commands/auth.js";
 // Account
-import { balanceAction, usageAction } from "./commands/account.js";
+import { balanceAction, topupAction, usageAction } from "./commands/account.js";
 // API
 import { apiListAction, apiSearchAction, apiShowAction, apiCodeAction } from "./commands/api.js";
 // Run
@@ -89,6 +89,12 @@ program
   .action(whoamiAction);
 
 // ── Account ──
+
+program
+  .command("topup [amount]")
+  .description("Add credit — opens the console billing page (amount in USD, optional)")
+  .option("--no-open", "Print the URL instead of opening the browser")
+  .action(topupAction);
 
 program
   .command("balance")
