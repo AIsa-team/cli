@@ -26,16 +26,20 @@ import { join } from "node:path";
  * server's 401 challenge drives the client through the Clerk OAuth flow.
  */
 
-interface LiveServer {
+export interface LiveServer {
   slug: string;
   name: string;
   endpoint: string;
   toolCount: number;
+  /** One-paragraph capability description from the manifest — the single
+   *  source of truth for what a server does; rendered on the connect page. */
+  description: string;
+  category: string;
 }
 
-const stripped = (name: string) => name.replace(/^AIsa\s+/i, "");
+export const stripped = (name: string) => name.replace(/^AIsa\s+/i, "");
 
-async function fetchLiveServers(): Promise<LiveServer[]> {
+export async function fetchLiveServers(): Promise<LiveServer[]> {
   const res = await fetch(MCP_MANIFEST_URL, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`manifest answered HTTP ${res.status}`);
   const manifest = (await res.json()) as {
@@ -45,6 +49,8 @@ async function fetchLiveServers(): Promise<LiveServer[]> {
       status?: string;
       transport?: { endpoint?: string };
       tools?: unknown[];
+      description?: string;
+      category?: string;
     }>;
   };
   const live = (manifest.servers ?? [])
@@ -54,6 +60,8 @@ async function fetchLiveServers(): Promise<LiveServer[]> {
       name: s.name ?? (s.slug as string),
       endpoint: s.transport!.endpoint as string,
       toolCount: s.tools?.length ?? 0,
+      description: s.description ?? "",
+      category: s.category ?? "Other",
     }));
   if (live.length === 0) throw new Error("manifest lists no live servers");
   return live;
@@ -80,6 +88,55 @@ export function buildEntry(
 
 /** The dead entry every pre-v0.3 setup wrote. Remove it on sight. */
 const DEAD_URL = "https://docs.aisa.one/mcp";
+
+export type WriteResult = { ok: true; written: number } | { ok: false; reason: string };
+
+/**
+ * Write the chosen servers (plus the docs server) into one client's config
+ * file. Shared by `aisa mcp setup` and `aisa connect` so the two entry points
+ * cannot drift in how they treat existing files: unparseable JSON is refused,
+ * never replaced, and only the known-dead legacy entry is cleaned up.
+ */
+export function writeClientConfig(
+  agent: string,
+  chosen: LiveServer[],
+  key: string | undefined
+): WriteResult {
+  const config = MCP_CONFIGS[agent];
+  if (!config) return { ok: false, reason: `unknown client "${agent}"` };
+  const filePath = expandHome(config.path);
+
+  let existing: Record<string, unknown> = {};
+  if (existsSync(filePath)) {
+    try {
+      existing = JSON.parse(readFileSync(filePath, "utf-8"));
+    } catch {
+      // A file we cannot parse is a file we do not own. Refuse instead of
+      // wiping a user's hand-edited config.
+      return { ok: false, reason: `${config.path} exists but is not valid JSON` };
+    }
+  } else {
+    ensureDir(join(filePath, ".."));
+  }
+
+  const entries = (existing[config.key] as Record<string, unknown>) || {};
+
+  // Clean up the dead entry earlier releases wrote, and only that one: an
+  // "aisa" entry the user pointed somewhere else on purpose stays.
+  const stale = entries["aisa"] as { url?: string } | undefined;
+  if (stale?.url === DEAD_URL) delete entries["aisa"];
+
+  for (const s of chosen) {
+    entries[`aisa-${s.slug}`] = buildEntry(config.shape, s.endpoint, key);
+  }
+  // The docs-search MCP is tiny, unauthenticated, and answers "how do I call
+  // this" questions — always included.
+  entries["aisa-docs"] = buildEntry(config.shape, DOCS_MCP_URL, undefined);
+
+  existing[config.key] = entries;
+  writeFileSync(filePath, JSON.stringify(existing, null, 2) + "\n", "utf-8");
+  return { ok: true, written: chosen.length + 1 };
+}
 
 export async function mcpSetupAction(options: { agent?: string; all?: boolean }): Promise<void> {
   const targets =
@@ -119,42 +176,14 @@ export async function mcpSetupAction(options: { agent?: string; all?: boolean })
 
   for (const agent of targets) {
     const config = MCP_CONFIGS[agent];
-    const filePath = expandHome(config.path);
-
-    let existing: Record<string, unknown> = {};
-    if (existsSync(filePath)) {
-      try {
-        existing = JSON.parse(readFileSync(filePath, "utf-8"));
-      } catch {
-        // A file we cannot parse is a file we do not own. The old command
-        // replaced it with {} — a user's hand-edited config (comments,
-        // trailing commas) was wiped by a "setup". Refuse instead.
-        error(`${agent}: ${config.path} exists but is not valid JSON — refusing to overwrite it.`);
-        hint("Fix or remove the file, then re-run setup.");
-        continue;
-      }
-    } else {
-      ensureDir(join(filePath, ".."));
+    const result = writeClientConfig(agent, chosen, key);
+    if (!result.ok) {
+      error(`${agent}: ${result.reason} — refusing to overwrite it.`);
+      hint("Fix or remove the file, then re-run setup.");
+      continue;
     }
-
-    const entries = (existing[config.key] as Record<string, unknown>) || {};
-
-    // Clean up the dead entry earlier releases wrote, and only that one:
-    // an "aisa" entry the user pointed somewhere else on purpose stays.
-    const stale = entries["aisa"] as { url?: string } | undefined;
-    if (stale?.url === DEAD_URL) delete entries["aisa"];
-
-    for (const s of chosen) {
-      entries[`aisa-${s.slug}`] = buildEntry(config.shape, s.endpoint, key);
-    }
-    // The docs-search MCP is tiny, unauthenticated, and answers "how do I call
-    // this" questions — always included.
-    entries["aisa-docs"] = buildEntry(config.shape, DOCS_MCP_URL, undefined);
-
-    existing[config.key] = entries;
-    writeFileSync(filePath, JSON.stringify(existing, null, 2) + "\n", "utf-8");
     console.log(
-      `  ${chalk.green("✓")} ${agent}: ${chosen.length + 1} servers (${config.shape}) → ${config.path}`
+      `  ${chalk.green("✓")} ${agent}: ${result.written} servers (${config.shape}) → ${config.path}`
     );
   }
 

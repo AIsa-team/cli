@@ -249,6 +249,27 @@ To publish a skill, open a pull request against
 
 ## MCP Server
 
+### One-liner: `connect`
+
+```bash
+npx @aisa-one/cli connect
+```
+
+Opens a small local page (served by this process on `127.0.0.1`, shut down
+when finished) where you tick the AIsa MCP servers you want and the coding
+agents to install them into. Claude Code is configured through its own
+`claude mcp add` (user scope), then signed in through its own OAuth: connect
+runs `claude mcp login` per server, your browser opens the AIsa
+authorization, and the tokens live in Claude Code's own store where it also
+refreshes them — no API key, nothing pasted. Cursor, Claude Desktop and
+Windsurf get config entries and run the same OAuth themselves on first use.
+The page matches the AIsa Console style, reports authorization progress
+live, and a success page with copy-paste try-it-now prompts opens when
+everything is connected. No daemon stays behind. `--no-open` prints the URL
+instead of launching a browser; `--dry-run` shows what would be written.
+
+### Scripted: `mcp setup`
+
 ```bash
 aisa mcp setup                          # configure the default servers for every detected client
 aisa mcp setup --all                    # every live server, not just the defaults
