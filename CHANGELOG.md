@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (and refreshes) the tokens; file-based clients authorize the same way on
   first use. No API key, nothing pasted, nothing stored by the CLI. A
   configured key short-circuits login (entries carry it as a Bearer header).
+  The page follows the AIsa Console design (warm dot-grid, Inter, the
+  Console red), groups servers by category with their manifest descriptions,
+  shows per-server authorization progress live, and finishes by opening a
+  success page with copy-paste example prompts that name each `aisa-*`
+  server explicitly so the request routes to AIsa.
 - CI on every push/PR (build + tests), and a tag-triggered release workflow that
   publishes to npm via Trusted Publishing (OIDC — no stored token, 2FA stays on).
   From the next release, `git push origin vX.Y.Z` is the publish button.

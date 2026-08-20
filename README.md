@@ -263,8 +263,10 @@ runs `claude mcp login` per server, your browser opens the AIsa
 authorization, and the tokens live in Claude Code's own store where it also
 refreshes them — no API key, nothing pasted. Cursor, Claude Desktop and
 Windsurf get config entries and run the same OAuth themselves on first use.
-No daemon stays behind. `--no-open` prints the URL instead of launching a
-browser; `--dry-run` shows what would be written.
+The page matches the AIsa Console style, reports authorization progress
+live, and a success page with copy-paste try-it-now prompts opens when
+everything is connected. No daemon stays behind. `--no-open` prints the URL
+instead of launching a browser; `--dry-run` shows what would be written.
 
 ### Scripted: `mcp setup`
 

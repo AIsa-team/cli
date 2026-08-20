@@ -31,6 +31,10 @@ export interface LiveServer {
   name: string;
   endpoint: string;
   toolCount: number;
+  /** One-paragraph capability description from the manifest — the single
+   *  source of truth for what a server does; rendered on the connect page. */
+  description: string;
+  category: string;
 }
 
 export const stripped = (name: string) => name.replace(/^AIsa\s+/i, "");
@@ -45,6 +49,8 @@ export async function fetchLiveServers(): Promise<LiveServer[]> {
       status?: string;
       transport?: { endpoint?: string };
       tools?: unknown[];
+      description?: string;
+      category?: string;
     }>;
   };
   const live = (manifest.servers ?? [])
@@ -54,6 +60,8 @@ export async function fetchLiveServers(): Promise<LiveServer[]> {
       name: s.name ?? (s.slug as string),
       endpoint: s.transport!.endpoint as string,
       toolCount: s.tools?.length ?? 0,
+      description: s.description ?? "",
+      category: s.category ?? "Other",
     }));
   if (live.length === 0) throw new Error("manifest lists no live servers");
   return live;
