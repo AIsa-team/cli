@@ -11,6 +11,7 @@ import { MCP_CONFIGS, MCP_DEFAULT_SLUGS } from "../constants.js";
 import { getApiKey } from "../config.js";
 import { fetchLiveServers, writeClientConfig, stripped, type LiveServer } from "./mcp.js";
 import { INSTALLERS, installAgent, supported } from "./install.js";
+import { writeCodexMCP } from "./llm-config.js";
 import { formatMicrosUSD } from "./account.js";
 import { apiRequest } from "../api.js";
 
@@ -185,6 +186,18 @@ export function detectClients(): ClientInfo[] {
     detail: claudeVersion || "claude not found on PATH",
   });
 
+  // Codex keeps its MCP servers in ~/.codex/config.toml, so like Claude Code
+  // it is detected by asking the binary rather than by looking for a file we
+  // own.
+  const codex = spawnSync("codex", ["--version"], { timeout: 5_000, encoding: "utf8" });
+  clients.push({
+    id: "codex",
+    label: "Codex",
+    kind: "cli",
+    detected: codex.status === 0,
+    detail: codex.status === 0 ? codex.stdout.trim() : "codex not found on PATH",
+  });
+
   for (const [id, cfg] of Object.entries(MCP_CONFIGS)) {
     // "Installed" here means the client's config directory exists. Coarse,
     // but the false-positive cost is one harmless config file.
@@ -271,6 +284,20 @@ async function applySelection(
       } catch (e) {
         results.push({ client: id, ok: false, message: (e as Error).message });
       }
+    } else if (id === "codex") {
+      if (dryRun) {
+        results.push({ client: id, ok: true, message: `would write ${chosen.length} servers to ~/.codex/config.toml` });
+        continue;
+      }
+      const r = writeCodexMCP(
+        chosen.map((s) => ({ slug: s.slug, endpoint: s.endpoint })),
+        key
+      );
+      results.push(
+        r.ok
+          ? { client: id, ok: true, message: `${chosen.length} servers → ~/.codex/config.toml` }
+          : { client: id, ok: false, message: r.reason }
+      );
     } else if (MCP_CONFIGS[id]) {
       if (dryRun) {
         results.push({ client: id, ok: true, message: `would write ${chosen.length + 1} entries to ${MCP_CONFIGS[id].path}` });
@@ -698,7 +725,7 @@ function renderPage(
   <input type="checkbox" name="install" value="${c.id}">
   <span class="body"><span class="head"><span class="name">${c.label}</span>
     <span class="badge">not installed</span></span>
-    <span class="brief">Tick to install it, then connect \u2014 <code>${INSTALLERS[c.id].command}</code></span></span></label>`
+    <span class="brief">Tick to install <b>and</b> connect it \u2014 <code>${INSTALLERS[c.id].command}</code></span></span></label>`
       )
       .join("\n") +
     (rest.length
@@ -745,12 +772,22 @@ machine except the OAuth you approve. The process exits when everything is conne
 (function () {
   var TOKEN = ${JSON.stringify(token)};
   var btn = document.getElementById("apply");
+  var ARROW = btn.innerHTML.replace(/^[^<]*/, "");
   var progress = document.getElementById("progress");
   var result = document.getElementById("result");
+
+  // The button says what pressing it will do: installing is slower and more
+  // invasive than writing config, so it should never be a surprise.
+  function syncButton() {
+    if (btn.disabled) return;
+    var installing = picked("install").length;
+    btn.innerHTML = (installing ? "Install &amp; connect " : "Connect ") + ARROW;
+  }
 
   document.querySelectorAll(".card input").forEach(function (cb) {
     cb.addEventListener("change", function () {
       cb.closest(".card").classList.toggle("on", cb.checked);
+      syncButton();
     });
   });
 
@@ -1022,6 +1059,12 @@ export async function connectAction(options: {
       chosenServers = servers.filter((s) => body.servers?.includes(s.slug));
       chosenClients = body.clients ?? [];
       const wantInstall = new Set(body.install ?? []);
+      // Ticking "install" means "and connect it": nobody installs an agent
+      // here except to put AIsa servers in it, and asking twice for the same
+      // intention is how a user ends up with an empty Codex.
+      for (const id of wantInstall) {
+        if (!chosenClients.includes(id)) chosenClients.push(id);
+      }
       state.phase = "applying";
 
       // The whole plan, in order, before any of it runs — the page renders it
