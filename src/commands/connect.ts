@@ -10,6 +10,9 @@ import { expandHome } from "../utils/file.js";
 import { MCP_CONFIGS, MCP_DEFAULT_SLUGS } from "../constants.js";
 import { getApiKey } from "../config.js";
 import { fetchLiveServers, writeClientConfig, stripped, type LiveServer } from "./mcp.js";
+import { INSTALLERS, installAgent, supported } from "./install.js";
+import { formatMicrosUSD } from "./account.js";
+import { apiRequest } from "../api.js";
 
 /**
  * `aisa connect` — a one-shot local web page that wires AIsa's MCP servers
@@ -155,7 +158,7 @@ const EXAMPLES: Record<string, string[]> = {
 interface ClientInfo {
   id: string;
   label: string;
-  kind: "cli" | "file" | "soon";
+  kind: "cli" | "file";
   detected: boolean;
   detail: string;
 }
@@ -194,18 +197,6 @@ export function detectClients(): ClientInfo[] {
       detail: cfg.path,
     });
   }
-
-  // Codex: shown for the roadmap's sake (its config is TOML and its OAuth
-  // story differs), never selectable until real support lands. An honest
-  // label beats a checkbox that writes a config Codex cannot read.
-  const codex = spawnSync("codex", ["--version"], { timeout: 5_000, encoding: "utf8" });
-  clients.push({
-    id: "codex",
-    label: "Codex",
-    kind: "soon",
-    detected: false,
-    detail: codex.status === 0 ? "detected — support coming soon" : "support coming soon",
-  });
 
   return clients;
 }
@@ -299,12 +290,219 @@ async function applySelection(
 }
 
 // ── live run state, served at /status for the page to poll ─────────────────
+//
+// Every unit of work the page shows is one Step, in the order it will run, so
+// the browser can render the whole plan up front — greyed out, then ticking
+// over — rather than surprising the user one line at a time. Installing an
+// agent takes tens of seconds; a plan that is visible from the start is the
+// difference between waiting and wondering.
+type StepState = "pending" | "running" | "ok" | "fail" | "skip";
+interface Step {
+  id: string;
+  /** Imperative while pending/running ("Install Codex"), so the plan reads as
+   *  a list of intentions before anything has happened. */
+  label: string;
+  state: StepState;
+  /** One line under the label: progress, result, or what to do about a
+   *  failure. Replaced as the step advances. */
+  detail?: string;
+}
 type AuthState = "pending" | "authorizing" | "ok" | "fail";
 interface RunState {
   phase: "selecting" | "applying" | "authorizing" | "done" | "failed";
   results: ApplyResult[];
   auth: Record<string, AuthState>; // key: aisa-<slug>
+  steps: Step[];
   doneUrl?: string;
+}
+
+/** Mutate one step in place; the page picks it up on its next poll. */
+function setStep(state: RunState, id: string, patch: Partial<Step>): void {
+  const step = state.steps.find((s) => s.id === id);
+  if (step) Object.assign(step, patch);
+}
+
+interface PlanInput {
+  install: string[];
+  clients: string[];
+  servers: LiveServer[];
+  keyed: boolean;
+  dryRun: boolean;
+}
+
+/**
+ * The plan the page renders before anything runs.
+ *
+ * Order matters and mirrors what a person would do by hand: get the agent on
+ * the machine, prove who you are, see whether you can pay for anything, then
+ * wire the capabilities up. A later step that depends on an earlier one is
+ * marked skipped rather than failed when its prerequisite did not happen —
+ * "skipped" is information, "failed" is alarm.
+ */
+function buildPlan(input: PlanInput): Step[] {
+  const steps: Step[] = [];
+  for (const id of input.install) {
+    const label = INSTALLERS[id]?.label ?? id;
+    steps.push({
+      id: `install:${id}`,
+      label: `Install ${label}`,
+      state: "pending",
+      detail: INSTALLERS[id]?.command,
+    });
+  }
+  steps.push({
+    id: "mcp",
+    label: `Add ${input.servers.length} MCP server${input.servers.length === 1 ? "" : "s"}`,
+    state: "pending",
+    detail: input.clients.join(", "),
+  });
+  if (!input.keyed && !input.dryRun && input.clients.includes("claude-code")) {
+    for (const s of input.servers) {
+      steps.push({
+        id: `auth:${s.slug}`,
+        label: `Authorize aisa-${s.slug}`,
+        state: "pending",
+        detail: "opens the AIsa sign-in in your browser",
+      });
+    }
+  }
+  steps.push({
+    id: "balance",
+    label: "Check your AIsa balance",
+    state: "pending",
+    detail: "so an empty account is not a surprise at the first call",
+  });
+  return steps;
+}
+
+interface RunInput {
+  install: string[];
+  clients: string[];
+  servers: LiveServer[];
+  key: string | undefined;
+  dryRun: boolean;
+}
+
+/**
+ * Run the plan, updating state as each step settles. Returns how many failed.
+ *
+ * Nothing here throws: one broken step must not cost the user the rest of the
+ * run, so every failure is recorded on its own row and the plan continues.
+ */
+async function runPlan(state: RunState, input: RunInput): Promise<number> {
+  let failures = 0;
+  const fail = (id: string, detail: string) => {
+    failures++;
+    setStep(state, id, { state: "fail", detail });
+    console.log(`  ${chalk.red("✗")} ${id}: ${detail}`);
+  };
+  const ok = (id: string, detail: string) => {
+    setStep(state, id, { state: "ok", detail });
+    console.log(`  ${chalk.green("✓")} ${id}: ${detail}`);
+  };
+
+  // ── install ──
+  for (const id of input.install) {
+    const stepId = `install:${id}`;
+    const label = INSTALLERS[id]?.label ?? id;
+    setStep(state, stepId, { state: "running", detail: `running ${INSTALLERS[id]?.command}` });
+    info(`Installing ${label}…`);
+    if (input.dryRun) {
+      ok(stepId, "dry run — nothing installed");
+      continue;
+    }
+    const outcome = await installAgent(id);
+    if (outcome.ok) {
+      ok(stepId, outcome.alreadyInstalled ? "already installed" : "installed");
+    } else {
+      // Not a hard failure: the user can run the command themselves and the
+      // rest of the plan still applies to whatever they already have.
+      setStep(state, stepId, {
+        state: "fail",
+        detail: `${outcome.detail} — run: ${outcome.command}`,
+      });
+      failures++;
+      error(`${label}: ${outcome.detail}`);
+      hint(`Run this yourself, then re-run connect: ${outcome.command}`);
+    }
+  }
+
+  // ── MCP entries ──
+  setStep(state, "mcp", { state: "running", detail: "writing client configuration" });
+  const results = await applySelection(input.clients, input.servers, input.key, input.dryRun);
+  state.results = results;
+  for (const r of results) {
+    console.log(`  ${r.ok ? chalk.green("✓") : chalk.red("✗")} ${r.client}: ${r.message}`);
+  }
+  const mcpOk = results.length > 0 && results.every((r) => r.ok);
+  if (mcpOk) {
+    setStep(state, "mcp", { state: "ok", detail: results.map((r) => r.client).join(", ") });
+  } else {
+    failures++;
+    setStep(state, "mcp", {
+      state: "fail",
+      detail: results.filter((r) => !r.ok).map((r) => `${r.client}: ${r.message}`).join("; "),
+    });
+  }
+
+  // ── authorization, one browser round per server ──
+  const authSteps = state.steps.filter((s) => s.id.startsWith("auth:"));
+  if (authSteps.length > 0) {
+    if (!mcpOk) {
+      for (const step of authSteps) {
+        setStep(state, step.id, { state: "skip", detail: "the entries were not added" });
+      }
+    } else {
+      state.phase = "authorizing";
+      info("Starting browser authorization for each server…");
+      for (const step of authSteps) {
+        const slug = step.id.slice("auth:".length);
+        const name = `aisa-${slug}`;
+        setStep(state, step.id, { state: "running", detail: "approve it in the browser tab" });
+        state.auth[name] = "authorizing";
+        const authorized = await claudeCodeLogin(name);
+        state.auth[name] = authorized ? "ok" : "fail";
+        if (authorized) ok(step.id, "authorized");
+        else fail(step.id, `not authorized — retry with: claude mcp login ${name}`);
+      }
+    }
+  }
+
+  // ── balance, the last thing before the success page ──
+  setStep(state, "balance", { state: "running", detail: "reading your account" });
+  const balance = await readBalance(input.key);
+  if (balance === null) {
+    // Not a failure: an unknown balance costs nothing, and today it is the
+    // normal answer for an OAuth-only caller.
+    setStep(state, "balance", {
+      state: "skip",
+      detail: input.key
+        ? "could not read the balance right now"
+        : "needs an API key today — run 'aisa balance' once you have one",
+    });
+  } else if (balance <= 0) {
+    setStep(state, "balance", {
+      state: "ok",
+      detail: "no credit yet — add some with 'aisa topup' before your first call",
+    });
+    hint("No credit yet — run 'aisa topup' to add some");
+  } else {
+    setStep(state, "balance", { state: "ok", detail: `${formatMicrosUSD(balance)} available` });
+  }
+
+  return failures;
+}
+
+/** Account balance in micros, or null when it cannot be read. */
+async function readBalance(key: string | undefined): Promise<number | null> {
+  if (!key) return null;
+  try {
+    const res = await apiRequest<{ account_balance_micros_usd: number }>(key, "credits/balance");
+    if (!res.success || !res.data) return null;
+    return Number(res.data.account_balance_micros_usd);
+  } catch {
+    return null;
+  }
 }
 
 // ── shared page shell (brand: auth.aisa.one) ────────────────────────────────
@@ -389,13 +587,38 @@ function shell(title: string, body: string): string {
   a.cta { text-decoration: none; margin-top: .9rem; }
   .fine { color: var(--muted); font-size: .84rem; margin-top: .8rem; }
   #progress { margin-top: 1.6rem; display: none; }
-  .step { display: flex; align-items: center; gap: .6rem; padding: .55rem .2rem;
-    border-bottom: 1px dashed var(--line); font-size: .95rem; }
-  .step .st { margin-left: auto; font-size: .8rem; font-weight: 600; color: var(--muted); }
+  .step { display: flex; align-items: flex-start; gap: .7rem; padding: .6rem .2rem;
+    border-bottom: 1px dashed var(--line); font-size: .95rem;
+    opacity: .5; transition: opacity .3s; }
+  .step.running, .step.ok, .step.fail { opacity: 1; }
+  .step .body { min-width: 0; }
+  .step .lbl { font-weight: 500; }
+  .step .det { color: var(--muted); font-size: .84rem; margin-top: .15rem; }
+  .step .st { margin-left: auto; font-size: .8rem; font-weight: 600; color: var(--muted);
+    white-space: nowrap; padding-left: .6rem; }
   .step.ok .st { color: var(--ok); } .step.fail .st { color: var(--red); }
+  /* The marker carries the state: an empty ring waiting, a spinner working,
+     a tick or cross when settled. Position is fixed so rows never jump. */
+  .step .mark { flex: none; width: 16px; height: 16px; margin-top: .15rem;
+    border-radius: 50%; border: 2px solid var(--line); display: flex;
+    align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
+    color: #fff; transition: background .25s, border-color .25s; }
+  .step.running .mark { border-color: var(--red); border-top-color: transparent;
+    animation: r .8s linear infinite; }
+  .step.ok .mark { background: var(--ok); border-color: var(--ok); }
+  .step.ok .mark::after { content: "\\2713"; }
+  .step.fail .mark { background: var(--red); border-color: var(--red); }
+  .step.fail .mark::after { content: "\\2715"; }
+  .step.skip .mark { border-style: dotted; }
   .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line);
     border-top-color: var(--red); border-radius: 50%; animation: r 1s linear infinite; }
   @keyframes r { to { transform: rotate(360deg); } }
+  /* Overall progress: one bar so a long run reads at a glance. */
+  .bar-wrap { height: 4px; background: var(--line); border-radius: 99px; overflow: hidden;
+    margin: .9rem 0 .3rem; }
+  .bar-fill { height: 100%; width: 0; background: var(--red); border-radius: 99px;
+    transition: width .4s ease; }
+  .bar-note { color: var(--muted); font-size: .8rem; }
   .bigcheck { width: 64px; height: 64px; border-radius: 50%; background: var(--red);
     color: #fff; display: flex; align-items: center; justify-content: center; margin-bottom: 1.2rem; }
   .bigcheck svg { width: 34px; height: 34px; }
@@ -421,7 +644,13 @@ function shell(title: string, body: string): string {
 }
 
 // ── page A: selection + live progress ───────────────────────────────────────
-function renderPage(servers: LiveServer[], clients: ClientInfo[], token: string, keyed: boolean): string {
+function renderPage(
+  servers: LiveServer[],
+  clients: ClientInfo[],
+  token: string,
+  keyed: boolean,
+  canInstall: boolean
+): string {
   const byCategory = new Map<string, LiveServer[]>();
   for (const s of servers) {
     const list = byCategory.get(s.category) ?? [];
@@ -448,8 +677,11 @@ function renderPage(servers: LiveServer[], clients: ClientInfo[], token: string,
     })
     .join("\n");
 
-  const usable = clients.filter((c) => c.detected && c.kind !== "soon");
-  const rest = clients.filter((c) => !c.detected || c.kind === "soon");
+  const usable = clients.filter((c) => c.detected);
+  const installable = clients.filter((c) => !c.detected && INSTALLERS[c.id] && canInstall);
+  const rest = clients.filter(
+    (c) => !c.detected && !installable.some((i) => i.id === c.id)
+  );
   const clientRows =
     usable
       .map(
@@ -460,10 +692,17 @@ function renderPage(servers: LiveServer[], clients: ClientInfo[], token: string,
     <span class="brief">${c.detail}</span></span></label>`
       )
       .join("\n") +
+    installable
+      .map(
+        (c) => `<label class="card" data-kind="client">
+  <input type="checkbox" name="install" value="${c.id}">
+  <span class="body"><span class="head"><span class="name">${c.label}</span>
+    <span class="badge">not installed</span></span>
+    <span class="brief">Tick to install it, then connect \u2014 <code>${INSTALLERS[c.id].command}</code></span></span></label>`
+      )
+      .join("\n") +
     (rest.length
-      ? `<div class="chips">${rest
-          .map((c) => `${c.label} <i>· ${c.kind === "soon" ? "coming soon" : "not found"}</i>`)
-          .join(" &nbsp;&nbsp; ")}</div>`
+      ? `<div class="chips">${rest.map((c) => `${c.label} <i>· not found</i>`).join(" &nbsp;&nbsp; ")}</div>`
       : "");
 
   const totalTools = servers.reduce((n, s) => n + s.toolCount, 0);
@@ -532,22 +771,37 @@ machine except the OAuth you approve. The process exits when everything is conne
       function (i) { return i.value; });
   }
 
-  function renderAuth(auth) {
-    var names = Object.keys(auth);
-    if (!names.length) return;
+  var STATE_WORD = { pending: "waiting", running: "working\\u2026", ok: "done",
+                     fail: "failed", skip: "skipped" };
+
+  function renderSteps(steps) {
+    if (!steps || !steps.length) return;
     progress.style.display = "block";
-    progress.innerHTML = "<h2><span class='n'>4</span>Authorizing</h2>" + names.map(function (n) {
-      var st = auth[n];
-      var cls = st === "ok" ? "ok" : st === "fail" ? "fail" : "";
-      var label = st === "ok" ? "authorized" : st === "fail" ? "failed — retry: claude mcp login " + n
-        : st === "authorizing" ? "<span class='spin'></span>" : "waiting";
-      return "<div class='step " + cls + "'><span>" + n + "</span><span class='st'>" + label + "</span></div>";
+    var settled = steps.filter(function (s) {
+      return s.state === "ok" || s.state === "skip";
+    }).length;
+    var failed = steps.filter(function (s) { return s.state === "fail"; }).length;
+    var pct = Math.round(((settled + failed) / steps.length) * 100);
+    var running = steps.filter(function (s) { return s.state === "running"; })[0];
+
+    var rows = steps.map(function (s) {
+      return "<div class='step " + s.state + "'>" +
+        "<span class='mark'></span>" +
+        "<span class='body'><span class='lbl'>" + s.label + "</span>" +
+        (s.detail ? "<span class='det'>" + s.detail + "</span>" : "") +
+        "</span><span class='st'>" + (STATE_WORD[s.state] || s.state) + "</span></div>";
     }).join("");
+
+    progress.innerHTML = "<h2><span class='n'>4</span>Setting things up</h2>" +
+      "<div class='bar-wrap'><div class='bar-fill' style='width:" + pct + "%'></div></div>" +
+      "<div class='bar-note'>" + (settled + failed) + " of " + steps.length + " \\u00b7 " +
+      (running ? running.label : (pct === 100 ? "finished" : "starting\\u2026")) + "</div>" +
+      rows;
   }
 
   function poll() {
     fetch("/status?token=" + TOKEN).then(function (r) { return r.json(); }).then(function (s) {
-      renderAuth(s.auth || {});
+      renderSteps(s.steps);
       if (s.phase === "done") {
         document.title = "\\u2713 AIsa Connected";
         var link = s.doneUrl
@@ -566,20 +820,17 @@ machine except the OAuth you approve. The process exits when everything is conne
   }
 
   btn.addEventListener("click", function () {
-    var servers = picked("server"), clients = picked("client");
-    if (!servers.length || !clients.length) {
+    var servers = picked("server"), clients = picked("client"), install = picked("install");
+    if (!servers.length || (!clients.length && !install.length)) {
       result.textContent = "Pick at least one capability and one client."; return;
     }
     btn.disabled = true; btn.textContent = "Connecting\\u2026";
     fetch("/apply", { method: "POST",
       headers: { "content-type": "application/json", "x-connect-token": TOKEN },
-      body: JSON.stringify({ servers: servers, clients: clients })
+      body: JSON.stringify({ servers: servers, clients: clients, install: install })
     }).then(function (r) { return r.json(); }).then(function (data) {
-      result.innerHTML = data.results.map(function (r) {
-        return (r.ok ? "\\u2713 " : "\\u2717 ") + r.client + ": " + r.message;
-      }).join("<br>");
-      if (data.authNext || data.done) { poll(); }
-      else { btn.disabled = false; btn.textContent = "Retry"; }
+      renderSteps(data.steps);
+      poll();
     });
   });
 })();
@@ -696,7 +947,7 @@ export async function connectAction(options: {
     return;
   }
   const clients = detectClients();
-  const detected = clients.filter((c) => c.detected && c.kind !== "soon");
+  const detected = clients.filter((c) => c.detected);
   if (detected.length === 0) {
     error("No supported client found (Claude Code, Cursor, Claude Desktop, Windsurf).");
     hint("Install one, or use 'aisa mcp setup --agent <client>' to write a config anyway.");
@@ -708,9 +959,9 @@ export async function connectAction(options: {
   // One random token per run: the page and every endpoint require it, so
   // another local process cannot drive this server blind.
   const token = randomBytes(16).toString("hex");
-  const page = renderPage(servers, clients, token, Boolean(key));
+  const page = renderPage(servers, clients, token, Boolean(key), supported());
 
-  const state: RunState = { phase: "selecting", results: [], auth: {} };
+  const state: RunState = { phase: "selecting", results: [], auth: {}, steps: [] };
   let chosenServers: LiveServer[] = [];
   let chosenClients: string[] = [];
   let port = 0;
@@ -761,7 +1012,7 @@ export async function connectAction(options: {
         res.writeHead(403).end();
         return;
       }
-      let body: { servers?: string[]; clients?: string[] };
+      let body: { servers?: string[]; clients?: string[]; install?: string[] };
       try {
         body = JSON.parse(await readBody(req));
       } catch {
@@ -770,60 +1021,42 @@ export async function connectAction(options: {
       }
       chosenServers = servers.filter((s) => body.servers?.includes(s.slug));
       chosenClients = body.clients ?? [];
+      const wantInstall = new Set(body.install ?? []);
       state.phase = "applying";
 
-      const results = await applySelection(chosenClients, chosenServers, key, Boolean(options.dryRun));
-      state.results = results;
-      const done = results.length > 0 && results.every((r) => r.ok);
-      // Entries added for Claude Code without a key still need tokens; that
-      // is the login pass below, announced to the page via authNext.
-      const authNext =
-        done &&
-        !options.dryRun &&
-        !key &&
-        chosenClients.includes("claude-code") &&
-        chosenServers.length > 0;
-      if (authNext) {
-        for (const s of chosenServers) state.auth[`aisa-${s.slug}`] = "pending";
-        state.phase = "authorizing";
-      }
-      res
-        .writeHead(200, { "content-type": "application/json" })
-        .end(JSON.stringify({ results, done, authNext }));
+      // The whole plan, in order, before any of it runs — the page renders it
+      // greyed out so a long install reads as progress rather than a hang.
+      state.steps = buildPlan({
+        install: [...wantInstall],
+        clients: chosenClients,
+        servers: chosenServers,
+        keyed: Boolean(key),
+        dryRun: Boolean(options.dryRun),
+      });
+      res.writeHead(200, { "content-type": "application/json" }).end(
+        JSON.stringify({ started: true, steps: state.steps })
+      );
 
-      for (const r of results) {
-        const mark = r.ok ? chalk.green("✓") : chalk.red("✗");
-        console.log(`  ${mark} ${r.client}: ${r.message}`);
-      }
-      if (done && !settled) {
-        settled = true;
-        clearTimeout(idle);
-        let authFailures = 0;
-        if (authNext) {
-          // The platform's own OAuth, through Claude Code's own machinery:
-          // one browser authorization per server, tokens stored and refreshed
-          // by Claude Code. Sequential on purpose — parallel logins would
-          // race the browser with several consent tabs at once.
-          info("Starting browser authorization for each server…");
-          for (const s of chosenServers) {
-            const name = `aisa-${s.slug}`;
-            state.auth[name] = "authorizing";
-            const ok = await claudeCodeLogin(name);
-            state.auth[name] = ok ? "ok" : "fail";
-            if (!ok) authFailures++;
-            console.log(
-              `  ${ok ? chalk.green("✓") : chalk.red("✗")} ${name}: ${ok ? "authorized" : "authorization failed or timed out"}`
-            );
-          }
-        }
-        state.phase = authFailures > 0 ? "failed" : "done";
-        if (authFailures > 0) {
-          error(`${authFailures} server(s) not authorized — run 'claude mcp login <name>' to retry.`);
+      if (settled) return;
+      settled = true;
+      clearTimeout(idle);
+      const failures = await runPlan(state, {
+        install: [...wantInstall],
+        clients: chosenClients,
+        servers: chosenServers,
+        key,
+        dryRun: Boolean(options.dryRun),
+      });
+      const results = state.results;
+      {
+        state.phase = failures > 0 ? "failed" : "done";
+        if (failures > 0) {
+          error(`${failures} step(s) did not complete — see the notes above.`);
         }
         success(
           options.dryRun
             ? "Dry run complete — nothing was written."
-            : `Connected and authorized ${chosenServers.length} server(s) for ${results.length} client(s)`
+            : `Connected ${chosenServers.length} server(s) for ${results.length} client(s)`
         );
         if (!options.dryRun) {
           // The success page opens as a fresh tab from this process (an OS
@@ -837,7 +1070,7 @@ export async function connectAction(options: {
           info("Keeping the success page alive for 5 minutes (Ctrl-C to finish now)…");
           setTimeout(() => {
             srv.close();
-            process.exit(authFailures > 0 ? 1 : 0);
+            process.exit(failures > 0 ? 1 : 0);
           }, LINGER_AFTER_DONE_MS);
         } else {
           setTimeout(() => {
