@@ -25,6 +25,8 @@ const {
   removeCodexLLM,
   writeCodexMCP,
   DEFAULT_MODELS,
+  CODEX_DEFAULT_MODELS,
+  defaultModelsFor,
 } = await import("../src/commands/llm-config.js");
 const { LLM_BASE_URL, LLM_RESPONSES_BASE_URL, AISA_PROVIDER_ID } = await import(
   "../src/constants.js"
@@ -97,7 +99,7 @@ describe("Codex LLM config", () => {
     expect(res.ok).toBe(true);
     const config = readToml(codexPath());
     expect(config.model_provider).toBe(AISA_PROVIDER_ID);
-    expect(config.model).toBe(DEFAULT_MODELS.model);
+    expect(config.model).toBe(CODEX_DEFAULT_MODELS.model);
     const provider = config.model_providers[AISA_PROVIDER_ID];
     expect(provider.base_url).toBe(LLM_RESPONSES_BASE_URL);
     expect(provider.wire_api).toBe("responses");
@@ -148,6 +150,20 @@ describe("Codex LLM config", () => {
     seed(codexPath(), "not = = toml");
     expect(writeCodexLLM("sk-test").ok).toBe(false);
     expect(readFileSync(codexPath(), "utf-8")).toBe("not = = toml");
+  });
+});
+
+describe("model defaults follow the agent", () => {
+  it("gives Codex an OpenAI model and Claude Code an Anthropic one", () => {
+    expect(defaultModelsFor("codex").model).toMatch(/^gpt-/);
+    expect(defaultModelsFor("claude-code").model).toMatch(/^claude-/);
+  });
+
+  it("writes each agent its own default", () => {
+    writeCodexLLM("sk-test");
+    writeClaudeCodeLLM("sk-test");
+    expect(readToml(codexPath()).model).toBe(CODEX_DEFAULT_MODELS.model);
+    expect(readJson(claudePath()).env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe(DEFAULT_MODELS.model);
   });
 });
 

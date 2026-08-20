@@ -36,11 +36,32 @@ export interface ModelChoice {
   contextWindow: number;
 }
 
+/**
+ * Defaults follow the agent, not our preference.
+ *
+ * Each coding agent is tuned around a model family: its system prompt, tool
+ * schemas and patch format were written and evaluated against one. Codex is
+ * OpenAI's, and `gpt-5.3-codex` is the model trained for it; Claude Code is
+ * Anthropic's. Sending either somewhere else works — the gateway speaks both
+ * protocols — but it is not the pairing the agent was built for, and it is
+ * not what a user installing that agent expects. Both remain switchable.
+ */
 export const DEFAULT_MODELS: ModelChoice = {
   model: "claude-sonnet-5",
   smallModel: "claude-haiku-4-5-20251001",
   contextWindow: 200_000,
 };
+
+export const CODEX_DEFAULT_MODELS: ModelChoice = {
+  model: "gpt-5.3-codex",
+  smallModel: "gpt-5.4-mini",
+  contextWindow: 400_000,
+};
+
+/** The default pairing for one agent. */
+export function defaultModelsFor(client: string): ModelChoice {
+  return client === "codex" ? CODEX_DEFAULT_MODELS : DEFAULT_MODELS;
+}
 
 export type ConfigResult = { ok: true; path: string } | { ok: false; reason: string };
 
@@ -117,7 +138,7 @@ function writeToml(path: string, config: Record<string, unknown>): void {
  * `/v1` root our gateway serves `/v1/responses` from — hence the separate
  * constant and `wire_api = "responses"`.
  */
-export function writeCodexLLM(apiKey: string, models: ModelChoice = DEFAULT_MODELS): ConfigResult {
+export function writeCodexLLM(apiKey: string, models: ModelChoice = CODEX_DEFAULT_MODELS): ConfigResult {
   const path = codexConfigPath();
   const config = readToml(path);
   if (config === null) return { ok: false, reason: `${path} exists but is not valid TOML` };

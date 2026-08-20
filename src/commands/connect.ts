@@ -11,7 +11,7 @@ import { MCP_CONFIGS, MCP_DEFAULT_SLUGS } from "../constants.js";
 import { getApiKey } from "../config.js";
 import { fetchLiveServers, writeClientConfig, stripped, type LiveServer } from "./mcp.js";
 import { INSTALLERS, installAgent, supported } from "./install.js";
-import { writeCodexMCP, writeCodexLLM, writeClaudeCodeLLM, DEFAULT_MODELS } from "./llm-config.js";
+import { writeCodexLLM, writeClaudeCodeLLM, defaultModelsFor } from "./llm-config.js";
 import { formatMicrosUSD } from "./account.js";
 import { apiRequest } from "../api.js";
 
@@ -566,10 +566,11 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       });
     } else {
       const target = input.clients[0];
+      const models = defaultModelsFor(target);
       const res =
-        target === "codex" ? writeCodexLLM(input.key) : writeClaudeCodeLLM(input.key);
+        target === "codex" ? writeCodexLLM(input.key, models) : writeClaudeCodeLLM(input.key, models);
       if (res.ok) {
-        ok("llm", `${DEFAULT_MODELS.model} via ${res.path}`);
+        ok("llm", `${models.model} via ${res.path}`);
         if (target === "codex") {
           // A freshly installed Codex offers to sign in to OpenAI on first
           // run. Nothing here needs that account, and picking one of those
@@ -857,6 +858,10 @@ function renderPage(
       : "");
 
   const totalTools = servers.reduce((n, s) => n + s.toolCount, 0);
+  // Named per client so the page can say which model a pick actually gets.
+  const modelByClient = Object.fromEntries(
+    clients.map((c) => [c.id, defaultModelsFor(c.id).model])
+  );
   const authCopy = keyed
     ? `Your configured AIsa API key is written into each entry — <b>no sign-in needed</b>.`
     : `<b>No API keys, nothing to paste.</b> After you press Connect, your browser opens the
@@ -886,9 +891,8 @@ ${clientRows}
 <label class="card" data-kind="llm" id="llmcard">
   <input type="checkbox" id="llm">
   <span class="body"><span class="head"><span class="name">Run it on AIsa models</span></span>
-    <span class="brief" id="llmbrief">Points the agent's model traffic at AIsa
-    (${DEFAULT_MODELS.model}). Reversible \u2014 it writes the agent's own provider
-    settings and nothing else.</span></span></label>
+    <span class="brief" id="llmbrief">Points the agent's model traffic at AIsa.
+    Reversible \u2014 it writes the agent's own provider settings and nothing else.</span></span></label>
 
 <h2 style="margin-top:1.6rem"><span class="n">4</span>Authorize</h2>
 <div class="authnote">${I.shield}<div>${authCopy}</div></div>
@@ -914,6 +918,7 @@ machine except the OAuth you approve. The process exits when everything is conne
   var llmBrief = document.getElementById("llmbrief");
   var LLM_BRIEF = llmBrief.innerHTML;
   var lastClient = null;
+  var MODEL_FOR = ${JSON.stringify(modelByClient)};
 
   function syncButton() {
     if (btn.disabled) return;
@@ -929,9 +934,10 @@ machine except the OAuth you approve. The process exits when everything is conne
       lastClient = chosen.value;
       llmBox.checked = Boolean(installing);
       llmBox.closest(".card").classList.toggle("on", llmBox.checked);
-      llmBrief.innerHTML = installing
-        ? "<b>Recommended \\u2014 a fresh install has no model backend yet.</b> " + LLM_BRIEF
-        : LLM_BRIEF;
+      var model = MODEL_FOR[chosen.value] || "";
+      llmBrief.innerHTML = (installing
+        ? "<b>Recommended \\u2014 a fresh install has no model backend yet.</b> "
+        : "") + (model ? "Runs it on <b>" + model + "</b> through AIsa. " : "") + LLM_BRIEF;
     }
   }
 
