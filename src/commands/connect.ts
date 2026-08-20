@@ -230,6 +230,38 @@ async function claudeCodeAdd(name: string, endpoint: string, key: string | undef
 }
 
 /**
+ * Add one server to Codex, letting Codex do the authorising.
+ *
+ * `codex mcp add --url` detects that the endpoint speaks OAuth and starts the
+ * flow itself — one command instead of the add-then-login pair Claude Code
+ * needs. Writing config.toml directly, as an earlier version did, skips that
+ * detection entirely and leaves entries that list as "Not logged in": present,
+ * enabled, and 401 on first use.
+ *
+ * stdio is inherited because the flow prints an authorisation URL and waits.
+ */
+function codexAdd(name: string, endpoint: string, key: string | undefined): Promise<boolean> {
+  return new Promise((resolve) => {
+    const args = ["mcp", "add", name, "--url", endpoint];
+    // Codex takes the *name* of an environment variable, never the token
+    // itself — so a key never reaches the process table or a shell history.
+    // With one configured we point every server at the same variable; without
+    // one, add detects OAuth support and authorises instead.
+    if (key) args.push("--bearer-token-env-var", CODEX_KEY_ENV_VAR);
+    const child = spawn("codex", args, { stdio: "inherit" });
+    const timer = setTimeout(() => child.kill("SIGTERM"), 180_000);
+    child.once("close", (code) => {
+      clearTimeout(timer);
+      resolve(code === 0);
+    });
+    child.once("error", () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
+  });
+}
+
+/**
  * Drive Claude Code's own OAuth for one server: `claude mcp login` opens the
  * browser authorization and stores the tokens in Claude Code's own store,
  * where Claude Code also refreshes them. stdio is inherited on purpose — the
@@ -286,17 +318,27 @@ async function applySelection(
       }
     } else if (id === "codex") {
       if (dryRun) {
-        results.push({ client: id, ok: true, message: `would write ${chosen.length} servers to ~/.codex/config.toml` });
+        results.push({ client: id, ok: true, message: `would run codex mcp add for ${chosen.length} servers` });
         continue;
       }
-      const r = writeCodexMCP(
-        chosen.map((s) => ({ slug: s.slug, endpoint: s.endpoint })),
-        key
-      );
+      let added = 0;
+      for (const s of chosen) {
+        const name = `aisa-${s.slug}`;
+        // Remove first: codex mcp add refuses an existing name, and removing
+        // one that is absent is a no-op we do not care about either way.
+        await execFileP("codex", ["mcp", "remove", name], { timeout: 15_000 }).catch(() => {});
+        if (await codexAdd(name, s.endpoint, key)) added++;
+      }
       results.push(
-        r.ok
-          ? { client: id, ok: true, message: `${chosen.length} servers → ~/.codex/config.toml` }
-          : { client: id, ok: false, message: r.reason }
+        added === chosen.length
+          ? {
+              client: id,
+              ok: true,
+              message: key
+                ? `${added} servers added — they read your key from $${CODEX_KEY_ENV_VAR}`
+                : `${added} servers added and authorized`,
+            }
+          : { client: id, ok: false, message: `only ${added} of ${chosen.length} servers were added` }
       );
     } else if (MCP_CONFIGS[id]) {
       if (dryRun) {
@@ -345,7 +387,12 @@ interface RunState {
 
 /** Long enough to read one sentence before the screen changes under you.
  *  Every handoff to the browser or to a slow command gets one. */
-const BEFORE_HANDOFF_MS = 1200;
+const BEFORE_HANDOFF_MS = 3000;
+
+/** The environment variable Codex reads a bearer token from. Chosen to match
+ *  the CLI's own AISA_API_KEY so a user who already exports it needs nothing
+ *  further. */
+const CODEX_KEY_ENV_VAR = "AISA_API_KEY";
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Mutate one step in place; the page picks it up on its next poll. */
@@ -398,6 +445,8 @@ function buildPlan(input: PlanInput): Step[] {
       detail: "writes the agent's own provider settings; reversible",
     });
   }
+  // Only Claude Code needs a separate authorisation pass; codex mcp add runs
+  // the OAuth flow as part of adding each server.
   if (!input.keyed && !input.dryRun && input.clients.includes("claude-code")) {
     for (const s of input.servers) {
       steps.push({
@@ -479,7 +528,14 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
   }
 
   // ── MCP entries ──
-  setStep(state, "mcp", { state: "running", detail: "writing client configuration" });
+  const willAuthorize = !input.key && input.clients[0] === "codex";
+  setStep(state, "mcp", {
+    state: "running",
+    detail: willAuthorize
+      ? "adding each server — your browser will open to authorize them"
+      : "writing client configuration",
+  });
+  if (willAuthorize) await pause(BEFORE_HANDOFF_MS);
   const results = await applySelection(input.clients, input.servers, input.key, input.dryRun);
   state.results = results;
   for (const r of results) {
