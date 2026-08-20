@@ -11,7 +11,7 @@ import { MCP_CONFIGS, MCP_DEFAULT_SLUGS } from "../constants.js";
 import { getApiKey } from "../config.js";
 import { fetchLiveServers, writeClientConfig, stripped, type LiveServer } from "./mcp.js";
 import { INSTALLERS, installAgent, supported } from "./install.js";
-import { writeCodexMCP } from "./llm-config.js";
+import { writeCodexMCP, writeCodexLLM, writeClaudeCodeLLM, DEFAULT_MODELS } from "./llm-config.js";
 import { formatMicrosUSD } from "./account.js";
 import { apiRequest } from "../api.js";
 
@@ -343,6 +343,11 @@ interface RunState {
   doneUrl?: string;
 }
 
+/** Long enough to read one sentence before the screen changes under you.
+ *  Every handoff to the browser or to a slow command gets one. */
+const BEFORE_HANDOFF_MS = 1200;
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /** Mutate one step in place; the page picks it up on its next poll. */
 function setStep(state: RunState, id: string, patch: Partial<Step>): void {
   const step = state.steps.find((s) => s.id === id);
@@ -355,6 +360,8 @@ interface PlanInput {
   servers: LiveServer[];
   keyed: boolean;
   dryRun: boolean;
+  /** Point this client's model traffic at AIsa as well as its tools. */
+  llm: boolean;
 }
 
 /**
@@ -383,6 +390,14 @@ function buildPlan(input: PlanInput): Step[] {
     state: "pending",
     detail: input.clients.join(", "),
   });
+  if (input.llm) {
+    steps.push({
+      id: "llm",
+      label: "Point its models at AIsa",
+      state: "pending",
+      detail: "writes the agent's own provider settings; reversible",
+    });
+  }
   if (!input.keyed && !input.dryRun && input.clients.includes("claude-code")) {
     for (const s of input.servers) {
       steps.push({
@@ -408,6 +423,7 @@ interface RunInput {
   servers: LiveServer[];
   key: string | undefined;
   dryRun: boolean;
+  llm: boolean;
 }
 
 /**
@@ -432,8 +448,16 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
   for (const id of input.install) {
     const stepId = `install:${id}`;
     const label = INSTALLERS[id]?.label ?? id;
-    setStep(state, stepId, { state: "running", detail: `running ${INSTALLERS[id]?.command}` });
+    setStep(state, stepId, {
+      state: "running",
+      detail: `about to run ${INSTALLERS[id]?.command}`,
+    });
     info(`Installing ${label}…`);
+    await pause(BEFORE_HANDOFF_MS);
+    setStep(state, stepId, {
+      state: "running",
+      detail: `installing — this usually takes under a minute`,
+    });
     if (input.dryRun) {
       ok(stepId, "dry run — nothing installed");
       continue;
@@ -472,6 +496,36 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
     });
   }
 
+  // ── LLM provider ──
+  if (state.steps.some((s) => s.id === "llm")) {
+    setStep(state, "llm", { state: "running", detail: "writing provider settings" });
+    if (input.dryRun) {
+      ok("llm", "dry run — nothing written");
+    } else if (!input.key) {
+      // The provider entry needs a key to put in it, and we have none to
+      // give: skipped is the honest state, with the way out named.
+      setStep(state, "llm", {
+        state: "skip",
+        detail: "needs an API key — run 'aisa login --key <key>', then connect again",
+      });
+    } else {
+      const target = input.clients[0];
+      const res =
+        target === "codex" ? writeCodexLLM(input.key) : writeClaudeCodeLLM(input.key);
+      if (res.ok) {
+        ok("llm", `${DEFAULT_MODELS.model} via ${res.path}`);
+        if (target === "codex") {
+          // A freshly installed Codex offers to sign in to OpenAI on first
+          // run. Nothing here needs that account, and picking one of those
+          // options sends the user down a path that ignores this config.
+          hint("Start it with 'codex' in a new terminal — skip any OpenAI sign-in prompt, it is not needed");
+        } else {
+          hint("Start it with 'claude' in a new terminal to pick up the new models");
+        }
+      } else fail("llm", res.reason);
+    }
+  }
+
   // ── authorization, one browser round per server ──
   const authSteps = state.steps.filter((s) => s.id.startsWith("auth:"));
   if (authSteps.length > 0) {
@@ -485,7 +539,18 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       for (const step of authSteps) {
         const slug = step.id.slice("auth:".length);
         const name = `aisa-${slug}`;
-        setStep(state, step.id, { state: "running", detail: "approve it in the browser tab" });
+        // Say what is about to happen, then pause long enough to read it.
+        // A browser tab that appears with no warning reads as something going
+        // wrong; a sentence and a beat make it an expected step.
+        setStep(state, step.id, {
+          state: "running",
+          detail: "opening the AIsa sign-in in your browser — approve it there…",
+        });
+        await pause(BEFORE_HANDOFF_MS);
+        setStep(state, step.id, {
+          state: "running",
+          detail: "waiting for you to approve it in the browser tab",
+        });
         state.auth[name] = "authorizing";
         const authorized = await claudeCodeLogin(name);
         state.auth[name] = authorized ? "ok" : "fail";
@@ -619,8 +684,8 @@ function shell(title: string, body: string): string {
     opacity: .5; transition: opacity .3s; }
   .step.running, .step.ok, .step.fail { opacity: 1; }
   .step .body { min-width: 0; }
-  .step .lbl { font-weight: 500; }
-  .step .det { color: var(--muted); font-size: .84rem; margin-top: .15rem; }
+  .step .lbl { display: block; font-weight: 500; }
+  .step .det { display: block; color: var(--muted); font-size: .84rem; margin-top: .15rem; }
   .step .st { margin-left: auto; font-size: .8rem; font-weight: 600; color: var(--muted);
     white-space: nowrap; padding-left: .6rem; }
   .step.ok .st { color: var(--ok); } .step.fail .st { color: var(--red); }
@@ -709,11 +774,14 @@ function renderPage(
   const rest = clients.filter(
     (c) => !c.detected && !installable.some((i) => i.id === c.id)
   );
+  // One target per run, on purpose. Each client has its own install, config
+  // format and authorisation dance; doing several at once turns one failure
+  // into a puzzle about which of them failed and what state the rest are in.
   const clientRows =
     usable
       .map(
-        (c) => `<label class="card on" data-kind="client">
-  <input type="checkbox" name="client" value="${c.id}" checked>
+        (c, i) => `<label class="card${i === 0 ? " on" : ""}" data-kind="client">
+  <input type="radio" name="client" value="${c.id}"${i === 0 ? " checked" : ""}>
   <span class="body"><span class="head"><span class="name">${c.label}</span>
     <span class="badge ok">detected</span></span>
     <span class="brief">${c.detail}</span></span></label>`
@@ -722,10 +790,10 @@ function renderPage(
     installable
       .map(
         (c) => `<label class="card" data-kind="client">
-  <input type="checkbox" name="install" value="${c.id}">
+  <input type="radio" name="client" value="${c.id}" data-install="1">
   <span class="body"><span class="head"><span class="name">${c.label}</span>
     <span class="badge">not installed</span></span>
-    <span class="brief">Tick to install <b>and</b> connect it \u2014 <code>${INSTALLERS[c.id].command}</code></span></span></label>`
+    <span class="brief">Install <b>and</b> connect it \u2014 <code>${INSTALLERS[c.id].command}</code></span></span></label>`
       )
       .join("\n") +
     (rest.length
@@ -758,7 +826,15 @@ ${clientRows}
 
 <button class="cta" id="apply">Connect ${I.arrow}</button>
 
-<h2 style="margin-top:1.6rem"><span class="n">3</span>Authorize</h2>
+<h2 style="margin-top:1.6rem"><span class="n">3</span>Models</h2>
+<label class="card" data-kind="llm" id="llmcard">
+  <input type="checkbox" id="llm">
+  <span class="body"><span class="head"><span class="name">Run it on AIsa models</span></span>
+    <span class="brief" id="llmbrief">Points the agent's model traffic at AIsa
+    (${DEFAULT_MODELS.model}). Reversible \u2014 it writes the agent's own provider
+    settings and nothing else.</span></span></label>
+
+<h2 style="margin-top:1.6rem"><span class="n">4</span>Authorize</h2>
 <div class="authnote">${I.shield}<div>${authCopy}</div></div>
 <p class="fine">Served by the local <code>aisa connect</code> process — nothing leaves your
 machine except the OAuth you approve. The process exits when everything is connected.</p>
@@ -778,15 +854,46 @@ machine except the OAuth you approve. The process exits when everything is conne
 
   // The button says what pressing it will do: installing is slower and more
   // invasive than writing config, so it should never be a surprise.
+  var llmBox = document.getElementById("llm");
+  var llmBrief = document.getElementById("llmbrief");
+  var LLM_BRIEF = llmBrief.innerHTML;
+  var lastClient = null;
+
   function syncButton() {
     if (btn.disabled) return;
-    var installing = picked("install").length;
+    var chosen = document.querySelector('input[name="client"]:checked');
+    var installing = chosen && chosen.dataset.install === "1";
     btn.innerHTML = (installing ? "Install &amp; connect " : "Connect ") + ARROW;
+
+    // An agent being installed right now has no model backend at all, so this
+    // is on by default there and off for one already in use — changing a
+    // working setup should be the user's decision, not ours. Only re-applied
+    // when the target changes, so a deliberate tick is never undone.
+    if (chosen && chosen.value !== lastClient) {
+      lastClient = chosen.value;
+      llmBox.checked = Boolean(installing);
+      llmBox.closest(".card").classList.toggle("on", llmBox.checked);
+      llmBrief.innerHTML = installing
+        ? "<b>Recommended \\u2014 a fresh install has no model backend yet.</b> " + LLM_BRIEF
+        : LLM_BRIEF;
+    }
   }
+
+  llmBox.addEventListener("change", function () {
+    llmBox.closest(".card").classList.toggle("on", llmBox.checked);
+  });
 
   document.querySelectorAll(".card input").forEach(function (cb) {
     cb.addEventListener("change", function () {
-      cb.closest(".card").classList.toggle("on", cb.checked);
+      if (cb.type === "radio") {
+        // A radio unchecks its siblings without firing their events, so the
+        // whole group is repainted rather than just this row.
+        document.querySelectorAll('input[name="' + cb.name + '"]').forEach(function (r) {
+          r.closest(".card").classList.toggle("on", r.checked);
+        });
+      } else {
+        cb.closest(".card").classList.toggle("on", cb.checked);
+      }
       syncButton();
     });
   });
@@ -829,7 +936,7 @@ machine except the OAuth you approve. The process exits when everything is conne
         "</span><span class='st'>" + (STATE_WORD[s.state] || s.state) + "</span></div>";
     }).join("");
 
-    progress.innerHTML = "<h2><span class='n'>4</span>Setting things up</h2>" +
+    progress.innerHTML = "<h2><span class='n'>5</span>Setting things up</h2>" +
       "<div class='bar-wrap'><div class='bar-fill' style='width:" + pct + "%'></div></div>" +
       "<div class='bar-note'>" + (settled + failed) + " of " + steps.length + " \\u00b7 " +
       (running ? running.label : (pct === 100 ? "finished" : "starting\\u2026")) + "</div>" +
@@ -857,14 +964,17 @@ machine except the OAuth you approve. The process exits when everything is conne
   }
 
   btn.addEventListener("click", function () {
-    var servers = picked("server"), clients = picked("client"), install = picked("install");
-    if (!servers.length || (!clients.length && !install.length)) {
+    var servers = picked("server");
+    var chosen = document.querySelector('input[name="client"]:checked');
+    if (!servers.length || !chosen) {
       result.textContent = "Pick at least one capability and one client."; return;
     }
+    var clients = [chosen.value];
+    var install = chosen.dataset.install === "1" ? [chosen.value] : [];
     btn.disabled = true; btn.textContent = "Connecting\\u2026";
     fetch("/apply", { method: "POST",
       headers: { "content-type": "application/json", "x-connect-token": TOKEN },
-      body: JSON.stringify({ servers: servers, clients: clients, install: install })
+      body: JSON.stringify({ servers: servers, clients: clients, install: install, llm: llmBox.checked })
     }).then(function (r) { return r.json(); }).then(function (data) {
       renderSteps(data.steps);
       poll();
@@ -1049,7 +1159,7 @@ export async function connectAction(options: {
         res.writeHead(403).end();
         return;
       }
-      let body: { servers?: string[]; clients?: string[]; install?: string[] };
+      let body: { servers?: string[]; clients?: string[]; install?: string[]; llm?: boolean };
       try {
         body = JSON.parse(await readBody(req));
       } catch {
@@ -1075,6 +1185,7 @@ export async function connectAction(options: {
         servers: chosenServers,
         keyed: Boolean(key),
         dryRun: Boolean(options.dryRun),
+        llm: Boolean(body.llm),
       });
       res.writeHead(200, { "content-type": "application/json" }).end(
         JSON.stringify({ started: true, steps: state.steps })
@@ -1089,6 +1200,7 @@ export async function connectAction(options: {
         servers: chosenServers,
         key,
         dryRun: Boolean(options.dryRun),
+        llm: Boolean(body.llm),
       });
       const results = state.results;
       {
@@ -1107,6 +1219,8 @@ export async function connectAction(options: {
           // away to the authorization rarely come back to the first tab.
           const doneUrl = `http://127.0.0.1:${port}/done?token=${token}`;
           state.doneUrl = doneUrl;
+          info("Opening a success page with try-it-now examples…");
+          await pause(BEFORE_HANDOFF_MS);
           openBrowser(doneUrl);
           hint("A success page with try-it-now examples just opened in your browser");
           hint("Verify anytime with /mcp inside Claude Code — entries should show Connected");
