@@ -274,3 +274,30 @@ export function writeCodexMCP(
   writeToml(path, config);
   return { ok: true, path };
 }
+
+/**
+ * Swap an entry's env-var token reference for the literal Authorization header.
+ *
+ * `codex mcp add --bearer-token-env-var` is the official way to add a keyed
+ * entry without triggering the OAuth flow, but it records only the variable
+ * NAME — at runtime Codex reads the token from its own process environment,
+ * and nothing guarantees the user's shell exports it. `http_headers` is the
+ * field Codex accepts for a literal header (`bearer_token` is explicitly
+ * rejected by its config loader), and it matches what the Claude Code path
+ * already stores via --header. The env-var reference is removed so the entry
+ * has exactly one source of credentials.
+ */
+export function patchCodexMCPAuth(name: string, apiKey: string): ConfigResult {
+  const path = codexConfigPath();
+  const config = readToml(path);
+  if (config === null) return { ok: false, reason: `${path} exists but is not valid TOML` };
+
+  const servers = config.mcp_servers as Record<string, Record<string, unknown>> | undefined;
+  const entry = servers?.[name];
+  if (!entry) return { ok: false, reason: `no MCP entry named ${name} in ${path}` };
+
+  delete entry.bearer_token_env_var;
+  entry.http_headers = { Authorization: `Bearer ${apiKey}` };
+  writeToml(path, config);
+  return { ok: true, path };
+}

@@ -11,7 +11,8 @@ import { MCP_CONFIGS, MCP_DEFAULT_SLUGS } from "../constants.js";
 import { getApiKey } from "../config.js";
 import { fetchLiveServers, writeClientConfig, stripped, type LiveServer } from "./mcp.js";
 import { INSTALLERS, installAgent, supported } from "./install.js";
-import { writeCodexLLM, writeClaudeCodeLLM, defaultModelsFor } from "./llm-config.js";
+import { writeCodexLLM, writeClaudeCodeLLM, defaultModelsFor, patchCodexMCPAuth } from "./llm-config.js";
+import { mintCliKey } from "./oauth-login.js";
 import { formatMicrosUSD } from "./account.js";
 import { apiRequest } from "../api.js";
 
@@ -29,14 +30,15 @@ import { apiRequest } from "../api.js";
  * - It is a *visitor*, not a resident: pick servers, pick clients, apply,
  *   sign in, exit. No daemon, no terminal takeover, no prompt or skill
  *   injection into the user's agent. The user stays in their own Claude Code.
- * - Sign-in is the platform's own OAuth, driven through each client's own
- *   machinery: after the entries are added, `claude mcp login <name>` is run
- *   per server — Claude Code opens the browser authorization (Clerk), and
- *   the tokens land in Claude Code's own store, where Claude Code refreshes
- *   them. No API key, nothing pasted, nothing for us to store or expire.
- *   File-based clients (mcp-remote bridges) run the same OAuth themselves on
- *   first use. A configured `aisa` API key short-circuits all of it (entries
- *   carry it as a Bearer header and no login is needed).
+ * - Sign-in is one OAuth round for everything: with no key stored, the run
+ *   starts with the same browser approval `aisa login` uses, which mints the
+ *   durable "aisa cli" key (POST /v1/keys/mint). Every MCP entry is then
+ *   written as a bearer and the model provider gets the same key — zero
+ *   per-server authorization popups. Only if that sign-in fails do we fall
+ *   back to each client's own OAuth machinery (`claude mcp login <name>` per
+ *   server; `codex mcp add` runs its own flow), which still works but costs
+ *   one browser round per server. A key configured beforehand skips the
+ *   sign-in entirely.
  * - The page reports the whole journey live (GET /status polling), and a
  *   dedicated success page opens at the end — spawned by this process via
  *   the OS browser command, so no popup blocker is involved — because users
@@ -327,7 +329,11 @@ async function applySelection(
         // Remove first: codex mcp add refuses an existing name, and removing
         // one that is absent is a no-op we do not care about either way.
         await execFileP("codex", ["mcp", "remove", name], { timeout: 15_000 }).catch(() => {});
-        if (await codexAdd(name, s.endpoint, key)) added++;
+        if (!(await codexAdd(name, s.endpoint, key))) continue;
+        // The add stored only the env-var NAME; swap it for the literal
+        // header so the entry works in every terminal, exported or not.
+        if (key && !patchCodexMCPAuth(name, key).ok) continue;
+        added++;
       }
       results.push(
         added === chosen.length
@@ -335,7 +341,7 @@ async function applySelection(
               client: id,
               ok: true,
               message: key
-                ? `${added} servers added — they read your key from $${CODEX_KEY_ENV_VAR}`
+                ? `${added} servers added with your key`
                 : `${added} servers added and authorized`,
             }
           : { client: id, ok: false, message: `only ${added} of ${chosen.length} servers were added` }
@@ -389,13 +395,13 @@ interface RunState {
  *  Every handoff to the browser or to a slow command gets one. */
 const BEFORE_HANDOFF_MS = 3000;
 
-/** The environment variable Codex reads a bearer token from. Chosen to match
- *  the CLI's own AISA_API_KEY so a user who already exports it needs nothing
- *  further. */
+/** Passed to `codex mcp add --bearer-token-env-var` so the add does not start
+ *  its own OAuth flow; the entry is then patched to carry the literal header
+ *  (see applySelection), because nothing guarantees a shell exports this.
+ *  Matches the CLI's own variable so an exported key also just works. */
 const CODEX_KEY_ENV_VAR = "AISA_API_KEY";
 
-/** Where a key comes from until the platform can mint one for an OAuth
- *  caller directly. */
+/** The manual fallback when the inline sign-in cannot mint a key. */
 const CONSOLE_KEYS_URL = "https://console.aisa.one/api-keys";
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -435,6 +441,19 @@ function buildPlan(input: PlanInput): Step[] {
       detail: INSTALLERS[id]?.command,
     });
   }
+  // One sign-in, before anything that wants a credential: the browser
+  // approval mints the durable CLI key, and with it every MCP entry is a
+  // bearer and the model provider can be written — no per-server popups.
+  // If it fails at run time the per-server OAuth rounds come back as a
+  // fallback (added to the plan then, not promised now).
+  if (!input.keyed && !input.dryRun) {
+    steps.push({
+      id: "signin",
+      label: "Sign in to AIsa",
+      state: "pending",
+      detail: "one browser approval — it mints your CLI key",
+    });
+  }
   steps.push({
     id: "mcp",
     label: `Add ${input.servers.length} MCP server${input.servers.length === 1 ? "" : "s"}`,
@@ -448,18 +467,6 @@ function buildPlan(input: PlanInput): Step[] {
       state: "pending",
       detail: "writes the agent's own provider settings; reversible",
     });
-  }
-  // Only Claude Code needs a separate authorisation pass; codex mcp add runs
-  // the OAuth flow as part of adding each server.
-  if (!input.keyed && !input.dryRun && input.clients.includes("claude-code")) {
-    for (const s of input.servers) {
-      steps.push({
-        id: `auth:${s.slug}`,
-        label: `Authorize aisa-${s.slug}`,
-        state: "pending",
-        detail: "opens the AIsa sign-in in your browser",
-      });
-    }
   }
   steps.push({
     id: "balance",
@@ -531,8 +538,48 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
     }
   }
 
+  // ── sign in once, before anything that wants a credential ──
+  let key = input.key;
+  if (state.steps.some((s) => s.id === "signin")) {
+    setStep(state, "signin", {
+      state: "running",
+      detail: "your browser will open — approve the sign-in there…",
+    });
+    info("Signing you in to AIsa…");
+    await pause(BEFORE_HANDOFF_MS);
+    setStep(state, "signin", {
+      state: "running",
+      detail: "waiting for you to approve it in the browser tab",
+    });
+    try {
+      key = await mintCliKey({ open: true });
+      ok("signin", "signed in — your CLI key is stored");
+    } catch (e) {
+      // Not fatal: the per-server OAuth path still works, it is just one
+      // browser round per server instead of none.
+      failures++;
+      setStep(state, "signin", {
+        state: "fail",
+        detail: `${(e as Error).message} — continuing without a key; retry later with 'aisa login'`,
+      });
+      error(`Sign-in failed: ${(e as Error).message}`);
+      if (input.clients.includes("claude-code")) {
+        // Claude Code separates add from login, so give the plan its
+        // authorization rounds back, in front of the balance step.
+        const at = state.steps.findIndex((s) => s.id === "balance");
+        const authSteps: Step[] = input.servers.map((s) => ({
+          id: `auth:${s.slug}`,
+          label: `Authorize aisa-${s.slug}`,
+          state: "pending",
+          detail: "opens the AIsa sign-in in your browser",
+        }));
+        state.steps.splice(at === -1 ? state.steps.length : at, 0, ...authSteps);
+      }
+    }
+  }
+
   // ── MCP entries ──
-  const willAuthorize = !input.key && input.clients[0] === "codex";
+  const willAuthorize = !key && input.clients[0] === "codex";
   setStep(state, "mcp", {
     state: "running",
     detail: willAuthorize
@@ -540,7 +587,7 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       : "writing client configuration",
   });
   if (willAuthorize) await pause(BEFORE_HANDOFF_MS);
-  const results = await applySelection(input.clients, input.servers, input.key, input.dryRun);
+  const results = await applySelection(input.clients, input.servers, key, input.dryRun);
   state.results = results;
   for (const r of results) {
     console.log(`  ${r.ok ? chalk.green("✓") : chalk.red("✗")} ${r.client}: ${r.message}`);
@@ -561,15 +608,11 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
     setStep(state, "llm", { state: "running", detail: "writing provider settings" });
     if (input.dryRun) {
       ok("llm", "dry run — nothing written");
-    } else if (!input.key) {
-      // A dead end here is the worst place for one: the user has installed an
-      // agent that has no model backend at all, and the next thing they see is
-      // its vendor asking them to sign in somewhere else. So we open the page
-      // that hands out keys and say exactly what to do with it.
-      //
-      // The keyless MCP path works because each server authorises over OAuth;
-      // a provider entry has nowhere to put a token, so it needs the key. A
-      // mint endpoint would close this — see dev/oauth-cli-requirements.md.
+    } else if (!key) {
+      // Only reachable when the sign-in above failed (or was declined): the
+      // normal path mints a key before this step runs. A provider entry has
+      // nowhere to put an OAuth token, so without a key the fallback is the
+      // console page that hands them out, with exact instructions.
       setStep(state, "llm", {
         state: "running",
         detail: "opening console.aisa.one/api-keys — copy a key from there…",
@@ -588,7 +631,7 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       const target = input.clients[0];
       const models = defaultModelsFor(target);
       const res =
-        target === "codex" ? writeCodexLLM(input.key, models) : writeClaudeCodeLLM(input.key, models);
+        target === "codex" ? writeCodexLLM(key, models) : writeClaudeCodeLLM(key, models);
       if (res.ok) {
         ok("llm", `${models.model} via ${res.path}`);
         if (target === "codex") {
@@ -639,15 +682,14 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
 
   // ── balance, the last thing before the success page ──
   setStep(state, "balance", { state: "running", detail: "reading your account" });
-  const balance = await readBalance(input.key);
+  const balance = await readBalance(key);
   if (balance === null) {
-    // Not a failure: an unknown balance costs nothing, and today it is the
-    // normal answer for an OAuth-only caller.
+    // Not a failure: an unknown balance costs nothing.
     setStep(state, "balance", {
       state: "skip",
-      detail: input.key
+      detail: key
         ? "could not read the balance right now"
-        : "needs an API key today — run 'aisa balance' once you have one",
+        : "needs a key — run 'aisa login', then 'aisa balance'",
     });
   } else if (balance <= 0) {
     setStep(state, "balance", {
@@ -884,11 +926,9 @@ function renderPage(
   );
   const authCopy = keyed
     ? `Your configured AIsa API key is written into each entry — <b>no sign-in needed</b>.`
-    : `<b>No API keys, nothing to paste.</b> Your browser opens the AIsa authorization
-       <b>once per server</b> — each one is a separate resource, so three servers means three
-       approvals. Your agent keeps and refreshes the tokens itself.
-       <br>Prefer a single sign-in? Run <code>aisa login --key &lt;key&gt;</code> first and
-       every server is configured without a browser round trip.`;
+    : `<b>One sign-in, nothing to paste.</b> Your browser opens the AIsa approval
+       <b>once</b>; it issues a long-lived key for this machine, and every server
+       and model below is configured with it — no further popups.`;
 
   const body = `
 <div class="eyebrow">Connect</div>
@@ -1040,7 +1080,7 @@ machine except the OAuth you approve. The process exits when everything is conne
         return;
       }
       if (s.phase === "failed") {
-        result.innerHTML = "Some servers were not authorized — see the list above, retry from your terminal.";
+        result.innerHTML = "Some steps did not complete — see the list above; the summary page has the details and how to retry.";
         return;
       }
       setTimeout(poll, 1000);
@@ -1073,7 +1113,7 @@ machine except the OAuth you approve. The process exits when everything is conne
 function renderDone(
   chosen: LiveServer[],
   clientIds: string[],
-  failures: string[],
+  steps: Step[],
   allServers: LiveServer[]
 ): string {
   const clientNames = clientIds
@@ -1093,14 +1133,33 @@ function renderDone(
 <button data-copy="${c.text.replace(/"/g, "&quot;")}">${I.copy} Copy</button></div>`
     )
     .join("\n");
-  const failBlock = failures.length
+  // The page tells the truth about the run: a failed MCP step means no tools
+  // were added, and a page that congratulates anyway (as an earlier version
+  // did, over a 0-of-1 add) teaches the user to distrust every later success.
+  const failed = steps.filter((s) => s.state === "fail");
+  const mcpFailed = failed.some((s) => s.id === "mcp");
+  const failBlock = failed.length
     ? `<div class="authnote" style="margin-bottom:1.2rem">${I.shield}<div>
-       <b>${failures.length} server(s) were not authorized:</b> ${failures.join(", ")}.
-       Retry from your terminal with <code>claude mcp login &lt;name&gt;</code>.</div></div>`
+       <b>${failed.length} step${failed.length > 1 ? "s" : ""} did not complete:</b>
+       <ul style="margin:.4rem 0 0 1.1rem">${failed
+         .map((s) => `<li><b>${s.label}</b> — ${s.detail ?? "failed"}</li>`)
+         .join("")}</ul>
+       Fix the above, then run <code>npx @aisa-one/cli connect</code> again — it is
+       safe to re-run and picks up where things stand.</div></div>`
     : "";
   const toolCount = chosen.reduce((n, s) => n + s.toolCount, 0);
   const remaining = allServers.length - chosen.length;
   const remainingTools = allServers.reduce((n, s) => n + s.toolCount, 0) - toolCount;
+
+  const headline = mcpFailed
+    ? `<div class="eyebrow">Almost there</div>
+<h1>Your agent is <em>not connected yet</em></h1>
+<p class="lede">The MCP entries could not be added to <b>${clientNames}</b> — details below.</p>`
+    : `<div class="bigcheck">${I.check}</div>
+<div class="eyebrow">Connected</div>
+<h1>Congratulations — your agent just got <em>${toolCount} powerful new tool${toolCount > 1 ? "s" : ""}</em></h1>
+<p class="lede">${chosen.length} AIsa MCP server${chosen.length > 1 ? "s are" : " is"} now
+installed and signed in for <b>${clientNames}</b> — nothing else to configure.</p>`;
 
   const body = `
 <style>
@@ -1111,19 +1170,17 @@ function renderDone(
   h2 { font-size: 1.2rem; }
   .fine { font-size: .9rem; }
 </style>
-<div class="bigcheck">${I.check}</div>
-<div class="eyebrow">Connected</div>
-<h1>Congratulations — your agent just got <em>${toolCount} powerful new tool${toolCount > 1 ? "s" : ""}</em></h1>
-<p class="lede">${chosen.length} AIsa MCP server${chosen.length > 1 ? "s are" : " is"} now
-installed and authorized in <b>${clientNames}</b>. Tokens live in your client and refresh
-automatically — nothing else to configure.</p>
-<p class="lede" style="margin-top:.6rem">You are now connected to <b>AIsa</b> — a powerful capability layer for agents: one account for
+${headline}
+${
+    mcpFailed
+      ? failBlock
+      : `<p class="lede" style="margin-top:.6rem">You are now connected to <b>AIsa</b> — a powerful capability layer for agents: one account for
 <b>100+ LLMs</b> and <b>950+ live data endpoints</b> built for agents.${
-    remaining > 0
-      ? ` ${remaining} more MCP server${remaining > 1 ? "s" : ""} (${remainingTools} tools) are one
+          remaining > 0
+            ? ` ${remaining} more MCP server${remaining > 1 ? "s" : ""} (${remainingTools} tools) are one
 <code>npx @aisa-one/cli connect</code> away.`
-      : ""
-  }
+            : ""
+        }
 Explore the platform at <a href="https://aisa.one" target="_blank" rel="noopener">aisa.one</a> ·
 usage &amp; billing at <a href="https://console.aisa.one" target="_blank" rel="noopener">console.aisa.one</a>.</p>
 ${failBlock}
@@ -1134,7 +1191,8 @@ ${examples || '<p class="fine">Ask your agent to use any of the aisa-* MCP tools
 <p class="fine">These first-run prompts mention <b>AIsa</b> once so the demo reliably lands on
 your new tools. After that, plain natural language is enough — your agent reaches for AIsa on
 its own whenever a task needs live data. Verify anytime with <code>/mcp</code> inside
-Claude Code — the entries should show <b>Connected</b>.</p>
+Claude Code — the entries should show <b>Connected</b>.</p>`
+  }
 <p class="fine">This page keeps working after the local process exits.</p>
 <script>
 document.querySelectorAll("[data-copy]").forEach(function (b) {
@@ -1145,7 +1203,7 @@ document.querySelectorAll("[data-copy]").forEach(function (b) {
   });
 });
 </script>`;
-  return shell("\u2713 AIsa Connected", body);
+  return shell(mcpFailed ? "AIsa \u2014 almost connected" : "\u2713 AIsa Connected", body);
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -1230,12 +1288,9 @@ export async function connectAction(options: {
         res.writeHead(403).end("forbidden");
         return;
       }
-      const failures = Object.entries(state.auth)
-        .filter(([, st]) => st === "fail")
-        .map(([n]) => n);
       res
         .writeHead(200, { "content-type": "text/html; charset=utf-8" })
-        .end(renderDone(chosenServers, chosenClients, failures, servers));
+        .end(renderDone(chosenServers, chosenClients, state.steps, servers));
       return;
     }
     if (req.method === "POST" && url.pathname === "/apply") {
