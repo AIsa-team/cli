@@ -74,9 +74,10 @@ program
 
 program
   .command("login")
-  .description("Authenticate with your AIsa API key")
-  .option("--key <key>", "API key")
-  .action(loginAction);
+  .description("Sign in to AIsa — browser sign-in by default, or --key to paste one")
+  .option("--key <key>", "API key (skips the browser sign-in)")
+  .option("--no-browser", "Print the sign-in URL and paste the redirect back (SSH/headless)")
+  .action(wrap(loginAction));
 
 program
   .command("logout")

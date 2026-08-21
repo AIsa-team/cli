@@ -3,16 +3,17 @@ import { setApiKey, clearApiKey, getApiKey, getKeySource, maskKey } from "../con
 import { success, error, info } from "../utils/display.js";
 import { ENV_VAR_NAME } from "../constants.js";
 
-export function loginAction(options: { key?: string }): void {
+export async function loginAction(options: { key?: string; browser?: boolean }): Promise<void> {
   const key = options.key || process.env[ENV_VAR_NAME];
-  if (!key) {
-    error(`Provide a key with --key or set ${ENV_VAR_NAME}`);
-    process.exit(1);
+  if (key) {
+    setApiKey(key);
+    success(`Authenticated: ${maskKey(key)}`);
+    console.log(chalk.gray("  Get your API key at https://console.aisa.one/api-keys"));
+    return;
   }
-
-  setApiKey(key);
-  success(`Authenticated: ${maskKey(key)}`);
-  console.log(chalk.gray("  Get your API key at https://console.aisa.one/api-keys"));
+  // No key given: the browser sign-in is the front door, not an error.
+  const { oauthLogin } = await import("./oauth-login.js");
+  await oauthLogin({ open: options.browser });
 }
 
 export function logoutAction(): void {
