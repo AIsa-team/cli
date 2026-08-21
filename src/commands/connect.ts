@@ -1080,7 +1080,7 @@ machine except the OAuth you approve. The process exits when everything is conne
         return;
       }
       if (s.phase === "failed") {
-        result.innerHTML = "Some servers were not authorized — see the list above, retry from your terminal.";
+        result.innerHTML = "Some steps did not complete — see the list above; the summary page has the details and how to retry.";
         return;
       }
       setTimeout(poll, 1000);
@@ -1113,7 +1113,7 @@ machine except the OAuth you approve. The process exits when everything is conne
 function renderDone(
   chosen: LiveServer[],
   clientIds: string[],
-  failures: string[],
+  steps: Step[],
   allServers: LiveServer[]
 ): string {
   const clientNames = clientIds
@@ -1133,14 +1133,33 @@ function renderDone(
 <button data-copy="${c.text.replace(/"/g, "&quot;")}">${I.copy} Copy</button></div>`
     )
     .join("\n");
-  const failBlock = failures.length
+  // The page tells the truth about the run: a failed MCP step means no tools
+  // were added, and a page that congratulates anyway (as an earlier version
+  // did, over a 0-of-1 add) teaches the user to distrust every later success.
+  const failed = steps.filter((s) => s.state === "fail");
+  const mcpFailed = failed.some((s) => s.id === "mcp");
+  const failBlock = failed.length
     ? `<div class="authnote" style="margin-bottom:1.2rem">${I.shield}<div>
-       <b>${failures.length} server(s) were not authorized:</b> ${failures.join(", ")}.
-       Retry from your terminal with <code>claude mcp login &lt;name&gt;</code>.</div></div>`
+       <b>${failed.length} step${failed.length > 1 ? "s" : ""} did not complete:</b>
+       <ul style="margin:.4rem 0 0 1.1rem">${failed
+         .map((s) => `<li><b>${s.label}</b> — ${s.detail ?? "failed"}</li>`)
+         .join("")}</ul>
+       Fix the above, then run <code>npx @aisa-one/cli connect</code> again — it is
+       safe to re-run and picks up where things stand.</div></div>`
     : "";
   const toolCount = chosen.reduce((n, s) => n + s.toolCount, 0);
   const remaining = allServers.length - chosen.length;
   const remainingTools = allServers.reduce((n, s) => n + s.toolCount, 0) - toolCount;
+
+  const headline = mcpFailed
+    ? `<div class="eyebrow">Almost there</div>
+<h1>Your agent is <em>not connected yet</em></h1>
+<p class="lede">The MCP entries could not be added to <b>${clientNames}</b> — details below.</p>`
+    : `<div class="bigcheck">${I.check}</div>
+<div class="eyebrow">Connected</div>
+<h1>Congratulations — your agent just got <em>${toolCount} powerful new tool${toolCount > 1 ? "s" : ""}</em></h1>
+<p class="lede">${chosen.length} AIsa MCP server${chosen.length > 1 ? "s are" : " is"} now
+installed and signed in for <b>${clientNames}</b> — nothing else to configure.</p>`;
 
   const body = `
 <style>
@@ -1151,18 +1170,17 @@ function renderDone(
   h2 { font-size: 1.2rem; }
   .fine { font-size: .9rem; }
 </style>
-<div class="bigcheck">${I.check}</div>
-<div class="eyebrow">Connected</div>
-<h1>Congratulations — your agent just got <em>${toolCount} powerful new tool${toolCount > 1 ? "s" : ""}</em></h1>
-<p class="lede">${chosen.length} AIsa MCP server${chosen.length > 1 ? "s are" : " is"} now
-installed and signed in for <b>${clientNames}</b> — nothing else to configure.</p>
-<p class="lede" style="margin-top:.6rem">You are now connected to <b>AIsa</b> — a powerful capability layer for agents: one account for
+${headline}
+${
+    mcpFailed
+      ? failBlock
+      : `<p class="lede" style="margin-top:.6rem">You are now connected to <b>AIsa</b> — a powerful capability layer for agents: one account for
 <b>100+ LLMs</b> and <b>950+ live data endpoints</b> built for agents.${
-    remaining > 0
-      ? ` ${remaining} more MCP server${remaining > 1 ? "s" : ""} (${remainingTools} tools) are one
+          remaining > 0
+            ? ` ${remaining} more MCP server${remaining > 1 ? "s" : ""} (${remainingTools} tools) are one
 <code>npx @aisa-one/cli connect</code> away.`
-      : ""
-  }
+            : ""
+        }
 Explore the platform at <a href="https://aisa.one" target="_blank" rel="noopener">aisa.one</a> ·
 usage &amp; billing at <a href="https://console.aisa.one" target="_blank" rel="noopener">console.aisa.one</a>.</p>
 ${failBlock}
@@ -1173,7 +1191,8 @@ ${examples || '<p class="fine">Ask your agent to use any of the aisa-* MCP tools
 <p class="fine">These first-run prompts mention <b>AIsa</b> once so the demo reliably lands on
 your new tools. After that, plain natural language is enough — your agent reaches for AIsa on
 its own whenever a task needs live data. Verify anytime with <code>/mcp</code> inside
-Claude Code — the entries should show <b>Connected</b>.</p>
+Claude Code — the entries should show <b>Connected</b>.</p>`
+  }
 <p class="fine">This page keeps working after the local process exits.</p>
 <script>
 document.querySelectorAll("[data-copy]").forEach(function (b) {
@@ -1184,7 +1203,7 @@ document.querySelectorAll("[data-copy]").forEach(function (b) {
   });
 });
 </script>`;
-  return shell("\u2713 AIsa Connected", body);
+  return shell(mcpFailed ? "AIsa \u2014 almost connected" : "\u2713 AIsa Connected", body);
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -1269,12 +1288,9 @@ export async function connectAction(options: {
         res.writeHead(403).end("forbidden");
         return;
       }
-      const failures = Object.entries(state.auth)
-        .filter(([, st]) => st === "fail")
-        .map(([n]) => n);
       res
         .writeHead(200, { "content-type": "text/html; charset=utf-8" })
-        .end(renderDone(chosenServers, chosenClients, failures, servers));
+        .end(renderDone(chosenServers, chosenClients, state.steps, servers));
       return;
     }
     if (req.method === "POST" && url.pathname === "/apply") {

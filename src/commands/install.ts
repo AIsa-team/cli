@@ -31,6 +31,8 @@ export interface Installer {
   command: string;
   /** Where the preferred command puts things, for the "not on PATH" hint. */
   installDir?: string;
+  /** Set when the command is an npm install; enables the broken-install retry. */
+  npmPackage?: string;
 }
 
 export const INSTALLERS: Record<string, Installer> = {
@@ -47,6 +49,7 @@ export const INSTALLERS: Record<string, Installer> = {
     label: "Codex",
     binary: "codex",
     command: "npm install -g @openai/codex",
+    npmPackage: "@openai/codex",
   },
 };
 
@@ -54,9 +57,33 @@ export function supported(): boolean {
   return process.platform === "darwin" || process.platform === "linux";
 }
 
-/** Is the binary already on PATH? */
+type Probe = { ok: true } | { ok: false; onPath: boolean; reason: string };
+
+/**
+ * Run the binary and report what actually happened, because "not working"
+ * has two very different causes with two very different fixes: absent from
+ * PATH (fix the PATH) versus present but failing to start (fix the install —
+ * seen live when npm's optional-dependency bug installed codex without its
+ * platform binary and every invocation threw "Missing optional dependency").
+ * The timeout is generous: macOS Gatekeeper can stall a binary's first run.
+ */
+function probeBinary(binary: string): Probe {
+  const res = spawnSync(binary, ["--version"], { timeout: 20_000, encoding: "utf8" });
+  if (res.status === 0) return { ok: true };
+  if ((res.error as NodeJS.ErrnoException | undefined)?.code === "ENOENT") {
+    return { ok: false, onPath: false, reason: "not on PATH" };
+  }
+  const line =
+    (res.stderr || res.stdout || "")
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l.includes("Error") || l.length > 0) ?? `exit status ${res.status}`;
+  return { ok: false, onPath: true, reason: line.slice(0, 160) };
+}
+
+/** Is the binary already on PATH and able to start? */
 export function isInstalled(binary: string): boolean {
-  return spawnSync(binary, ["--version"], { timeout: 5_000 }).status === 0;
+  return probeBinary(binary).ok;
 }
 
 /**
@@ -124,14 +151,29 @@ export async function installAgent(id: string): Promise<InstallOutcome> {
     };
   }
 
-  if (!isInstalled(installer.binary)) {
+  let probe = probeBinary(installer.binary);
+  if (!probe.ok && probe.onPath && installer.npmPackage) {
+    // The binary exists but cannot start — npm's optional-dependency bug
+    // leaves exactly this (package installed, platform binary missing, exit 0
+    // all the way). The reliable remedy is a clean uninstall + reinstall, so
+    // a broken npm install gets exactly one.
+    await execFileP(
+      "/bin/sh",
+      ["-c", `npm uninstall -g ${installer.npmPackage}; ${installer.command}`],
+      { timeout: 300_000 }
+    ).catch(() => {});
+    probe = probeBinary(installer.binary);
+  }
+  if (!probe.ok) {
     return {
       ok: false,
       reason: "needs-manual",
       command: installer.command,
-      detail: installer.installDir
-        ? `installed, but ${installer.binary} is not on PATH — add ${installer.installDir} to it`
-        : `install reported success but ${installer.binary} is not on PATH`,
+      detail: !probe.onPath
+        ? installer.installDir
+          ? `installed, but ${installer.binary} is not on PATH — add ${installer.installDir} to it`
+          : `install reported success but ${installer.binary} is not on PATH`
+        : `installed, but ${installer.binary} fails to start: ${probe.reason}`,
     };
   }
   return { ok: true, alreadyInstalled: false };
