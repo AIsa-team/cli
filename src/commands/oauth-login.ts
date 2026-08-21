@@ -111,14 +111,14 @@ function openBrowser(url: string): void {
   execFile(cmd, [url], () => {});
 }
 
-export async function oauthLogin(options: { open?: boolean } = {}): Promise<void> {
+/**
+ * The whole sign-in, as a function other commands can embed: browser (or
+ * paste-back) OAuth, then the mint. Stores the key and returns it; throws on
+ * any failure. `aisa login` wraps this with CLI messaging; `aisa connect`
+ * runs it as its "Sign in to AIsa" step.
+ */
+export async function mintCliKey(options: { open?: boolean } = {}): Promise<string> {
   const useBrowser = options.open !== false;
-  if (!useBrowser && !process.stdin.isTTY) {
-    error("--no-browser needs an interactive terminal to paste the redirect URL into.");
-    hint("In scripts, use: aisa login --key <key>");
-    process.exitCode = 1;
-    return;
-  }
 
   // Loopback port first: the redirect URI has to be registered before the
   // browser opens, and Clerk requires an exact match.
@@ -179,12 +179,11 @@ export async function oauthLogin(options: { open?: boolean } = {}): Promise<void
     signal: AbortSignal.timeout(20_000),
   });
   if (mintRes.status === 404) {
-    // The platform has not shipped the mint endpoint yet. The sign-in still
-    // proved the account works; the key just has to travel by hand once.
-    error("This deployment cannot issue CLI keys yet.");
-    hint("Copy a key from https://console.aisa.one/api-keys and run: aisa login --key <key>");
-    process.exitCode = 1;
-    return;
+    // A deployment without the mint endpoint. The sign-in still proved the
+    // account works; the key just has to travel by hand once.
+    throw new Error(
+      "this deployment cannot issue CLI keys — copy one from https://console.aisa.one/api-keys and run: aisa login --key <key>"
+    );
   }
   const minted = (await mintRes.json()) as { key?: string; error?: string };
   if (!mintRes.ok || !minted.key) {
@@ -192,6 +191,17 @@ export async function oauthLogin(options: { open?: boolean } = {}): Promise<void
   }
 
   setApiKey(minted.key);
-  success(`Signed in — CLI key ${maskKey(minted.key)} stored`);
+  return minted.key;
+}
+
+export async function oauthLogin(options: { open?: boolean } = {}): Promise<void> {
+  if (options.open === false && !process.stdin.isTTY) {
+    error("--no-browser needs an interactive terminal to paste the redirect URL into.");
+    hint("In scripts, use: aisa login --key <key>");
+    process.exitCode = 1;
+    return;
+  }
+  const key = await mintCliKey(options);
+  success(`Signed in — CLI key ${maskKey(key)} stored`);
   hint("Try: aisa balance");
 }

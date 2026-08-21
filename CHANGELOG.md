@@ -14,12 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Claude Desktop and Windsurf; Claude Code entries go through `claude mcp add`
   (user scope), the rest through the same config writer as `mcp setup`. The
   process serves one token-guarded page on 127.0.0.1, applies the selection,
-  drives the sign-in, and exits — no daemon left behind. Sign-in is the
-  platform's own OAuth through each client's own machinery: `claude mcp
-  login` per server pops the browser authorization and Claude Code keeps
-  (and refreshes) the tokens; file-based clients authorize the same way on
-  first use. No API key, nothing pasted, nothing stored by the CLI. A
-  configured key short-circuits login (entries carry it as a Bearer header).
+  drives the sign-in, and exits — no daemon left behind. With no key stored,
+  the run starts with one browser approval (the same flow as `aisa login`)
+  that mints the durable CLI key; every MCP entry and the model provider are
+  then written with it — no per-server authorization popups. Only if that
+  sign-in fails does connect fall back to each client's own OAuth machinery
+  (`claude mcp login` per server; `codex mcp add` runs its own flow). A
+  configured key skips the sign-in entirely.
   The page follows the AIsa Console design (warm dot-grid, Inter, the
   Console red), groups servers by category with their manifest descriptions,
   shows per-server authorization progress live, and finishes by opening a
@@ -30,6 +31,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a positive number of dollars. Payment finishes in the browser by necessity
   (Stripe's hosted page owns the card details; 3-D Secure needs a browser).
   `aisa balance` now points at it when the account is out of credit.
+- **`aisa login` signs in over OAuth and keeps a real key.** With no
+  arguments it opens the browser for one approval, then trades the access
+  token for the long-lived CLI key at `POST /v1/keys/mint` and stores only
+  the key. `--no-browser` prints the URL and reads the redirect back for
+  headless machines; `--key <key>` still stores one directly.
+- **Codex MCP entries carry the key itself, not an env-var name.**
+  `codex mcp add --bearer-token-env-var` records only a variable name that
+  nothing guarantees a shell exports, so keyed entries could 401 at runtime.
+  After the add (which the flag keeps free of OAuth popups), the entry is
+  patched to a literal `http_headers` Authorization — the same thing the
+  Claude Code path stores via `--header`.
 - CI on every push/PR (build + tests), and a tag-triggered release workflow that
   publishes to npm via Trusted Publishing (OIDC — no stored token, 2FA stays on).
   From the next release, `git push origin vX.Y.Z` is the publish button.

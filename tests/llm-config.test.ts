@@ -24,6 +24,7 @@ const {
   writeCodexLLM,
   removeCodexLLM,
   writeCodexMCP,
+  patchCodexMCPAuth,
   DEFAULT_MODELS,
   CODEX_DEFAULT_MODELS,
   defaultModelsFor,
@@ -149,6 +150,56 @@ describe("Codex LLM config", () => {
   it("refuses a config that does not parse", () => {
     seed(codexPath(), "not = = toml");
     expect(writeCodexLLM("sk-test").ok).toBe(false);
+    expect(readFileSync(codexPath(), "utf-8")).toBe("not = = toml");
+  });
+});
+
+describe("patchCodexMCPAuth", () => {
+  // What `codex mcp add --url --bearer-token-env-var` leaves behind.
+  const seedAdded = () =>
+    seed(
+      codexPath(),
+      TOML.stringify({
+        approval_policy: "on-request",
+        mcp_servers: {
+          "aisa-web-search": {
+            url: "https://mcp.aisa.one/web-search/mcp",
+            bearer_token_env_var: "AISA_API_KEY",
+          },
+          other: { url: "https://other.example/mcp" },
+        },
+      })
+    );
+
+  it("replaces the env-var reference with the literal header", () => {
+    seedAdded();
+    const res = patchCodexMCPAuth("aisa-web-search", "sk-test");
+    expect(res.ok).toBe(true);
+    const entry = readToml(codexPath()).mcp_servers["aisa-web-search"];
+    expect(entry.bearer_token_env_var).toBeUndefined();
+    expect(entry.http_headers.Authorization).toBe("Bearer sk-test");
+    expect(entry.url).toBe("https://mcp.aisa.one/web-search/mcp");
+  });
+
+  it("leaves other entries and unrelated keys alone", () => {
+    seedAdded();
+    patchCodexMCPAuth("aisa-web-search", "sk-test");
+    const config = readToml(codexPath());
+    expect(config.approval_policy).toBe("on-request");
+    expect(config.mcp_servers.other.url).toBe("https://other.example/mcp");
+    expect(config.mcp_servers.other.http_headers).toBeUndefined();
+  });
+
+  it("reports a missing entry instead of inventing one", () => {
+    seedAdded();
+    const res = patchCodexMCPAuth("aisa-nope", "sk-test");
+    expect(res.ok).toBe(false);
+    expect(readToml(codexPath()).mcp_servers["aisa-nope"]).toBeUndefined();
+  });
+
+  it("refuses a config that does not parse", () => {
+    seed(codexPath(), "not = = toml");
+    expect(patchCodexMCPAuth("aisa-web-search", "sk-test").ok).toBe(false);
     expect(readFileSync(codexPath(), "utf-8")).toBe("not = = toml");
   });
 });
