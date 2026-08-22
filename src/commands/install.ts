@@ -33,6 +33,11 @@ export interface Installer {
   installDir?: string;
   /** Set when the command is an npm install; enables the broken-install retry. */
   npmPackage?: string;
+  /** For a curl installer: the URL it depends on, probed (3s) before use.
+   *  The npm-registry probe cannot stand in for this — the two hosts can be
+   *  blocked independently, and a blackholed curl would otherwise sit at the
+   *  full install timeout before the npm fallback even started. */
+  probeUrl?: string;
 }
 
 export const INSTALLERS: Record<string, Installer> = {
@@ -43,9 +48,12 @@ export const INSTALLERS: Record<string, Installer> = {
     // The vendor installer, which needs no elevated permissions. The npm
     // package (also published by Anthropic) is the fallback channel — it is
     // what makes the mirror path below work where claude.ai is unreachable.
-    command: "curl -fsSL https://claude.ai/install.sh | bash",
+    // Curl gets its own timeouts: a blackholed connection must fail in
+    // seconds, not sit until the overall install deadline.
+    command: "curl -fsSL --connect-timeout 10 --max-time 180 https://claude.ai/install.sh | bash",
     installDir: "~/.local/bin",
     npmPackage: "@anthropic-ai/claude-code",
+    probeUrl: "https://claude.ai/install.sh",
   },
   codex: {
     id: "codex",
@@ -203,15 +211,20 @@ export async function installAgent(id: string): Promise<InstallOutcome> {
   const npmCommand = installer.npmPackage
     ? `npm install -g ${installer.npmPackage}${flag}`
     : undefined;
-  // A curl installer needs its vendor host; when even the official npm
-  // registry is unreachable, that host almost certainly is too — go straight
-  // to the npm channel, which carries the same vendor-published package.
-  const command =
-    installer.command.startsWith("npm ")
-      ? npmCommand!
-      : channel.kind === "mirror" && npmCommand
-        ? npmCommand
-        : installer.command;
+  // A curl installer needs its vendor host reachable — a fact the registry
+  // probe cannot vouch for, so it gets its own 3s probe. Unreachable (or the
+  // whole official channel is): go straight to the npm channel, which
+  // carries the same vendor-published package.
+  const isNpmInstaller = installer.command.startsWith("npm ");
+  const vendorReachable =
+    isNpmInstaller || channel.kind === "mirror" || !installer.probeUrl
+      ? true
+      : await headOk(installer.probeUrl);
+  const command = isNpmInstaller
+    ? npmCommand!
+    : (channel.kind === "mirror" || !vendorReachable) && npmCommand
+      ? npmCommand
+      : installer.command;
 
   if (command.startsWith("npm ") && !npmPrefixWritable()) {
     return {
