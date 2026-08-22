@@ -389,6 +389,9 @@ interface RunState {
   auth: Record<string, AuthState>; // key: aisa-<slug>
   steps: Step[];
   doneUrl?: string;
+  /** In micros USD; null when it could not be read. The done page renders
+   *  the number and the top-up nudge from this. */
+  balanceMicros?: number | null;
 }
 
 /** Long enough to read one sentence before the screen changes under you.
@@ -683,6 +686,7 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
   // ── balance, the last thing before the success page ──
   setStep(state, "balance", { state: "running", detail: "reading your account" });
   const balance = await readBalance(key);
+  state.balanceMicros = balance;
   if (balance === null) {
     // Not a failure: an unknown balance costs nothing.
     setStep(state, "balance", {
@@ -741,7 +745,7 @@ function shell(title: string, body: string): string {
   .bar .tag { margin-left: .4rem; font-weight: 400; opacity: .55; font-size: .85rem; }
   .bar .local { margin-left: auto; font-weight: 400; font-size: .78rem; opacity: .5; }
   main { padding: 1.7rem 12% 4rem; }
-  .cols { display: grid; grid-template-columns: minmax(0, 1fr) 480px; gap: 2.6rem;
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) 552px; gap: 2.6rem;
     align-items: start; margin-top: 1rem; }
   .rail { position: sticky; top: 1.4rem; }
   .rail h2:first-child { margin-top: .4rem; }
@@ -777,6 +781,10 @@ function shell(title: string, body: string): string {
   .badge { font-size: .7rem; font-weight: 600; padding: .1rem .5rem; border-radius: 99px;
     border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
   .badge.ok { border-color: color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
+  /* The loud state a card jumps to the moment its install step succeeds. */
+  .badge.installed { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .card.freshly-installed { border-color: var(--ok);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
   .card .brief { color: var(--muted); font-size: .93rem; }
   .card .desc { color: var(--muted); font-size: .93rem; margin-top: .25rem;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -908,11 +916,11 @@ function renderPage(
       .join("\n") +
     installable
       .map(
-        (c) => `<label class="card" data-kind="client">
+        (c) => `<label class="card" data-kind="client" data-cid="${c.id}">
   <input type="radio" name="client" value="${c.id}" data-install="1">
   <span class="body"><span class="head"><span class="name">${c.label}</span>
-    <span class="badge">not installed</span></span>
-    <span class="brief">Install <b>and</b> connect it \u2014 <code>${INSTALLERS[c.id].command}</code></span></span></label>`
+    <span class="badge" data-badge>not installed</span></span>
+    <span class="brief" data-brief>Install <b>and</b> connect it \u2014 <code>${INSTALLERS[c.id].command}</code></span></span></label>`
       )
       .join("\n") +
     (rest.length
@@ -1042,8 +1050,25 @@ machine except the OAuth you approve. The process exits when everything is conne
   var STATE_WORD = { pending: "waiting", running: "working\\u2026", ok: "done",
                      fail: "failed", skip: "skipped" };
 
+  // The moment an install step succeeds, its client card flips to a loud
+  // installed state — the card is where the user read "not installed", so
+  // the card is where the success must land.
+  function syncClientCards(steps) {
+    steps.forEach(function (s) {
+      if (s.id.indexOf("install:") !== 0 || s.state !== "ok") return;
+      var card = document.querySelector('[data-cid="' + s.id.slice(8) + '"]');
+      if (!card || card.className.indexOf("freshly-installed") !== -1) return;
+      card.className += " freshly-installed";
+      var badge = card.querySelector("[data-badge]");
+      if (badge) { badge.className = "badge installed"; badge.textContent = "\\u2713 installed"; }
+      var brief = card.querySelector("[data-brief]");
+      if (brief) brief.innerHTML = "<b>Installed successfully</b> \\u2014 " + (s.detail || "ready to use");
+    });
+  }
+
   function renderSteps(steps) {
     if (!steps || !steps.length) return;
+    syncClientCards(steps);
     progress.style.display = "block";
     var settled = steps.filter(function (s) {
       return s.state === "ok" || s.state === "skip";
@@ -1072,10 +1097,12 @@ machine except the OAuth you approve. The process exits when everything is conne
       renderSteps(s.steps);
       if (s.phase === "done") {
         document.title = "\\u2713 AIsa Connected";
+        // The summary page opened itself in a new tab and is the real ending;
+        // only a quiet fallback link here in case that tab was missed.
         var link = s.doneUrl
-          ? "<a class='cta' href='" + s.doneUrl + "'>See how to use it \\u2192</a>"
+          ? " <a href='" + s.doneUrl + "'>Open it again</a>."
           : "";
-        result.innerHTML = "<b>All connected.</b> A success page with try-it-now examples just opened in a new tab." + link;
+        result.innerHTML = "<b>All connected.</b> A summary page just opened in a new tab." + link;
         btn.textContent = "Connected";
         return;
       }
@@ -1114,7 +1141,8 @@ function renderDone(
   chosen: LiveServer[],
   clientIds: string[],
   steps: Step[],
-  allServers: LiveServer[]
+  allServers: LiveServer[],
+  balanceMicros: number | null
 ): string {
   const clientNames = clientIds
     .map((id) => (id === "claude-code" ? "Claude Code" : FILE_CLIENT_LABELS[id] ?? id))
@@ -1161,6 +1189,48 @@ function renderDone(
 <p class="lede">${chosen.length} AIsa MCP server${chosen.length > 1 ? "s are" : " is"} now
 installed and signed in for <b>${clientNames}</b> — nothing else to configure.</p>`;
 
+  // ── the recap: the same journey the first page showed live, replayed as a
+  // settled checklist, so the fresh tab connects visually to what the user
+  // just watched happen. Every step, including the failed and skipped ones.
+  const STEP_ICON: Record<StepState, string> = {
+    ok: "✓",
+    fail: "✕",
+    skip: "–",
+    pending: "·",
+    running: "·",
+  };
+  const recapRows = steps
+    .map(
+      (s) => `<div class="rstep ${s.state}"><span class="ri">${STEP_ICON[s.state]}</span>
+<span class="rl">${s.label}</span><span class="rd">${s.detail ?? ""}</span></div>`
+    )
+    .join("\n");
+  const recap = `
+<h2>What just happened</h2>
+<div class="recap">
+  <div class="rsum">${chosen.length} capabilit${chosen.length === 1 ? "y" : "ies"} · ${toolCount} tools · ${clientNames}</div>
+${recapRows}
+</div>`;
+
+  // ── the balance card: always shown, always with the top-up button — money
+  // is the one thing a user should never have to hunt for. Below $5 the card
+  // turns warm and suggests (never demands) a top-up.
+  const TOPUP_URL = "https://console.aisa.one/billing?source=aisa_cli";
+  const low = balanceMicros !== null && balanceMicros < 5_000_000;
+  const balanceCard = `
+<div class="balcard${low ? " low" : ""}">
+  <div><div class="balnum">${balanceMicros === null ? "—" : formatMicrosUSD(balanceMicros)}</div>
+  <div class="ballbl">AIsa balance</div></div>
+  <div class="balright">${
+    low
+      ? `<div class="lownote">Running a little low — a small top-up now keeps your first calls flowing smoothly.</div>`
+      : balanceMicros === null
+        ? `<div class="lownote">Could not read it just now — <code>aisa balance</code> will.</div>`
+        : ""
+  }
+  <a class="cta topup" href="${TOPUP_URL}" target="_blank" rel="noopener">Top up</a></div>
+</div>`;
+
   const body = `
 <style>
   h1 { font-size: 2.5rem; }
@@ -1169,11 +1239,33 @@ installed and signed in for <b>${clientNames}</b> — nothing else to configure.
   .example .srv { font-size: .8rem; }
   h2 { font-size: 1.2rem; }
   .fine { font-size: .9rem; }
+  .recap { border: 1px solid #e5e5e2; border-radius: 12px; background: #fff;
+    padding: 1rem 1.2rem; margin: 0 0 1.4rem; max-width: 62rem; }
+  .rsum { font-weight: 600; padding-bottom: .55rem; border-bottom: 1px dashed #e5e5e2;
+    margin-bottom: .55rem; }
+  .rstep { display: flex; gap: .6rem; align-items: baseline; padding: .26rem 0;
+    font-size: .95rem; }
+  .rstep .ri { font-weight: 800; width: 1.1rem; text-align: center; flex: none; }
+  .rstep.ok .ri { color: #16a34a; }
+  .rstep.fail .ri { color: #dc2626; }
+  .rstep.skip .ri, .rstep.pending .ri { color: #9ca3af; }
+  .rstep .rl { font-weight: 600; flex: none; }
+  .rstep .rd { color: #6b6b66; font-size: .88rem; overflow-wrap: anywhere; }
+  .balcard { display: flex; justify-content: space-between; align-items: center;
+    gap: 1rem; border: 1px solid #e5e5e2; border-radius: 12px; background: #fff;
+    padding: 1rem 1.2rem; margin: 0 0 1.8rem; max-width: 62rem; flex-wrap: wrap; }
+  .balcard.low { border-color: #f59e0b; background: #fffbeb; }
+  .balnum { font-size: 1.6rem; font-weight: 800; }
+  .ballbl { font-size: .8rem; color: #6b6b66; }
+  .balright { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .lownote { font-size: .92rem; color: #92400e; max-width: 26rem; }
+  .cta.topup { display: inline-block; width: auto; padding: .55rem 1.4rem;
+    font-size: .95rem; }
 </style>
 ${headline}
 ${
     mcpFailed
-      ? failBlock
+      ? failBlock + recap + balanceCard
       : `<p class="lede" style="margin-top:.6rem">You are now connected to <b>AIsa</b> — a powerful capability layer for agents: one account for
 <b>100+ LLMs</b> and <b>950+ live data endpoints</b> built for agents.${
           remaining > 0
@@ -1184,6 +1276,8 @@ ${
 Explore the platform at <a href="https://aisa.one" target="_blank" rel="noopener">aisa.one</a> ·
 usage &amp; billing at <a href="https://console.aisa.one" target="_blank" rel="noopener">console.aisa.one</a>.</p>
 ${failBlock}
+${recap}
+${balanceCard}
 <h2>${I.sparkles} Try it now — paste one of these into ${clientNames.split(",")[0]}</h2>
 <div class="examples">
 ${examples || '<p class="fine">Ask your agent to use any of the aisa-* MCP tools.</p>'}
@@ -1290,7 +1384,7 @@ export async function connectAction(options: {
       }
       res
         .writeHead(200, { "content-type": "text/html; charset=utf-8" })
-        .end(renderDone(chosenServers, chosenClients, state.steps, servers));
+        .end(renderDone(chosenServers, chosenClients, state.steps, servers, state.balanceMicros ?? null));
       return;
     }
     if (req.method === "POST" && url.pathname === "/apply") {
