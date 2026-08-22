@@ -1090,20 +1090,47 @@ machine except the OAuth you approve. The process exits when everything is conne
       "<div class='bar-note'>" + (settled + failed) + " of " + steps.length + " \\u00b7 " +
       (running ? running.label : (pct === 100 ? "finished" : "starting\\u2026")) + "</div>" +
       rows;
+
+    // The button narrates the phase it is actually in — "Connecting…" over a
+    // minute-long install reads as a hang, or worse, as a lie.
+    if (running) {
+      var BTN_WORD = { install: "Installing\\u2026", signin: "Signing in\\u2026",
+        mcp: "Connecting\\u2026", llm: "Configuring models\\u2026",
+        auth: "Authorizing\\u2026", balance: "Finishing\\u2026" };
+      btn.textContent = BTN_WORD[running.id.split(":")[0]] || "Working\\u2026";
+    }
+
+    // The list grows as steps settle; keep the live edge in view, but only
+    // when progress actually advanced — re-scrolling on every poll would
+    // fight the user's own scrolling. While running, center the active row;
+    // once everything settled, go all the way down so the final ticks and
+    // the completion note are fully visible before the summary tab opens.
+    var sig = steps.map(function (s) { return s.state; }).join(",");
+    if (sig !== lastSig) {
+      lastSig = sig;
+      if (running) {
+        var edge = progress.querySelector(".step.running");
+        if (edge && edge.scrollIntoView) edge.scrollIntoView({ block: "center", behavior: "smooth" });
+      } else {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+      }
+    }
   }
+  var lastSig = "";
 
   function poll() {
     fetch("/status?token=" + TOKEN).then(function (r) { return r.json(); }).then(function (s) {
       renderSteps(s.steps);
       if (s.phase === "done") {
         document.title = "\\u2713 AIsa Connected";
-        // The summary page opened itself in a new tab and is the real ending;
-        // only a quiet fallback link here in case that tab was missed.
+        // The big CTA is the bridge between the two pages: the summary tab
+        // opened itself, but this is where the user is looking.
         var link = s.doneUrl
-          ? " <a href='" + s.doneUrl + "'>Open it again</a>."
+          ? "<a class='cta' href='" + s.doneUrl + "'>See how to use it \\u2192</a>"
           : "";
-        result.innerHTML = "<b>All connected.</b> A summary page just opened in a new tab." + link;
+        result.innerHTML = "<b>All connected.</b> A summary page with try-it-now examples just opened in a new tab." + link;
         btn.textContent = "Connected";
+        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
         return;
       }
       if (s.phase === "failed") {
@@ -1122,7 +1149,8 @@ machine except the OAuth you approve. The process exits when everything is conne
     }
     var clients = [chosen.value];
     var install = chosen.dataset.install === "1" ? [chosen.value] : [];
-    btn.disabled = true; btn.textContent = "Connecting\\u2026";
+    btn.disabled = true;
+    btn.textContent = install.length ? "Installing\\u2026" : "Connecting\\u2026";
     fetch("/apply", { method: "POST",
       headers: { "content-type": "application/json", "x-connect-token": TOKEN },
       body: JSON.stringify({ servers: servers, clients: clients, install: install, llm: llmBox.checked })
@@ -1179,15 +1207,31 @@ function renderDone(
   const remaining = allServers.length - chosen.length;
   const remainingTools = allServers.reduce((n, s) => n + s.toolCount, 0) - toolCount;
 
+  // A run that installed an agent is a much bigger deal than one that only
+  // added tools, and the headline must say so: the user walked in with
+  // nothing and walked out with a working coding agent on AIsa models.
+  const installedAgents = steps
+    .filter((s) => s.id.startsWith("install:") && s.state === "ok")
+    .map((s) => INSTALLERS[s.id.slice("install:".length)]?.label ?? s.id.slice("install:".length));
+  const llmOk = steps.some((s) => s.id === "llm" && s.state === "ok");
+  const model = defaultModelsFor(clientIds[0] ?? "");
+  const successHeadline = installedAgents.length
+    ? `<h1>Congratulations — <em>${installedAgents.join(" & ")}</em> is installed and armed
+with <em>${toolCount} powerful tool${toolCount > 1 ? "s" : ""}</em></h1>
+<p class="lede"><b>${installedAgents.join(" & ")}</b> is now on this machine, signed in to
+AIsa${llmOk ? `, running on <b>${model.model}</b> through AIsa,` : ","} with
+${chosen.length} MCP server${chosen.length > 1 ? "s" : ""} wired in — a complete AI setup,
+nothing else to configure.</p>`
+    : `<h1>Congratulations — your agent just got <em>${toolCount} powerful new tool${toolCount > 1 ? "s" : ""}</em></h1>
+<p class="lede">${chosen.length} AIsa MCP server${chosen.length > 1 ? "s are" : " is"} now
+installed and signed in for <b>${clientNames}</b> — nothing else to configure.</p>`;
   const headline = mcpFailed
     ? `<div class="eyebrow">Almost there</div>
 <h1>Your agent is <em>not connected yet</em></h1>
 <p class="lede">The MCP entries could not be added to <b>${clientNames}</b> — details below.</p>`
     : `<div class="bigcheck">${I.check}</div>
 <div class="eyebrow">Connected</div>
-<h1>Congratulations — your agent just got <em>${toolCount} powerful new tool${toolCount > 1 ? "s" : ""}</em></h1>
-<p class="lede">${chosen.length} AIsa MCP server${chosen.length > 1 ? "s are" : " is"} now
-installed and signed in for <b>${clientNames}</b> — nothing else to configure.</p>`;
+${successHeadline}`;
 
   // ── the recap: the same journey the first page showed live, replayed as a
   // settled checklist, so the fresh tab connects visually to what the user
@@ -1199,14 +1243,16 @@ installed and signed in for <b>${clientNames}</b> — nothing else to configure.
     pending: "·",
     running: "·",
   };
+  // Check mark at the END of the row: the row reads as a capability gained
+  // ("Install Codex — installed ✓"), not as a checklist item to do.
   const recapRows = steps
     .map(
-      (s) => `<div class="rstep ${s.state}"><span class="ri">${STEP_ICON[s.state]}</span>
-<span class="rl">${s.label}</span><span class="rd">${s.detail ?? ""}</span></div>`
+      (s) => `<div class="rstep ${s.state}"><span class="rl">${s.label}</span>
+<span class="rd">${s.detail ?? ""}</span><span class="ri">${STEP_ICON[s.state]}</span></div>`
     )
     .join("\n");
   const recap = `
-<h2>What just happened</h2>
+<h2>Everything you just gained</h2>
 <div class="recap">
   <div class="rsum">${chosen.length} capabilit${chosen.length === 1 ? "y" : "ies"} · ${toolCount} tools · ${clientNames}</div>
 ${recapRows}
@@ -1243,14 +1289,15 @@ ${recapRows}
     padding: 1rem 1.2rem; margin: 0 0 1.4rem; max-width: 62rem; }
   .rsum { font-weight: 600; padding-bottom: .55rem; border-bottom: 1px dashed #e5e5e2;
     margin-bottom: .55rem; }
-  .rstep { display: flex; gap: .6rem; align-items: baseline; padding: .26rem 0;
-    font-size: .95rem; }
-  .rstep .ri { font-weight: 800; width: 1.1rem; text-align: center; flex: none; }
+  .rstep { display: flex; gap: .7rem; align-items: baseline; padding: .4rem 0;
+    font-size: 1.06rem; border-bottom: 1px solid #f1f0ec; }
+  .rstep:last-child { border-bottom: 0; }
+  .rstep .ri { font-weight: 800; font-size: 1.15rem; flex: none; margin-left: auto; }
   .rstep.ok .ri { color: #16a34a; }
   .rstep.fail .ri { color: #dc2626; }
   .rstep.skip .ri, .rstep.pending .ri { color: #9ca3af; }
-  .rstep .rl { font-weight: 600; flex: none; }
-  .rstep .rd { color: #6b6b66; font-size: .88rem; overflow-wrap: anywhere; }
+  .rstep .rl { font-weight: 700; flex: none; }
+  .rstep .rd { color: #6b6b66; font-size: .95rem; overflow-wrap: anywhere; }
   .balcard { display: flex; justify-content: space-between; align-items: center;
     gap: 1rem; border: 1px solid #e5e5e2; border-radius: 12px; background: #fff;
     padding: 1rem 1.2rem; margin: 0 0 1.8rem; max-width: 62rem; flex-wrap: wrap; }
