@@ -40,9 +40,12 @@ export const INSTALLERS: Record<string, Installer> = {
     id: "claude-code",
     label: "Claude Code",
     binary: "claude",
-    // The vendor installer, which needs no elevated permissions.
+    // The vendor installer, which needs no elevated permissions. The npm
+    // package (also published by Anthropic) is the fallback channel — it is
+    // what makes the mirror path below work where claude.ai is unreachable.
     command: "curl -fsSL https://claude.ai/install.sh | bash",
     installDir: "~/.local/bin",
+    npmPackage: "@anthropic-ai/claude-code",
   },
   codex: {
     id: "codex",
@@ -55,6 +58,67 @@ export const INSTALLERS: Record<string, Installer> = {
 
 export function supported(): boolean {
   return process.platform === "darwin" || process.platform === "linux";
+}
+
+// ── registry channel ────────────────────────────────────────────────────────
+
+const NPM_OFFICIAL = "https://registry.npmjs.org";
+const NPM_MIRROR = "https://registry.npmmirror.com";
+
+export type NpmChannel =
+  /** The user's npm already points somewhere non-default — use it as is. */
+  | { kind: "user" }
+  /** The official registry answers — no flag needed. */
+  | { kind: "official" }
+  /** Official unreachable, the mirror answers — pass --registry once. */
+  | { kind: "mirror"; registry: string }
+  /** Nothing answers — let the install fail with its own network error. */
+  | { kind: "offline" };
+
+/**
+ * Decide which npm registry an install should use, by probing the channel
+ * itself rather than guessing at geography. An IP-location lookup answers
+ * the wrong question (an IP inside a firewall says nothing about whether a
+ * corporate proxy reaches the official registry, and the lookup service is
+ * one more thing to be unreachable); a HEAD request for the exact package
+ * we are about to install answers the right one. Worst case adds one fixed
+ * timeout, instead of the minutes-long install failure it replaces.
+ *
+ * The mirror is used only as a fallback, never by preference: it is a third
+ * party in the supply chain, trusted widely but still one more link.
+ */
+export async function pickNpmChannel(
+  pkg: string,
+  probe: (url: string) => Promise<boolean> = headOk,
+  userRegistry: () => string | null = npmConfiguredRegistry
+): Promise<NpmChannel> {
+  const configured = userRegistry();
+  if (configured && !configured.startsWith(NPM_OFFICIAL)) return { kind: "user" };
+  const path = `/${pkg.replace("/", "%2f")}`;
+  if (await probe(NPM_OFFICIAL + path)) return { kind: "official" };
+  if (await probe(NPM_MIRROR + path)) return { kind: "mirror", registry: NPM_MIRROR };
+  return { kind: "offline" };
+}
+
+async function headOk(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(3_000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+function npmConfiguredRegistry(): string | null {
+  try {
+    const r = execFileSync("npm", ["config", "get", "registry"], {
+      encoding: "utf8",
+      timeout: 10_000,
+    }).trim();
+    return r || null;
+  } catch {
+    return null;
+  }
 }
 
 type Probe = { ok: true } | { ok: false; onPath: boolean; reason: string };
@@ -129,11 +193,31 @@ export async function installAgent(id: string): Promise<InstallOutcome> {
       detail: "automatic install is macOS/Linux only for now",
     };
   }
-  if (installer.command.startsWith("npm ") && !npmPrefixWritable()) {
+  // Pick the registry channel before running anything: one fixed 3s probe
+  // replaces the minutes-long hang a firewalled user would otherwise sit
+  // through before the fallback even started.
+  const channel: NpmChannel = installer.npmPackage
+    ? await pickNpmChannel(installer.npmPackage)
+    : { kind: "official" };
+  const flag = channel.kind === "mirror" ? ` --registry=${channel.registry}` : "";
+  const npmCommand = installer.npmPackage
+    ? `npm install -g ${installer.npmPackage}${flag}`
+    : undefined;
+  // A curl installer needs its vendor host; when even the official npm
+  // registry is unreachable, that host almost certainly is too — go straight
+  // to the npm channel, which carries the same vendor-published package.
+  const command =
+    installer.command.startsWith("npm ")
+      ? npmCommand!
+      : channel.kind === "mirror" && npmCommand
+        ? npmCommand
+        : installer.command;
+
+  if (command.startsWith("npm ") && !npmPrefixWritable()) {
     return {
       ok: false,
       reason: "needs-manual",
-      command: installer.command,
+      command,
       detail: "npm's global prefix is not writable by this user",
     };
   }
@@ -141,14 +225,29 @@ export async function installAgent(id: string): Promise<InstallOutcome> {
   try {
     // Shell, because the vendor installer is a pipeline. The command is
     // printed by the caller before this runs; nothing is installed silently.
-    await execFileP("/bin/sh", ["-c", installer.command], { timeout: 300_000 });
+    await execFileP("/bin/sh", ["-c", command], { timeout: 300_000 });
   } catch (e) {
-    return {
-      ok: false,
-      reason: "needs-manual",
-      command: installer.command,
-      detail: (e as Error).message.split("\n")[0],
-    };
+    // The curl channel failing is not the end: try the npm channel once
+    // before giving up — same package, different transport.
+    const fallback = npmCommand && command !== npmCommand ? npmCommand : undefined;
+    if (!fallback) {
+      return {
+        ok: false,
+        reason: "needs-manual",
+        command,
+        detail: (e as Error).message.split("\n")[0],
+      };
+    }
+    try {
+      await execFileP("/bin/sh", ["-c", fallback], { timeout: 300_000 });
+    } catch (e2) {
+      return {
+        ok: false,
+        reason: "needs-manual",
+        command: fallback,
+        detail: (e2 as Error).message.split("\n")[0],
+      };
+    }
   }
 
   let probe = probeBinary(installer.binary);
@@ -159,7 +258,7 @@ export async function installAgent(id: string): Promise<InstallOutcome> {
     // a broken npm install gets exactly one.
     await execFileP(
       "/bin/sh",
-      ["-c", `npm uninstall -g ${installer.npmPackage}; ${installer.command}`],
+      ["-c", `npm uninstall -g ${installer.npmPackage}; ${npmCommand ?? command}`],
       { timeout: 300_000 }
     ).catch(() => {});
     probe = probeBinary(installer.binary);
