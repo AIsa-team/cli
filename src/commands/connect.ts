@@ -1225,6 +1225,65 @@ nothing else to configure.</p>`
     : `<h1>Congratulations — your agent just got <em>${toolCount} powerful new tool${toolCount > 1 ? "s" : ""}</em></h1>
 <p class="lede">${chosen.length} AIsa MCP server${chosen.length > 1 ? "s are" : " is"} now
 installed and signed in for <b>${clientNames}</b> — nothing else to configure.</p>`;
+  // Launchable only for the CLI agents, and only while the local process is
+  // still alive (it lingers a few minutes) — the button degrades to a
+  // "run it yourself" hint once the process has exited.
+  //
+  // The card mimics each agent's real first screen — Codex's ASCII face
+  // (transcribed from its TUI; the binary stores it as fragments) and Claude
+  // Code's pixel robot — so the terminal the button opens looks exactly like
+  // what the user just previewed. Familiarity is the whole point.
+  const launchBin =
+    clientIds[0] === "codex" ? "codex" : clientIds[0] === "claude-code" ? "claude" : null;
+  const cwd = process.cwd();
+  const CODEX_FACE = [
+    "            __+=++++=+,_",
+    "        _=\"\"\\+/;/+\\+;++\"**+_",
+    "      ,\\'\\,+*-*\"``  `\"*~*+|,*|,",
+    "    _|\"*+____          '*~\\\"|",
+    "   ,/_;\\'|\\`\\,.          ^\\.*",
+    "  / ,/`   *_ \"|/,         \"\\^*",
+    " | ;!`     !\\ \"\\\\         |^|,",
+    " ||\\~      _\\ _//!        \\| |",
+    " |'\"|     // ,*\"',++_+++++_  |\\~|",
+    "  _*|\\  ,|__/~/ !`~_______|| \\/'`",
+    "  ' *|\\ +_+/^    \"**^^^^^\" |,\"/",
+    "   ',\"\\;.                ,/|\"/",
+    "    \\/||+~,           ,++\"/,`",
+    "      *,_\"**=^;~_+~;\"-\",;+'",
+    "        `*+/~_,,_,,++**\"",
+  ].join("\n");
+  const CLAUDE_BOT = [
+    "  ▄▄      ▄▄",
+    " ████████████",
+    " ██ ███ ██ ██",
+    " ████████████",
+    "  ▀▀  ▀▀  ▀▀",
+  ].join("\n");
+  const termPreview =
+    launchBin === "codex"
+      ? `<pre class="termlogo codex">${CODEX_FACE}</pre>
+<div class="termline">Welcome to <b>Codex</b>, OpenAI's command-line coding agent</div>
+<div class="termline dim">model: <b>${model.model}</b> · via AIsa</div>`
+      : `<pre class="termlogo claude">${CLAUDE_BOT}</pre>
+<div class="termline"><b class="ccname">Claude Code</b></div>
+<div class="termline dim">${model.model} · via AIsa</div>
+<div class="termline dim">${cwd}</div>
+<div class="termline accent">Using ${model.model} (from .claude/settings.json)</div>`;
+  const launchBlock =
+    !mcpFailed && launchBin
+      ? `<div class="termcard">
+  <div class="termwin">
+    <div class="termbar"><span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span></div>
+    <div class="termbody">${termPreview}</div>
+  </div>
+  <div class="termside">
+    <button class="cta act" id="launch">Launch ${clientNames.split(",")[0]} →</button>
+    <span class="fine" id="launchnote"></span>
+  </div>
+</div>`
+      : "";
+
   const headline = mcpFailed
     ? `<div class="eyebrow">Almost there</div>
 <h1>Your agent is <em>not connected yet</em></h1>
@@ -1274,7 +1333,7 @@ ${recapRows}
         ? `<div class="lownote">Could not read it just now — <code>aisa balance</code> will.</div>`
         : ""
   }
-  <a class="cta topup" href="${TOPUP_URL}" target="_blank" rel="noopener">Top up</a></div>
+  <a class="cta topup" href="${TOPUP_URL}" target="_blank" rel="noopener">Top up now →</a></div>
 </div>`;
 
   const body = `
@@ -1306,8 +1365,30 @@ ${recapRows}
   .ballbl { font-size: .8rem; color: #6b6b66; }
   .balright { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
   .lownote { font-size: .92rem; color: #92400e; max-width: 26rem; }
-  .cta.topup { display: inline-block; width: auto; padding: .55rem 1.4rem;
-    font-size: .95rem; }
+  .cta.topup, .cta.act { display: inline-block; width: auto; padding: .7rem 1.8rem; }
+  /* The launch card: a believable little terminal, agent branding intact,
+     with the launch button on the right edge — same edge as Top up above. */
+  .termcard { display: flex; justify-content: space-between; align-items: center;
+    gap: 1.2rem; border: 1px solid #e5e5e2; border-radius: 12px; background: #fff;
+    padding: 1rem 1.2rem; margin: 0 0 1.8rem; max-width: 62rem; flex-wrap: wrap; }
+  .termwin { background: #0d0d0b; border-radius: 10px; overflow: hidden;
+    flex: 1 1 24rem; min-width: 0; box-shadow: inset 0 0 0 1px #262622; }
+  .termbar { display: flex; gap: .38rem; padding: .5rem .7rem; background: #1a1a17; }
+  .tdot { width: .62rem; height: .62rem; border-radius: 50%; }
+  .tdot.r { background: #ff5f57; } .tdot.y { background: #febc2e; } .tdot.g { background: #28c840; }
+  .termbody { padding: .8rem 1rem 1rem; font-family: ui-monospace, SFMono-Regular,
+    Menlo, monospace; font-size: .78rem; line-height: 1.35; }
+  .termlogo { margin: 0 0 .6rem; font-size: .35rem; line-height: 1.15; overflow-x: auto; }
+  .termlogo.codex { color: #33d17a; }
+  .termlogo.claude { color: #e07b54; font-size: .56rem; line-height: 1.05; }
+  .termline { color: #d8d8d2; padding: .08rem 0; overflow-wrap: anywhere; }
+  .termline b { color: #fff; }
+  .termline.dim { color: #8a8a82; }
+  .termline.accent { color: #d8d8d2; border-left: 2px solid #33d17a; padding-left: .5rem; }
+  .termline .prompt { color: #33d17a; font-weight: 700; }
+  .ccname { color: #33d17a !important; }
+  .termside { display: flex; flex-direction: column; align-items: flex-end;
+    gap: .5rem; flex: none; }
 </style>
 ${headline}
 ${
@@ -1325,6 +1406,7 @@ usage &amp; billing at <a href="https://console.aisa.one" target="_blank" rel="n
 ${failBlock}
 ${recap}
 ${balanceCard}
+${launchBlock}
 <h2>${I.sparkles} Try it now — paste one of these into ${clientNames.split(",")[0]}</h2>
 <div class="examples">
 ${examples || '<p class="fine">Ask your agent to use any of the aisa-* MCP tools.</p>'}
@@ -1343,6 +1425,24 @@ document.querySelectorAll("[data-copy]").forEach(function (b) {
     });
   });
 });
+var launch = document.getElementById("launch");
+if (launch) launch.addEventListener("click", function () {
+  var token = new URLSearchParams(location.search).get("token");
+  var note = document.getElementById("launchnote");
+  launch.disabled = true;
+  fetch("/launch?token=" + token, { method: "POST" })
+    .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+    .then(function () {
+      launch.textContent = "\\u2713 Opened in Terminal";
+      note.textContent = "";
+    })
+    .catch(function () {
+      // Process exited, or no terminal emulator could be started (headless
+      // Linux) — the agent is installed either way, one command starts it.
+      launch.style.display = "none";
+      note.innerHTML = "Could not open a terminal automatically \\u2014 just run <code>${launchBin ?? ""}</code> in any terminal.";
+    });
+});
 </script>`;
   return shell(mcpFailed ? "AIsa \u2014 almost connected" : "\u2713 AIsa Connected", body);
 }
@@ -1354,6 +1454,51 @@ function readBody(req: IncomingMessage): Promise<string> {
     req.on("end", () => resolve(data));
     req.on("error", reject);
   });
+}
+
+/**
+ * Open a real terminal window running the freshly connected agent. The
+ * command is a fixed whitelist entry — nothing from the request reaches the
+ * shell — and the working directory is where connect was launched, which is
+ * almost always the project the user wants the agent in.
+ */
+function launchAgentTerminal(binary: "codex" | "claude"): Promise<boolean> {
+  if (process.platform === "darwin") {
+    // osascript ships with macOS — no dependency of ours. First use may show
+    // a one-time automation permission prompt; Terminal.app starts a fresh
+    // shell, so the cd is explicit.
+    const dir = process.cwd().replace(/'/g, "'\\''");
+    return new Promise((resolve) =>
+      execFile(
+        "osascript",
+        [
+          "-e",
+          `tell application "Terminal" to do script "cd '${dir}' && ${binary}"`,
+          "-e",
+          'tell application "Terminal" to activate',
+        ],
+        (err) => resolve(!err)
+      )
+    );
+  }
+  // Linux: only meaningful in a graphical session, and there is no single
+  // terminal — walk the common ones until one starts. The spawned terminal
+  // inherits our cwd, so the agent opens in the right directory without a cd.
+  if (!process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) return Promise.resolve(false);
+  const candidates: Array<[string, string[]]> = [
+    ["x-terminal-emulator", ["-e", binary]],
+    ["gnome-terminal", ["--", binary]],
+    ["konsole", ["-e", binary]],
+    ["xfce4-terminal", ["-e", binary]],
+    ["xterm", ["-e", binary]],
+  ];
+  return candidates.reduce<Promise<boolean>>(
+    (chain, [cmd, args]) =>
+      chain.then(
+        (ok) => ok || new Promise((resolve) => execFile(cmd, args, (err) => resolve(!err)))
+      ),
+    Promise.resolve(false)
+  );
 }
 
 function openBrowser(url: string): void {
@@ -1432,6 +1577,27 @@ export async function connectAction(options: {
       res
         .writeHead(200, { "content-type": "text/html; charset=utf-8" })
         .end(renderDone(chosenServers, chosenClients, state.steps, servers, state.balanceMicros ?? null));
+      return;
+    }
+    if (req.method === "POST" && url.pathname === "/launch") {
+      if (!tokenOk) {
+        res.writeHead(403).end();
+        return;
+      }
+      // Whitelist only — the client name selects a fixed binary, and no part
+      // of the request ever reaches a shell.
+      const bin = chosenClients[0] === "codex" ? "codex" : chosenClients[0] === "claude-code" ? "claude" : null;
+      if (!bin) {
+        res.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ ok: false }));
+        return;
+      }
+      // Wait for the real outcome: a 200 over a failed launch would leave the
+      // page claiming success it never checked (headless Linux, no terminal
+      // emulator found). The page's catch shows the run-it-yourself hint.
+      const launched = await launchAgentTerminal(bin);
+      res
+        .writeHead(launched ? 200 : 500, { "content-type": "application/json" })
+        .end(JSON.stringify({ ok: launched }));
       return;
     }
     if (req.method === "POST" && url.pathname === "/apply") {
