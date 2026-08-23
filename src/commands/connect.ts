@@ -830,6 +830,19 @@ function shell(title: string, body: string): string {
     border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
   .badge.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
   .badge.todo { background: #f59e0b; border-color: #f59e0b; color: #fff; }
+  /* The no-model warning: the one place on the page allowed to shout. A
+     freshly installed agent with no backend is a broken first-run. */
+  .modelwarn { margin-top: .7rem; border: 2px solid #f59e0b; border-radius: 10px;
+    background: #fffbeb; padding: .9rem 1rem; }
+  .modelwarn .mw-head { font-weight: 800; font-size: 1rem; color: #92400e;
+    margin-bottom: .35rem; }
+  .modelwarn .mw-body { font-size: .92rem; color: #78350f; line-height: 1.5; }
+  .modelwarn .mw-fix { margin-top: .7rem; background: var(--cta); color: #fff;
+    border: 0; border-radius: 6px; padding: .55rem 1.3rem; font-weight: 700;
+    font-size: .95rem; cursor: pointer; }
+  .modelwarn .mw-fix:hover { filter: brightness(1.08); }
+  @keyframes mwshake { 0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
   /* The loud state a card jumps to the moment its install step succeeds. */
   .badge.installed { background: var(--ok); border-color: var(--ok); color: #fff; }
   .card.freshly-installed { border-color: var(--ok);
@@ -1028,6 +1041,15 @@ ${clientRows}
     <span class="brief" id="llmbrief">Points the agent's model traffic at AIsa.
     Reversible \u2014 it writes the agent's own provider settings and nothing else.</span></span></label>
 
+<div id="modelwarn" class="modelwarn" style="display:none">
+  <div class="mw-head">\u26a0\ufe0e Installing without a model backend</div>
+  <div class="mw-body">A fresh install <b>cannot answer a single prompt</b> until you
+  configure a model provider by hand. Turn on AIsa models and it leaves here ready to
+  work: <b>100+ models</b> \u2014 Claude, GPT, Gemini and more \u2014 one key,
+  prices well below going direct.</div>
+  <button type="button" class="mw-fix" id="modelfix">Use AIsa models \u2192</button>
+</div>
+
 <h2 style="margin-top:1.6rem"><span class="n">4</span>Authorize</h2>
 <div class="authnote">${I.shield}<div>${authCopy}</div></div>
 <p class="fine">Served by the local <code>aisa connect</code> process — nothing leaves your
@@ -1075,7 +1097,25 @@ machine except the OAuth you approve. The process exits when everything is conne
     }
   }
 
+  var modelWarn = document.getElementById("modelwarn");
+  var armed = false;
+  function updateModelWarn() {
+    var chosen = document.querySelector('input[name="client"]:checked');
+    var need = chosen && chosen.dataset.install === "1" && !llmBox.checked;
+    modelWarn.style.display = need ? "block" : "none";
+    if (!need) armed = false;
+  }
+  document.getElementById("modelfix").addEventListener("click", function () {
+    llmBox.checked = true;
+    llmBox.closest(".card").classList.add("on");
+    updateModelWarn();
+  });
+  document.querySelectorAll('input[name="client"]').forEach(function (r) {
+    r.addEventListener("change", updateModelWarn);
+  });
+
   llmBox.addEventListener("change", function () {
+    updateModelWarn();
     llmBox.closest(".card").classList.toggle("on", llmBox.checked);
   });
 
@@ -1213,6 +1253,18 @@ machine except the OAuth you approve. The process exits when everything is conne
     }
     var clients = [chosen.value];
     var install = chosen.dataset.install === "1" ? [chosen.value] : [];
+    // Soft block: a fresh install with no model is almost certainly a
+    // mistake. First press stops here and points at the warning; a second
+    // press is an informed choice and goes through.
+    if (install.length && !llmBox.checked && !armed) {
+      armed = true;
+      updateModelWarn();
+      modelWarn.scrollIntoView({ block: "center", behavior: "smooth" });
+      modelWarn.style.animation = "none"; void modelWarn.offsetWidth;
+      modelWarn.style.animation = "mwshake .45s";
+      btn.textContent = "Install anyway, without a model \u2192";
+      return;
+    }
     btn.disabled = true;
     btn.textContent = install.length ? "Installing\\u2026" : "Connecting\\u2026";
     fetch("/apply", { method: "POST",
