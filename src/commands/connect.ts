@@ -7,11 +7,11 @@ import { promisify } from "node:util";
 import chalk from "chalk";
 import { success, error, info, hint } from "../utils/display.js";
 import { expandHome } from "../utils/file.js";
-import { MCP_CONFIGS, MCP_DEFAULT_SLUGS } from "../constants.js";
+import { MCP_CONFIGS, MCP_DEFAULT_SLUGS, AISA_PROVIDER_ID } from "../constants.js";
 import { getApiKey } from "../config.js";
 import { fetchLiveServers, writeClientConfig, stripped, type LiveServer } from "./mcp.js";
 import { INSTALLERS, installAgent, supported } from "./install.js";
-import { writeCodexLLM, writeClaudeCodeLLM, defaultModelsFor, patchCodexMCPAuth } from "./llm-config.js";
+import { writeCodexLLM, writeClaudeCodeLLM, writeOpencodeLLM, defaultModelsFor, patchCodexMCPAuth } from "./llm-config.js";
 import { mintCliKey } from "./oauth-login.js";
 import { formatMicrosUSD } from "./account.js";
 import { apiRequest } from "../api.js";
@@ -200,6 +200,17 @@ export function detectClients(): ClientInfo[] {
     detail: codex.status === 0 ? codex.stdout.trim() : "codex not found on PATH",
   });
 
+  // opencode: no `mcp add`, no login command — one JSON config file drives
+  // everything. Detection stays the same discipline: actually run the binary.
+  const oc = spawnSync("opencode", ["--version"], { timeout: 5_000, encoding: "utf8" });
+  clients.push({
+    id: "opencode",
+    label: "opencode",
+    kind: "cli",
+    detected: oc.status === 0,
+    detail: oc.status === 0 ? `opencode ${oc.stdout.trim()}` : "opencode not found on PATH",
+  });
+
   for (const [id, cfg] of Object.entries(MCP_CONFIGS)) {
     // "Installed" here means the client's config directory exists. Coarse,
     // but the false-positive cost is one harmless config file.
@@ -343,6 +354,37 @@ async function applySelection(
               message: key
                 ? `${added} servers added with your key`
                 : `${added} servers added and authorized`,
+            }
+          : { client: id, ok: false, message: `only ${added} of ${chosen.length} servers were added` }
+      );
+    } else if (id === "opencode") {
+      // The official command (1.18+): non-interactive, idempotent on the
+      // name, writes opencode.jsonc in the exact schema shape. Same doctrine
+      // as the other CLI agents — never hand-write what the vendor's own
+      // command can write.
+      if (dryRun) {
+        results.push({ client: id, ok: true, message: `would run opencode mcp add for ${chosen.length} servers` });
+        continue;
+      }
+      let added = 0;
+      for (const s of chosen) {
+        const args = ["mcp", "add", `aisa-${s.slug}`, "--url", s.endpoint];
+        if (key) args.push("--header", `Authorization=Bearer ${key}`);
+        try {
+          await execFileP("opencode", args, { timeout: 30_000 });
+          added++;
+        } catch {
+          /* counted below */
+        }
+      }
+      results.push(
+        added === chosen.length
+          ? {
+              client: id,
+              ok: true,
+              message: key
+                ? `${added} servers added with your key`
+                : `${added} servers added — opencode runs its own OAuth on first start`,
             }
           : { client: id, ok: false, message: `only ${added} of ${chosen.length} servers were added` }
       );
@@ -634,7 +676,11 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       const target = input.clients[0];
       const models = defaultModelsFor(target);
       const res =
-        target === "codex" ? writeCodexLLM(key, models) : writeClaudeCodeLLM(key, models);
+        target === "codex"
+          ? writeCodexLLM(key, models)
+          : target === "opencode"
+            ? writeOpencodeLLM(key, models)
+            : writeClaudeCodeLLM(key, models);
       if (res.ok) {
         ok("llm", `${models.model} via ${res.path}`);
         if (target === "codex") {
@@ -1234,7 +1280,9 @@ installed and signed in for <b>${clientNames}</b> — nothing else to configure.
   // Code's pixel robot — so the terminal the button opens looks exactly like
   // what the user just previewed. Familiarity is the whole point.
   const launchBin =
-    clientIds[0] === "codex" ? "codex" : clientIds[0] === "claude-code" ? "claude" : null;
+    clientIds[0] === "codex" ? "codex"
+    : clientIds[0] === "claude-code" ? "claude"
+    : clientIds[0] === "opencode" ? "opencode" : null;
   const cwd = process.cwd();
   const CODEX_FACE = [
     "            __+=++++=+,_",
@@ -1260,8 +1308,19 @@ installed and signed in for <b>${clientNames}</b> — nothing else to configure.
     " ████████████",
     "  ▀▀  ▀▀  ▀▀",
   ].join("\n");
+  // opencode's real banner, verbatim from its --help output.
+  const OPENCODE_MARK = [
+    "█▀▀█ █▀▀█ █▀▀█ █▀▀▄ █▀▀▀ █▀▀█ █▀▀█ █▀▀█",
+    "█  █ █  █ █▀▀▀ █  █ █    █  █ █  █ █▀▀▀",
+    "▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀  ▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀",
+  ].join("\n");
   const termPreview =
-    launchBin === "codex"
+    launchBin === "opencode"
+      ? `<pre class="termlogo oc">${OPENCODE_MARK}</pre>
+<div class="termline">Welcome to <b>opencode</b></div>
+<div class="termline dim">model: <b>${AISA_PROVIDER_ID}/${model.model}</b> · via AIsa</div>
+<div class="termline dim">config: ~/.config/opencode/opencode.json</div>`
+      : launchBin === "codex"
       ? `<pre class="termlogo codex">${CODEX_FACE}</pre>
 <div class="termline">Welcome to <b>Codex</b>, OpenAI's command-line coding agent</div>
 <div class="termline dim">model: <b>${model.model}</b> · via AIsa</div>`
@@ -1380,6 +1439,7 @@ ${recapRows}
     Menlo, monospace; font-size: .78rem; line-height: 1.35; }
   .termlogo { margin: 0 0 .6rem; font-size: .35rem; line-height: 1.15; overflow-x: auto; }
   .termlogo.codex { color: #33d17a; }
+  .termlogo.oc { color: #fafafa; font-size: .62rem; line-height: 1.2; }
   .termlogo.claude { color: #e07b54; font-size: .56rem; line-height: 1.05; }
   .termline { color: #d8d8d2; padding: .08rem 0; overflow-wrap: anywhere; }
   .termline b { color: #fff; }
@@ -1462,7 +1522,7 @@ function readBody(req: IncomingMessage): Promise<string> {
  * shell — and the working directory is where connect was launched, which is
  * almost always the project the user wants the agent in.
  */
-function launchAgentTerminal(binary: "codex" | "claude"): Promise<boolean> {
+function launchAgentTerminal(binary: "codex" | "claude" | "opencode"): Promise<boolean> {
   if (process.platform === "darwin") {
     // osascript ships with macOS — no dependency of ours. First use may show
     // a one-time automation permission prompt; Terminal.app starts a fresh
@@ -1586,7 +1646,10 @@ export async function connectAction(options: {
       }
       // Whitelist only — the client name selects a fixed binary, and no part
       // of the request ever reaches a shell.
-      const bin = chosenClients[0] === "codex" ? "codex" : chosenClients[0] === "claude-code" ? "claude" : null;
+      const bin =
+        chosenClients[0] === "codex" ? "codex"
+        : chosenClients[0] === "claude-code" ? "claude"
+        : chosenClients[0] === "opencode" ? "opencode" : null;
       if (!bin) {
         res.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ ok: false }));
         return;

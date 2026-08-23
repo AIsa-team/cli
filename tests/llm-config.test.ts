@@ -25,6 +25,9 @@ const {
   removeCodexLLM,
   writeCodexMCP,
   patchCodexMCPAuth,
+  writeOpencodeLLM,
+  removeOpencodeLLM,
+  writeOpencodeMCP,
   DEFAULT_MODELS,
   CODEX_DEFAULT_MODELS,
   defaultModelsFor,
@@ -201,6 +204,67 @@ describe("patchCodexMCPAuth", () => {
     seed(codexPath(), "not = = toml");
     expect(patchCodexMCPAuth("aisa-web-search", "sk-test").ok).toBe(false);
     expect(readFileSync(codexPath(), "utf-8")).toBe("not = = toml");
+  });
+});
+
+describe("opencode config", () => {
+  const ocPath = () => join(home, ".config", "opencode", "opencode.json");
+  const servers = [{ slug: "web-search", endpoint: "https://mcp.aisa.one/web-search/mcp" }];
+
+  it("registers the provider with the anthropic SDK and default models", () => {
+    const res = writeOpencodeLLM("sk-test");
+    expect(res.ok).toBe(true);
+    const cfg = readJson(ocPath());
+    expect(cfg.$schema).toBe("https://opencode.ai/config.json");
+    const p = cfg.provider[AISA_PROVIDER_ID];
+    expect(p.npm).toBe("@ai-sdk/anthropic");
+    expect(p.options.baseURL).toBe(LLM_BASE_URL + "/v1");
+    expect(p.options.apiKey).toBe("sk-test");
+    expect(cfg.model).toBe(`${AISA_PROVIDER_ID}/${DEFAULT_MODELS.model}`);
+    expect(cfg.small_model).toBe(`${AISA_PROVIDER_ID}/${DEFAULT_MODELS.smallModel}`);
+  });
+
+  it("keeps a user's own provider and drops only ours on removal", () => {
+    seed(ocPath(), JSON.stringify({ provider: { other: { npm: "x" } }, theme: "dark" }));
+    writeOpencodeLLM("sk-test");
+    removeOpencodeLLM();
+    const cfg = readJson(ocPath());
+    expect(cfg.provider.other).toBeDefined();
+    expect(cfg.provider[AISA_PROVIDER_ID]).toBeUndefined();
+    expect(cfg.model).toBeUndefined();
+    expect(cfg.theme).toBe("dark");
+  });
+
+  it("keeps a model the user pointed elsewhere", () => {
+    writeOpencodeLLM("sk-test");
+    const cfg = readJson(ocPath());
+    cfg.model = "other/gpt";
+    writeFileSync(ocPath(), JSON.stringify(cfg), "utf-8");
+    removeOpencodeLLM();
+    expect(readJson(ocPath()).model).toBe("other/gpt");
+  });
+
+  it("writes remote MCP entries with the key as a literal header", () => {
+    writeOpencodeMCP(servers, "sk-test");
+    const e = readJson(ocPath()).mcp["aisa-web-search"];
+    expect(e.type).toBe("remote");
+    expect(e.enabled).toBe(true);
+    expect(e.headers.Authorization).toBe("Bearer sk-test");
+    expect(e.oauth).toBeUndefined();
+  });
+
+  it("asks for opencode's own OAuth when there is no key", () => {
+    writeOpencodeMCP(servers, undefined);
+    const e = readJson(ocPath()).mcp["aisa-web-search"];
+    expect(e.oauth).toEqual({});
+    expect(e.headers).toBeUndefined();
+  });
+
+  it("refuses a config that does not parse", () => {
+    seed(ocPath(), "{ not json");
+    expect(writeOpencodeLLM("sk-test").ok).toBe(false);
+    expect(writeOpencodeMCP(servers, "sk").ok).toBe(false);
+    expect(readFileSync(ocPath(), "utf-8")).toBe("{ not json");
   });
 });
 

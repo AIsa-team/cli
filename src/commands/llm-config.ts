@@ -301,3 +301,105 @@ export function patchCodexMCPAuth(name: string, apiKey: string): ConfigResult {
   writeToml(path, config);
   return { ok: true, path };
 }
+
+// ── opencode ────────────────────────────────────────────────────────────────
+//
+// opencode has no `mcp add` command at all — its whole surface is one JSON
+// document, ~/.config/opencode/opencode.json, validated against the schema
+// at opencode.ai/config.json. Both the model provider and the MCP servers
+// are keys in that document, so this section is two writers over the same
+// file, with the same removal-by-key discipline as the other clients.
+
+// `opencode mcp add` creates opencode.jsonc; the schema site says .json.
+// Both are read by opencode — write whichever already exists (jsonc wins,
+// since the official command creates it), so there is never a second file
+// fighting the first.
+function opencodeConfigPath(): string {
+  const jsonc = expandHome("~/.config/opencode/opencode.jsonc");
+  if (existsSync(jsonc)) return jsonc;
+  return expandHome("~/.config/opencode/opencode.json");
+}
+
+/**
+ * Register AIsa as a custom provider and point the default models at it.
+ *
+ * `@ai-sdk/anthropic` is the runtime (opencode loads providers as Vercel AI
+ * SDK packages): our gateway's /v1/messages face is live and verified with a
+ * real Claude Code session, and the anthropic SDK is the pairing that face
+ * was built for. Models are declared explicitly — a custom provider has no
+ * models.dev entry to inherit from.
+ */
+export function writeOpencodeLLM(apiKey: string, models: ModelChoice = DEFAULT_MODELS): ConfigResult {
+  const path = opencodeConfigPath();
+  const config = readJson(path);
+  if (config === null) return { ok: false, reason: `${path} exists but is not valid JSON` };
+
+  config.$schema ??= "https://opencode.ai/config.json";
+  const provider = { ...((config.provider as Record<string, unknown>) ?? {}) };
+  provider[AISA_PROVIDER_ID] = {
+    npm: "@ai-sdk/anthropic",
+    name: "AIsa",
+    options: { baseURL: `${LLM_BASE_URL}/v1`, apiKey },
+    models: {
+      [models.model]: { name: models.model },
+      [models.smallModel]: { name: models.smallModel },
+    },
+  };
+  config.provider = provider;
+  config.model = `${AISA_PROVIDER_ID}/${models.model}`;
+  config.small_model = `${AISA_PROVIDER_ID}/${models.smallModel}`;
+
+  ensureDir(join(path, ".."));
+  writeFileSync(path, JSON.stringify(config, null, 2) + "\n", "utf-8");
+  return { ok: true, path };
+}
+
+export function removeOpencodeLLM(): ConfigResult {
+  const path = opencodeConfigPath();
+  if (!existsSync(path)) return { ok: true, path };
+  const config = readJson(path);
+  if (config === null) return { ok: false, reason: `${path} is not valid JSON` };
+
+  const provider = config.provider as Record<string, unknown> | undefined;
+  if (provider) {
+    delete provider[AISA_PROVIDER_ID];
+    if (Object.keys(provider).length === 0) delete config.provider;
+  }
+  // Only unset the defaults if they still point at us — a user who switched
+  // to another provider keeps their choice.
+  if (typeof config.model === "string" && config.model.startsWith(`${AISA_PROVIDER_ID}/`))
+    delete config.model;
+  if (typeof config.small_model === "string" && config.small_model.startsWith(`${AISA_PROVIDER_ID}/`))
+    delete config.small_model;
+  writeFileSync(path, JSON.stringify(config, null, 2) + "\n", "utf-8");
+  return { ok: true, path };
+}
+
+/**
+ * Write the MCP entries. With a key the entry carries the literal
+ * Authorization header; without one, `oauth: {}` tells opencode to run its
+ * own MCP OAuth (dynamic client registration per its schema).
+ */
+export function writeOpencodeMCP(
+  servers: Array<{ slug: string; endpoint: string }>,
+  apiKey: string | undefined
+): ConfigResult {
+  const path = opencodeConfigPath();
+  const config = readJson(path);
+  if (config === null) return { ok: false, reason: `${path} exists but is not valid JSON` };
+
+  config.$schema ??= "https://opencode.ai/config.json";
+  const mcp = { ...((config.mcp as Record<string, unknown>) ?? {}) };
+  for (const s of servers) {
+    mcp[`aisa-${s.slug}`] = {
+      type: "remote",
+      url: s.endpoint,
+      enabled: true,
+      ...(apiKey ? { headers: { Authorization: `Bearer ${apiKey}` } } : { oauth: {} }),
+    };
+  }
+  config.mcp = mcp;
+  ensureDir(join(path, ".."));
+  writeFileSync(path, JSON.stringify(config, null, 2) + "\n", "utf-8");
+  return { ok: true, path };
+}

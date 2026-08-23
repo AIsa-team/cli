@@ -62,6 +62,13 @@ export const INSTALLERS: Record<string, Installer> = {
     command: "npm install -g @openai/codex",
     npmPackage: "@openai/codex",
   },
+  opencode: {
+    id: "opencode",
+    label: "opencode",
+    binary: "opencode",
+    command: "npm install -g opencode-ai",
+    npmPackage: "opencode-ai",
+  },
 };
 
 export function supported(): boolean {
