@@ -247,9 +247,18 @@ export async function installAgent(id: string): Promise<InstallOutcome> {
     // printed by the caller before this runs; nothing is installed silently.
     await execFileP("/bin/sh", ["-c", command], { timeout: 300_000 });
   } catch (e) {
-    // The curl channel failing is not the end: try the npm channel once
-    // before giving up — same package, different transport.
-    const fallback = npmCommand && command !== npmCommand ? npmCommand : undefined;
+    // A failed install gets exactly one more chance. Curl channel: retry over
+    // npm (same vendor package, different transport). npm channel: a clean
+    // uninstall + reinstall — npm's optional-dependency bug can fail the
+    // install itself (seen live with opencode: the platform binary gets
+    // "reify mark deleted" and the postinstall exits 1), and the reinstall
+    // is the remedy that works by hand.
+    const fallback =
+      npmCommand && command !== npmCommand
+        ? npmCommand
+        : installer.npmPackage
+          ? `npm uninstall -g ${installer.npmPackage} >/dev/null 2>&1; ${npmCommand ?? command}`
+          : undefined;
     if (!fallback) {
       return {
         ok: false,
@@ -264,7 +273,7 @@ export async function installAgent(id: string): Promise<InstallOutcome> {
       return {
         ok: false,
         reason: "needs-manual",
-        command: fallback,
+        command: npmCommand ?? command,
         detail: (e2 as Error).message.split("\n")[0],
       };
     }
