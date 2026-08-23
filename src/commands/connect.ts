@@ -833,10 +833,10 @@ function shell(title: string, body: string): string {
   /* The no-model warning: the one place on the page allowed to shout. A
      freshly installed agent with no backend is a broken first-run. */
   .modelwarn { margin-top: .7rem; border: 2px solid #f59e0b; border-radius: 10px;
-    background: #fffbeb; padding: .9rem 1rem; }
-  .modelwarn .mw-head { font-weight: 800; font-size: 1rem; color: #92400e;
+    background: color-mix(in srgb, #f59e0b 12%, var(--card)); padding: .9rem 1rem; }
+  .modelwarn .mw-head { font-weight: 800; font-size: 1rem; color: color-mix(in srgb, #b45309 60%, var(--ink));
     margin-bottom: .35rem; }
-  .modelwarn .mw-body { font-size: .92rem; color: #78350f; line-height: 1.5; }
+  .modelwarn .mw-body { font-size: .92rem; color: color-mix(in srgb, #92400e 45%, var(--ink)); line-height: 1.5; }
   .modelwarn .mw-fix { margin-top: .7rem; background: var(--cta); color: #fff;
     border: 0; border-radius: 6px; padding: .55rem 1.3rem; font-weight: 700;
     font-size: .95rem; cursor: pointer; }
@@ -1473,32 +1473,32 @@ ${recapRows}
   .example .srv { font-size: .8rem; }
   h2 { font-size: 1.2rem; }
   .fine { font-size: .9rem; }
-  .recap { border: 1px solid #e5e5e2; border-radius: 12px; background: #fff;
+  .recap { border: 1px solid var(--line); border-radius: 12px; background: var(--card);
     padding: 1rem 1.2rem; margin: 0 0 1.4rem; max-width: 62rem; }
-  .rsum { font-weight: 600; padding-bottom: .55rem; border-bottom: 1px dashed #e5e5e2;
+  .rsum { font-weight: 600; padding-bottom: .55rem; border-bottom: 1px dashed var(--line);
     margin-bottom: .55rem; }
   .rstep { display: flex; gap: .7rem; align-items: baseline; padding: .4rem 0;
-    font-size: 1.06rem; border-bottom: 1px solid #f1f0ec; }
+    font-size: 1.06rem; border-bottom: 1px solid var(--line); }
   .rstep:last-child { border-bottom: 0; }
   .rstep .ri { font-weight: 800; font-size: 1.15rem; flex: none; margin-left: auto; }
-  .rstep.ok .ri { color: #16a34a; }
+  .rstep.ok .ri { color: var(--ok); }
   .rstep.fail .ri { color: #dc2626; }
   .rstep.skip .ri, .rstep.pending .ri { color: #9ca3af; }
   .rstep .rl { font-weight: 700; flex: none; }
-  .rstep .rd { color: #6b6b66; font-size: .95rem; overflow-wrap: anywhere; }
+  .rstep .rd { color: var(--muted); font-size: .95rem; overflow-wrap: anywhere; }
   .balcard { display: flex; justify-content: space-between; align-items: center;
-    gap: 1rem; border: 1px solid #e5e5e2; border-radius: 12px; background: #fff;
+    gap: 1rem; border: 1px solid var(--line); border-radius: 12px; background: var(--card);
     padding: 1rem 1.2rem; margin: 0 0 1.8rem; max-width: 62rem; flex-wrap: wrap; }
-  .balcard.low { border-color: #f59e0b; background: #fffbeb; }
+  .balcard.low { border-color: #f59e0b; background: color-mix(in srgb, #f59e0b 12%, var(--card)); }
   .balnum { font-size: 1.6rem; font-weight: 800; }
-  .ballbl { font-size: .8rem; color: #6b6b66; }
+  .ballbl { font-size: .8rem; color: var(--muted); }
   .balright { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-  .lownote { font-size: .92rem; color: #92400e; max-width: 26rem; }
+  .lownote { font-size: .92rem; color: color-mix(in srgb, #b45309 70%, var(--ink)); max-width: 26rem; }
   .cta.topup, .cta.act { display: inline-block; width: auto; padding: .7rem 1.8rem; }
   /* The launch card: a believable little terminal, agent branding intact,
      with the launch button on the right edge — same edge as Top up above. */
   .termcard { display: flex; justify-content: space-between; align-items: center;
-    gap: 1.2rem; border: 1px solid #e5e5e2; border-radius: 12px; background: #fff;
+    gap: 1.2rem; border: 1px solid var(--line); border-radius: 12px; background: var(--card);
     padding: 1rem 1.2rem; margin: 0 0 1.8rem; max-width: 62rem; flex-wrap: wrap; }
   .termwin { background: #0d0d0b; border-radius: 10px; overflow: hidden;
     flex: 1 1 24rem; min-width: 0; box-shadow: inset 0 0 0 1px #262622; }
