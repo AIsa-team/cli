@@ -824,9 +824,12 @@ function shell(title: string, body: string): string {
   .card .body { min-width: 0; }
   .card .head { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
   .card .name { font-weight: 700; }
-  .badge { font-size: .7rem; font-weight: 600; padding: .1rem .5rem; border-radius: 99px;
+  .clogo { display: inline-flex; align-items: center; margin-right: .55rem; flex: none; }
+  .clogo svg { display: block; }
+  .badge { font-size: .74rem; font-weight: 700; padding: .18rem .62rem; border-radius: 99px;
     border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
-  .badge.ok { border-color: color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
+  .badge.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .badge.todo { background: #f59e0b; border-color: #f59e0b; color: #fff; }
   /* The loud state a card jumps to the moment its install step succeeds. */
   .badge.installed { background: var(--ok); border-color: var(--ok); color: #fff; }
   .card.freshly-installed { border-color: var(--ok);
@@ -909,6 +912,21 @@ function shell(title: string, body: string): string {
 }
 
 // ── page A: selection + live progress ───────────────────────────────────────
+
+/** Small brand marks for the client cards — inline SVG, self-contained. */
+const CLIENT_LOGOS: Record<string, string> = {
+  "claude-code": `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g fill="#D97757">${Array.from(
+    { length: 8 },
+    (_, i) =>
+      `<rect x="11" y="1" width="2" height="7.5" rx="1" transform="rotate(${i * 45} 12 12)"/>`
+  ).join("")}</g></svg>`,
+  codex: `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g fill="none" stroke="#0d0d0b" stroke-width="2.1" stroke-linecap="round">${Array.from(
+    { length: 6 },
+    (_, i) => `<path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(${i * 60} 12 12)"/>`
+  ).join("")}</g></svg>`,
+  opencode: `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="5" fill="#0d0d0b"/><g fill="#fafafa"><rect x="5" y="8" width="6" height="8"/><rect x="7" y="10" width="2" height="4" fill="#0d0d0b"/><rect x="13" y="8" width="6" height="2"/><rect x="13" y="14" width="6" height="2"/><rect x="13" y="8" width="2" height="8"/></g></svg>`,
+};
+
 function renderPage(
   servers: LiveServer[],
   clients: ClientInfo[],
@@ -955,8 +973,8 @@ function renderPage(
       .map(
         (c, i) => `<label class="card${i === 0 ? " on" : ""}" data-kind="client">
   <input type="radio" name="client" value="${c.id}"${i === 0 ? " checked" : ""}>
-  <span class="body"><span class="head"><span class="name">${c.label}</span>
-    <span class="badge ok">detected</span></span>
+  <span class="body"><span class="head">${CLIENT_LOGOS[c.id] ? `<span class="clogo">${CLIENT_LOGOS[c.id]}</span>` : ""}<span class="name">${c.label}</span>
+    <span class="badge ok">✓ detected</span></span>
     <span class="brief">${c.detail}</span></span></label>`
       )
       .join("\n") +
@@ -964,8 +982,8 @@ function renderPage(
       .map(
         (c) => `<label class="card" data-kind="client" data-cid="${c.id}">
   <input type="radio" name="client" value="${c.id}" data-install="1">
-  <span class="body"><span class="head"><span class="name">${c.label}</span>
-    <span class="badge" data-badge>not installed</span></span>
+  <span class="body"><span class="head">${CLIENT_LOGOS[c.id] ? `<span class="clogo">${CLIENT_LOGOS[c.id]}</span>` : ""}<span class="name">${c.label}</span>
+    <span class="badge todo" data-badge>not installed</span></span>
     <span class="brief" data-brief>Install <b>and</b> connect it \u2014 <code>${INSTALLERS[c.id].command}</code></span></span></label>`
       )
       .join("\n") +
