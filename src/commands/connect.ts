@@ -11,7 +11,17 @@ import { MCP_CONFIGS, MCP_DEFAULT_SLUGS, AISA_PROVIDER_ID } from "../constants.j
 import { getApiKey } from "../config.js";
 import { fetchLiveServers, writeClientConfig, stripped, type LiveServer } from "./mcp.js";
 import { INSTALLERS, installAgent, isInstalled, supported } from "./install.js";
-import { writeCodexLLM, writeClaudeCodeLLM, writeOpencodeLLM, defaultModelsFor, patchCodexMCPAuth } from "./llm-config.js";
+import {
+  writeCodexLLM,
+  writeClaudeCodeLLM,
+  writeOpencodeLLM,
+  writeCodexAisaProfile,
+  writeOpencodeAisaBackup,
+  defaultModelsFor,
+  patchCodexMCPAuth,
+  DEFAULT_MODELS,
+} from "./llm-config.js";
+import { writeClaudeAisaSettings, installWrappers } from "./wrappers.js";
 import { mintCliKey } from "./oauth-login.js";
 import { formatMicrosUSD } from "./account.js";
 import { apiRequest } from "../api.js";
@@ -434,6 +444,8 @@ interface RunState {
   /** In micros USD; null when it could not be read. The done page renders
    *  the number and the top-up nudge from this. */
   balanceMicros?: number | null;
+  /** How models were handled — the done page words its guidance from this. */
+  llmMode?: LlmMode;
 }
 
 /** Long enough to read one sentence before the screen changes under you.
@@ -456,14 +468,17 @@ function setStep(state: RunState, id: string, patch: Partial<Step>): void {
   if (step) Object.assign(step, patch);
 }
 
+/** What to do about models: switch the agent over, add AIsa as a backup
+ *  beside the user's own setup, or leave models alone entirely. */
+type LlmMode = "switch" | "backup" | "skip";
+
 interface PlanInput {
   install: string[];
   clients: string[];
   servers: LiveServer[];
   keyed: boolean;
   dryRun: boolean;
-  /** Point this client's model traffic at AIsa as well as its tools. */
-  llm: boolean;
+  llmMode: LlmMode;
 }
 
 /**
@@ -516,12 +531,25 @@ function buildPlan(input: PlanInput): Step[] {
     state: "pending",
     detail: input.clients.join(", "),
   });
-  if (input.llm) {
+  if (input.llmMode === "switch") {
     steps.push({
       id: "llm",
       label: "Point its models at AIsa",
       state: "pending",
       detail: "writes the agent's own provider settings; reversible",
+    });
+  } else if (input.llmMode === "backup") {
+    const target = input.clients[0];
+    steps.push({
+      id: "llm-backup",
+      label:
+        target === "claude-code"
+          ? "Install the claude-aisa command"
+          : target === "codex"
+            ? "Add the aisa profile and codex-aisa command"
+            : "Add AIsa as a backup provider",
+      state: "pending",
+      detail: "your current models and settings stay untouched",
     });
   }
   steps.push({
@@ -539,7 +567,7 @@ interface RunInput {
   servers: LiveServer[];
   key: string | undefined;
   dryRun: boolean;
-  llm: boolean;
+  llmMode: LlmMode;
 }
 
 /**
@@ -673,6 +701,35 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       state: "fail",
       detail: results.filter((r) => !r.ok).map((r) => `${r.client}: ${r.message}`).join("; "),
     });
+  }
+
+  // ── LLM backup: AIsa beside the user's own setup, nothing switched ──
+  if (state.steps.some((s) => s.id === "llm-backup")) {
+    const target = input.clients[0];
+    setStep(state, "llm-backup", { state: "running", detail: "adding AIsa without touching your setup" });
+    if (input.dryRun) {
+      ok("llm-backup", "dry run — nothing written");
+    } else if (!key) {
+      setStep(state, "llm-backup", { state: "skip", detail: "needs a key — run 'aisa login', then 'aisa connect' again" });
+    } else if (target === "claude-code") {
+      writeClaudeAisaSettings(key, DEFAULT_MODELS);
+      const w = installWrappers(["claude-aisa"]);
+      if (w.ok) {
+        ok("llm-backup", `claude-aisa → ${w.dir}${w.pathHint ? " (add it to PATH: " + w.pathHint + ")" : ""}`);
+      } else fail("llm-backup", `could not write the wrapper into ${w.dir}`);
+    } else if (target === "codex") {
+      const r = writeCodexAisaProfile(key);
+      const w = r.ok ? installWrappers(["codex-aisa"]) : { ok: false as const, dir: "", wrote: [] };
+      if (r.ok && w.ok) {
+        ok("llm-backup", `codex-aisa → ${w.dir}${"pathHint" in w && w.pathHint ? " (add it to PATH: " + w.pathHint + ")" : ""}`);
+      } else fail("llm-backup", r.ok ? `could not write the wrapper` : r.reason);
+    } else if (target === "opencode") {
+      const r = writeOpencodeAisaBackup(key);
+      if (r.ok) ok("llm-backup", `aisa provider added — pick aisa/${DEFAULT_MODELS.model} in opencode`);
+      else fail("llm-backup", r.reason);
+    } else {
+      setStep(state, "llm-backup", { state: "skip", detail: "not available for this client" });
+    }
   }
 
   // ── LLM provider ──
@@ -1068,6 +1125,22 @@ ${clientRows}
     <span class="brief" id="llmbrief">Points the agent's model traffic at AIsa.
     Reversible \u2014 it writes the agent's own provider settings and nothing else.</span></span></label>
 
+<div id="backupmodes" style="display:none">
+<label class="card on" data-kind="lmode">
+  <input type="radio" name="lmode" value="backup" checked>
+  <span class="body"><span class="head"><span class="name">Add AIsa as a backup — recommended</span></span>
+  <span class="brief" id="backupbrief"></span></span></label>
+<label class="card" data-kind="lmode">
+  <input type="radio" name="lmode" value="switch">
+  <span class="body"><span class="head"><span class="name">Switch its models to AIsa</span></span>
+  <span class="brief">Points this agent's model traffic at AIsa. Reversible — it writes the
+  agent's own provider settings and nothing else.</span></span></label>
+<label class="card" data-kind="lmode">
+  <input type="radio" name="lmode" value="skip">
+  <span class="body"><span class="head"><span class="name">Not now</span></span>
+  <span class="brief">Leave models exactly as they are.</span></span></label>
+</div>
+
 <div id="modelwarn" class="modelwarn" style="display:none">
   <div class="mw-head">\u26a0\ufe0e Installing without a model backend</div>
   <div class="mw-body">A fresh install <b>cannot answer a single prompt</b> until you
@@ -1124,6 +1197,31 @@ machine except the OAuth you approve. The process exits when everything is conne
     }
   }
 
+  // Informed consent is the whole point of backup mode: say exactly what
+  // gets installed, that nothing of theirs changes, how to use it, how to
+  // remove it. Copy varies per client because the mechanism does.
+  var BACKUP_COPY = {
+    "claude-code": "Installs <b>one small command, claude-aisa</b>, next to your other tools. Your <code>claude</code> — login, models, settings — stays <b>exactly as it is</b>. Run <code>claude-aisa</code> whenever you want AIsa's 100+ models at lower prices; remove it anytime by deleting that one file.",
+    codex: "Adds an <b>aisa profile</b> inside codex's own config and a <b>codex-aisa</b> command. Your default codex setup is <b>untouched</b> — <code>codex-aisa</code> (or <code>codex --profile aisa</code>) uses AIsa for that session only. Remove anytime.",
+    opencode: "Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b> — pick <code>aisa/\u2026</code> from opencode's model list whenever you want it."
+  };
+  var backupModes = document.getElementById("backupmodes");
+  var llmCard = document.getElementById("llmcard");
+  function updateModelsUI() {
+    var chosen = document.querySelector('input[name="client"]:checked');
+    var detectedCli = chosen && chosen.dataset.install !== "1" && BACKUP_COPY[chosen.value];
+    backupModes.style.display = detectedCli ? "block" : "none";
+    llmCard.style.display = detectedCli ? "none" : "";
+    if (detectedCli) document.getElementById("backupbrief").innerHTML = BACKUP_COPY[chosen.value];
+  }
+  document.querySelectorAll('input[name="lmode"]').forEach(function (r) {
+    r.addEventListener("change", function () {
+      document.querySelectorAll('[data-kind="lmode"]').forEach(function (c) {
+        c.classList.toggle("on", c.querySelector("input").checked);
+      });
+    });
+  });
+
   var modelWarn = document.getElementById("modelwarn");
   var armed = false;
   function updateModelWarn() {
@@ -1138,8 +1236,9 @@ machine except the OAuth you approve. The process exits when everything is conne
     updateModelWarn();
   });
   document.querySelectorAll('input[name="client"]').forEach(function (r) {
-    r.addEventListener("change", updateModelWarn);
+    r.addEventListener("change", function () { updateModelWarn(); updateModelsUI(); });
   });
+  updateModelsUI();
 
   llmBox.addEventListener("change", function () {
     updateModelWarn();
@@ -1296,7 +1395,10 @@ machine except the OAuth you approve. The process exits when everything is conne
     btn.textContent = install.length ? "Installing\\u2026" : "Connecting\\u2026";
     fetch("/apply", { method: "POST",
       headers: { "content-type": "application/json", "x-connect-token": TOKEN },
-      body: JSON.stringify({ servers: servers, clients: clients, install: install, llm: llmBox.checked })
+      body: JSON.stringify({ servers: servers, clients: clients, install: install,
+        llmMode: install.length || backupModes.style.display === "none"
+          ? (llmBox.checked ? "switch" : "skip")
+          : (document.querySelector('input[name="lmode"]:checked') || {}).value || "skip" })
     }).then(function (r) { return r.json(); }).then(function (data) {
       renderSteps(data.steps);
       poll();
@@ -1313,7 +1415,8 @@ function renderDone(
   clientIds: string[],
   steps: Step[],
   allServers: LiveServer[],
-  balanceMicros: number | null
+  balanceMicros: number | null,
+  llmMode: LlmMode | undefined
 ): string {
   const clientNames = clientIds
     .map((id) => (id === "claude-code" ? "Claude Code" : FILE_CLIENT_LABELS[id] ?? id))
@@ -1376,10 +1479,19 @@ installed and signed in for <b>${clientNames}</b> — nothing else to configure.
   // (transcribed from its TUI; the binary stores it as fragments) and Claude
   // Code's pixel robot — so the terminal the button opens looks exactly like
   // what the user just previewed. Familiarity is the whole point.
+  const backup = llmMode === "backup";
   const launchBin =
-    clientIds[0] === "codex" ? "codex"
-    : clientIds[0] === "claude-code" ? "claude"
+    clientIds[0] === "codex" ? (backup ? "codex-aisa" : "codex")
+    : clientIds[0] === "claude-code" ? (backup ? "claude-aisa" : "claude")
     : clientIds[0] === "opencode" ? "opencode" : null;
+  // Backup mode's one-line contract, repeated where the user will act on it.
+  const backupNote = backup
+    ? clientIds[0] === "opencode"
+      ? `<p class="fine" style="margin:0 0 1.2rem"><b>Your usual setup is untouched.</b> Pick
+<code>aisa/\u2026</code> from opencode's model list whenever you want AIsa.</p>`
+      : `<p class="fine" style="margin:0 0 1.2rem"><b>Your usual <code>${clientIds[0] === "codex" ? "codex" : "claude"}</code> is untouched.</b> Run
+<code>${launchBin}</code> whenever you want AIsa's models; delete that one file to remove it.</p>`
+    : "";
   const cwd = process.cwd();
   const CODEX_FACE = [
     "            __+=++++=+,_",
@@ -1434,7 +1546,7 @@ installed and signed in for <b>${clientNames}</b> — nothing else to configure.
     <div class="termbody">${termPreview}</div>
   </div>
   <div class="termside">
-    <button class="cta act" id="launch">Launch ${clientNames.split(",")[0]} →</button>
+    <button class="cta act" id="launch">Launch ${launchBin} →</button>
     <span class="fine" id="launchnote"></span>
   </div>
 </div>`
@@ -1563,6 +1675,7 @@ usage &amp; billing at <a href="https://console.aisa.one" target="_blank" rel="n
 ${failBlock}
 ${recap}
 ${balanceCard}
+${backupNote}
 ${launchBlock}
 <h2>${I.sparkles} Try it now — paste one of these into ${clientNames.split(",")[0]}</h2>
 <div class="examples">
@@ -1619,7 +1732,9 @@ function readBody(req: IncomingMessage): Promise<string> {
  * shell — and the working directory is where connect was launched, which is
  * almost always the project the user wants the agent in.
  */
-function launchAgentTerminal(binary: "codex" | "claude" | "opencode"): Promise<boolean> {
+function launchAgentTerminal(
+  binary: "codex" | "claude" | "opencode" | "claude-aisa" | "codex-aisa"
+): Promise<boolean> {
   if (process.platform === "darwin") {
     // osascript ships with macOS — no dependency of ours. First use may show
     // a one-time automation permission prompt; Terminal.app starts a fresh
@@ -1733,7 +1848,7 @@ export async function connectAction(options: {
       }
       res
         .writeHead(200, { "content-type": "text/html; charset=utf-8" })
-        .end(renderDone(chosenServers, chosenClients, state.steps, servers, state.balanceMicros ?? null));
+        .end(renderDone(chosenServers, chosenClients, state.steps, servers, state.balanceMicros ?? null, state.llmMode));
       return;
     }
     if (req.method === "POST" && url.pathname === "/launch") {
@@ -1743,9 +1858,10 @@ export async function connectAction(options: {
       }
       // Whitelist only — the client name selects a fixed binary, and no part
       // of the request ever reaches a shell.
+      const backup = state.llmMode === "backup";
       const bin =
-        chosenClients[0] === "codex" ? "codex"
-        : chosenClients[0] === "claude-code" ? "claude"
+        chosenClients[0] === "codex" ? (backup ? "codex-aisa" : "codex")
+        : chosenClients[0] === "claude-code" ? (backup ? "claude-aisa" : "claude")
         : chosenClients[0] === "opencode" ? "opencode" : null;
       if (!bin) {
         res.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ ok: false }));
@@ -1765,7 +1881,13 @@ export async function connectAction(options: {
         res.writeHead(403).end();
         return;
       }
-      let body: { servers?: string[]; clients?: string[]; install?: string[]; llm?: boolean };
+      let body: {
+        servers?: string[];
+        clients?: string[];
+        install?: string[];
+        llm?: boolean;
+        llmMode?: string;
+      };
       try {
         body = JSON.parse(await readBody(req));
       } catch {
@@ -1782,6 +1904,13 @@ export async function connectAction(options: {
         if (!chosenClients.includes(id)) chosenClients.push(id);
       }
       state.phase = "applying";
+      const llmMode: LlmMode =
+        body.llmMode === "switch" || body.llmMode === "backup" || body.llmMode === "skip"
+          ? body.llmMode
+          : body.llm
+            ? "switch"
+            : "skip";
+      state.llmMode = llmMode;
 
       // The whole plan, in order, before any of it runs — the page renders it
       // greyed out so a long install reads as progress rather than a hang.
@@ -1791,7 +1920,7 @@ export async function connectAction(options: {
         servers: chosenServers,
         keyed: Boolean(key),
         dryRun: Boolean(options.dryRun),
-        llm: Boolean(body.llm),
+        llmMode,
       });
       res.writeHead(200, { "content-type": "application/json" }).end(
         JSON.stringify({ started: true, steps: state.steps })
@@ -1806,7 +1935,7 @@ export async function connectAction(options: {
         servers: chosenServers,
         key,
         dryRun: Boolean(options.dryRun),
-        llm: Boolean(body.llm),
+        llmMode,
       });
       const results = state.results;
       {
