@@ -1145,7 +1145,7 @@ ${clientRows}
   <div class="mw-head">\u26a0\ufe0e Installing without a model backend</div>
   <div class="mw-body">A fresh install <b>cannot answer a single prompt</b> until you
   configure a model provider by hand. Turn on AIsa models and it leaves here ready to
-  work: <b>100+ models</b> \u2014 Claude, GPT, Gemini and more \u2014 one key,
+  work: <b>Claude, GPT, Gemini, DeepSeek, Kimi, GLM</b> and the rest, one key,
   prices well below going direct.</div>
   <button type="button" class="mw-fix" id="modelfix">Use AIsa models \u2192</button>
 </div>
@@ -1194,6 +1194,14 @@ machine except the OAuth you approve. The process exits when everything is conne
       llmBrief.innerHTML = (installing
         ? "<b>Recommended \\u2014 a fresh install has no model backend yet.</b> "
         : "") + (model ? "Runs it on <b>" + model + "</b> through AIsa. " : "") + LLM_BRIEF;
+      // The warning is derived from this checkbox, so it has to be recomputed
+      // here rather than left to the client-radio listener. A client radio
+      // matches both '.card input' and 'input[name="client"]', so both
+      // listeners fire, in registration order: the one that recomputes the
+      // warning runs before this one flips the box. Without this line the
+      // warning is decided from the previous target's state, and picking an
+      // install target left it showing next to an already-ticked box.
+      updateModelWarn();
     }
   }
 
@@ -1201,7 +1209,7 @@ machine except the OAuth you approve. The process exits when everything is conne
   // gets installed, that nothing of theirs changes, how to use it, how to
   // remove it. Copy varies per client because the mechanism does.
   var BACKUP_COPY = {
-    "claude-code": "Installs <b>one small command, claude-aisa</b>, next to your other tools. Your <code>claude</code> — login, models, settings — stays <b>exactly as it is</b>. Run <code>claude-aisa</code> whenever you want AIsa's 100+ models at lower prices; remove it anytime by deleting that one file.",
+    "claude-code": "Installs one small command, <b><code>claude-aisa</code></b>, next to your other tools. Your original <b><code>claude</code></b> command keeps its login, models and settings <b>exactly as they are</b>. Run <b><code>claude-aisa</code></b> whenever you want <b>Claude, GPT, Gemini, DeepSeek, Kimi, GLM</b> and the rest, at lower prices. Remove it anytime by deleting that one file.",
     codex: "Adds an <b>aisa profile</b> inside codex's own config and a <b>codex-aisa</b> command. Your default codex setup is <b>untouched</b> — <code>codex-aisa</code> (or <code>codex --profile aisa</code>) uses AIsa for that session only. Remove anytime.",
     opencode: "Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b> — pick <code>aisa/\u2026</code> from opencode's model list whenever you want it."
   };
@@ -1664,7 +1672,7 @@ ${
     mcpFailed
       ? failBlock + recap + balanceCard
       : `<p class="lede" style="margin-top:.6rem">You are now connected to <b>AIsa</b> — a powerful capability layer for agents: one account for
-<b>100+ LLMs</b> and <b>950+ live data endpoints</b> built for agents.${
+<b>Claude, GPT, Gemini, DeepSeek, Kimi, GLM</b> and the live data behind them: <b>Twitter, SimilarWeb, CoinGecko, Apollo, Polymarket</b> and more.${
           remaining > 0
             ? ` ${remaining} more MCP server${remaining > 1 ? "s" : ""} (${remainingTools} tools) are one
 <code>npx @aisa-one/cli connect</code> away.`

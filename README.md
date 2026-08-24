@@ -1,8 +1,8 @@
 # @aisa-one/cli
 
-Command-line access to [AIsa](https://aisa.one): **one API key for 80+ LLMs and
-950+ endpoints** across 29 API providers — finance, web search, social,
-research, and video generation.
+Command-line access to [AIsa](https://aisa.one): **one API key** for
+**Claude, GPT, Gemini, DeepSeek, Kimi, GLM** and the live data behind them —
+finance, web search, social, research, and video generation.
 
 ## Install
 
@@ -52,7 +52,7 @@ aisa api show financial                # every endpoint in one provider
 aisa api show financial /news          # one endpoint: params, price, run command
 aisa api show dataforseo --all         # 453 endpoints (truncated to 40 by default)
 
-aisa api search "stock screener"       # search across all 950+ endpoints
+aisa api search "stock screener"       # search across every endpoint
 aisa api search rank --provider dataforseo
 
 aisa api code financial /news --lang curl     # curl, python, node, typescript
@@ -90,7 +90,7 @@ was free.
 
 ## LLM Gateway
 
-80+ models (GPT, Claude, Gemini, Qwen, Deepseek, Grok) behind one
+GPT, Claude, Gemini, DeepSeek, Kimi, GLM, Qwen and the rest behind one
 OpenAI-compatible endpoint.
 
 ```bash
