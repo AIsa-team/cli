@@ -69,6 +69,16 @@ export const INSTALLERS: Record<string, Installer> = {
     command: "npm install -g opencode-ai",
     npmPackage: "opencode-ai",
   },
+  // The CLI itself. connect usually runs via npx, which installs nothing —
+  // without this step the user walks away with no `aisa` command for
+  // balance, top-up or key rotation, and has to rediscover npx every time.
+  "aisa-cli": {
+    id: "aisa-cli",
+    label: "AIsa CLI",
+    binary: "aisa",
+    command: "npm install -g @aisa-one/cli",
+    npmPackage: "@aisa-one/cli",
+  },
 };
 
 export function supported(): boolean {

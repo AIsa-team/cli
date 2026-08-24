@@ -10,7 +10,7 @@ import { expandHome } from "../utils/file.js";
 import { MCP_CONFIGS, MCP_DEFAULT_SLUGS, AISA_PROVIDER_ID } from "../constants.js";
 import { getApiKey } from "../config.js";
 import { fetchLiveServers, writeClientConfig, stripped, type LiveServer } from "./mcp.js";
-import { INSTALLERS, installAgent, supported } from "./install.js";
+import { INSTALLERS, installAgent, isInstalled, supported } from "./install.js";
 import { writeCodexLLM, writeClaudeCodeLLM, writeOpencodeLLM, defaultModelsFor, patchCodexMCPAuth } from "./llm-config.js";
 import { mintCliKey } from "./oauth-login.js";
 import { formatMicrosUSD } from "./account.js";
@@ -486,6 +486,17 @@ function buildPlan(input: PlanInput): Step[] {
       detail: INSTALLERS[id]?.command,
     });
   }
+  // The aisa command itself, so the npx visitor leaves with the full
+  // toolbox (balance, topup, login/key rotation) — shown as its own step,
+  // never a silent side effect. Skipped when already installed.
+  if (!input.dryRun && !isInstalled("aisa")) {
+    steps.push({
+      id: "install:aisa-cli",
+      label: "Install the AIsa CLI",
+      state: "pending",
+      detail: "npm install -g @aisa-one/cli — the aisa command for balance, top-up and key rotation",
+    });
+  }
   // One sign-in, before anything that wants a credential: the browser
   // approval mints the durable CLI key, and with it every MCP entry is a
   // bearer and the model provider can be written — no per-server popups.
@@ -580,6 +591,22 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       failures++;
       error(`${label}: ${outcome.detail}`);
       hint(`Run this yourself, then re-run connect: ${outcome.command}`);
+    }
+  }
+
+  // ── the CLI itself, so the npx visitor keeps the toolbox ──
+  if (state.steps.some((s) => s.id === "install:aisa-cli")) {
+    setStep(state, "install:aisa-cli", { state: "running", detail: "npm install -g @aisa-one/cli" });
+    const outcome = await installAgent("aisa-cli");
+    if (outcome.ok) {
+      ok("install:aisa-cli", outcome.alreadyInstalled ? "already installed" : "installed — try `aisa balance` anytime");
+    } else {
+      // Not fatal: everything else still applies; the user just keeps npx.
+      failures++;
+      setStep(state, "install:aisa-cli", {
+        state: "fail",
+        detail: `${outcome.detail} — run: ${outcome.command}`,
+      });
     }
   }
 
