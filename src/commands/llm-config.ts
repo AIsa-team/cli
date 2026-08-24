@@ -403,3 +403,71 @@ export function writeOpencodeMCP(
   writeFileSync(path, JSON.stringify(config, null, 2) + "\n", "utf-8");
   return { ok: true, path };
 }
+
+// ── backup mode ─────────────────────────────────────────────────────────────
+//
+// "Add AIsa as a backup" for a user who already has working models: nothing
+// they rely on changes. Codex gets the provider plus a [profiles.aisa] entry
+// (its native mechanism — `codex --profile aisa` switches for one session,
+// the default stays theirs); opencode gets the provider only (its TUI lists
+// models across providers, switching is built in). Claude Code has no
+// coexistence mechanism in its config, so its backup lives entirely outside:
+// a settings file under ~/.aisa driven through --settings (see wrappers.ts).
+
+/**
+ * Codex backup: provider + catalog + [profiles.aisa], top-level defaults
+ * untouched. `codex --profile aisa` (or the codex-aisa wrapper) activates it.
+ */
+export function writeCodexAisaProfile(
+  apiKey: string,
+  models: ModelChoice = CODEX_DEFAULT_MODELS
+): ConfigResult {
+  const path = codexConfigPath();
+  const config = readToml(path);
+  if (config === null) return { ok: false, reason: `${path} exists but is not valid TOML` };
+
+  writeCodexModelCatalog(models);
+  const providers = { ...((config.model_providers as Record<string, unknown>) ?? {}) };
+  providers[AISA_PROVIDER_ID] = {
+    name: "AIsa",
+    base_url: LLM_RESPONSES_BASE_URL,
+    experimental_bearer_token: apiKey,
+    wire_api: "responses",
+  };
+  config.model_providers = providers;
+  const profiles = { ...((config.profiles as Record<string, unknown>) ?? {}) };
+  profiles[AISA_PROVIDER_ID] = { model_provider: AISA_PROVIDER_ID, model: models.model };
+  config.profiles = profiles;
+  config.model_catalog_json = CODEX_MODELS_PATH;
+  writeToml(path, config);
+  return { ok: true, path };
+}
+
+/**
+ * opencode backup: provider declared, `model`/`small_model` left alone — the
+ * user picks aisa/<model> in the TUI whenever they want it.
+ */
+export function writeOpencodeAisaBackup(
+  apiKey: string,
+  models: ModelChoice = DEFAULT_MODELS
+): ConfigResult {
+  const path = opencodeConfigPath();
+  const config = readJson(path);
+  if (config === null) return { ok: false, reason: `${path} exists but is not valid JSON` };
+
+  config.$schema ??= "https://opencode.ai/config.json";
+  const provider = { ...((config.provider as Record<string, unknown>) ?? {}) };
+  provider[AISA_PROVIDER_ID] = {
+    npm: "@ai-sdk/anthropic",
+    name: "AIsa",
+    options: { baseURL: `${LLM_BASE_URL}/v1`, apiKey },
+    models: {
+      [models.model]: { name: models.model },
+      [models.smallModel]: { name: models.smallModel },
+    },
+  };
+  config.provider = provider;
+  ensureDir(join(path, ".."));
+  writeFileSync(path, JSON.stringify(config, null, 2) + "\n", "utf-8");
+  return { ok: true, path };
+}
