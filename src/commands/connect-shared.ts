@@ -183,3 +183,37 @@ export const CLIENT_LOGOS: Record<string, string> = {
   ).join("")}</g></svg>`,
   opencode: `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="5" fill="#0d0d0b"/><g fill="#fafafa"><rect x="5" y="8" width="6" height="8"/><rect x="7" y="10" width="2" height="4" fill="#0d0d0b"/><rect x="13" y="8" width="6" height="2"/><rect x="13" y="14" width="6" height="2"/><rect x="13" y="8" width="2" height="8"/></g></svg>`,
 };
+
+/** The agents' real first-screen art, so the launch preview looks like what
+ *  the button opens: Codex's ASCII face (transcribed from its TUI), Claude
+ *  Code's pixel robot, opencode's banner verbatim from --help. */
+export const CODEX_FACE = [
+  "            __+=++++=+,_",
+  "        _=\"\"\\+/;/+\\+;++\"**+_",
+  "      ,\\'\\,+*-*\"``  `\"*~*+|,*|,",
+  "    _|\"*+____          '*~\\\"|",
+  "   ,/_;\\'|\\`\\,.          ^\\.*",
+  "  / ,/`   *_ \"|/,         \"\\^*",
+  " | ;!`     !\\ \"\\\\         |^|,",
+  " ||\\~      _\\ _//!        \\| |",
+  " |'\"|     // ,*\"',++_+++++_  |\\~|",
+  "  _*|\\  ,|__/~/ !`~_______|| \\/'`",
+  "  ' *|\\ +_+/^    \"**^^^^^\" |,\"/",
+  "   ',\"\\;.                ,/|\"/",
+  "    \\/||+~,           ,++\"/,`",
+  "      *,_\"**=^;~_+~;\"-\",;+'",
+  "        `*+/~_,,_,,++**\"",
+].join("\n");
+export const CLAUDE_BOT = [
+  "  ▄▄      ▄▄",
+  " ████████████",
+  " ██ ███ ██ ██",
+  " ████████████",
+  "  ▀▀  ▀▀  ▀▀",
+].join("\n");
+// opencode's real banner, verbatim from its --help output.
+export const OPENCODE_MARK = [
+  "█▀▀█ █▀▀█ █▀▀█ █▀▀▄ █▀▀▀ █▀▀█ █▀▀█ █▀▀█",
+  "█  █ █  █ █▀▀▀ █  █ █    █  █ █  █ █▀▀▀",
+  "▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀  ▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀",
+].join("\n");

@@ -29,6 +29,7 @@ import {
   RED, RED_CTA, INK, PAPER, I, LOGO, CATEGORY_ICON, EXAMPLES, FILE_CLIENT_LABELS, CLIENT_LOGOS,
   type ClientInfo, type ApplyResult, type StepState, type Step, type AuthState, type RunState,
   type LlmMode,
+  CODEX_FACE, CLAUDE_BOT, OPENCODE_MARK,
 } from "./connect-shared.js";
 import { renderT2Page } from "./connect-t2.js";
 
@@ -1359,36 +1360,6 @@ installed and signed in for <b>${clientNames}</b> — nothing else to configure.
 <code>${launchBin}</code> whenever you want AIsa's models; delete that one file to remove it.</p>`
     : "";
   const cwd = process.cwd();
-  const CODEX_FACE = [
-    "            __+=++++=+,_",
-    "        _=\"\"\\+/;/+\\+;++\"**+_",
-    "      ,\\'\\,+*-*\"``  `\"*~*+|,*|,",
-    "    _|\"*+____          '*~\\\"|",
-    "   ,/_;\\'|\\`\\,.          ^\\.*",
-    "  / ,/`   *_ \"|/,         \"\\^*",
-    " | ;!`     !\\ \"\\\\         |^|,",
-    " ||\\~      _\\ _//!        \\| |",
-    " |'\"|     // ,*\"',++_+++++_  |\\~|",
-    "  _*|\\  ,|__/~/ !`~_______|| \\/'`",
-    "  ' *|\\ +_+/^    \"**^^^^^\" |,\"/",
-    "   ',\"\\;.                ,/|\"/",
-    "    \\/||+~,           ,++\"/,`",
-    "      *,_\"**=^;~_+~;\"-\",;+'",
-    "        `*+/~_,,_,,++**\"",
-  ].join("\n");
-  const CLAUDE_BOT = [
-    "  ▄▄      ▄▄",
-    " ████████████",
-    " ██ ███ ██ ██",
-    " ████████████",
-    "  ▀▀  ▀▀  ▀▀",
-  ].join("\n");
-  // opencode's real banner, verbatim from its --help output.
-  const OPENCODE_MARK = [
-    "█▀▀█ █▀▀█ █▀▀█ █▀▀▄ █▀▀▀ █▀▀█ █▀▀█ █▀▀█",
-    "█  █ █  █ █▀▀▀ █  █ █    █  █ █  █ █▀▀▀",
-    "▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀  ▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀",
-  ].join("\n");
   const termPreview =
     launchBin === "opencode"
       ? `<pre class="termlogo oc">${OPENCODE_MARK}</pre>

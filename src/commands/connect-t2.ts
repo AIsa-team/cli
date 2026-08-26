@@ -13,8 +13,13 @@ import {
   CATEGORY_ICON,
   EXAMPLES,
   CLIENT_LOGOS,
+  CODEX_FACE,
+  CLAUDE_BOT,
+  OPENCODE_MARK,
   type ClientInfo,
 } from "./connect-shared.js";
+import { AISA_PROVIDER_ID } from "../constants.js";
+import { isInstalled } from "./install.js";
 
 /**
  * T2 — the guided six-step connect flow.
@@ -82,6 +87,16 @@ const AGENT_NOTES: Record<string, string> = {
   "claude-desktop":
     "The AIsa servers are written into Claude Desktop's <code>claude_desktop_config.json</code>. Restart the app to see them.",
   windsurf: "The AIsa servers are written into Windsurf's <code>mcp_config.json</code>.",
+};
+
+/** What "nothing of yours changes" means for each agent, on the Your-agent step. */
+const HAVE_NOTES: Record<string, string> = {
+  "claude-code":
+    "Nothing of yours is replaced. Your <code>claude</code> keeps its login, models and settings; the next step lets you add AIsa <b>beside</b> it as a separate <code>claude-aisa</code> command, or switch — your call.",
+  codex:
+    "Nothing of yours is replaced. Your <code>codex</code> keeps its login and config; the next step lets you add AIsa <b>beside</b> it as an <code>aisa</code> profile and a <code>codex-aisa</code> command, or switch — your call.",
+  opencode:
+    "Nothing of yours is replaced. Your default model stays; the next step can add AIsa as an extra <code>aisa/…</code> provider you pick from the model list, or switch — your call.",
 };
 
 /** Backup-mode consent copy, per client — the same contract T1 shows. */
@@ -152,7 +167,6 @@ export function renderT2Page(
     (p) => `<span class="blogo" title="${p.name}">${BRAND_LOGOS[p.id] ?? ""}</span>`
   ).join("");
   const welcome = `
-<div class="eyebrow">Welcome to AIsa</div>
 <h1>One connection. <em>Every major model</em>, live data and skills — inside the agent you already use.</h1>
 <p class="lede">AIsa is the capability layer for AI agents: one account, one key, and your coding agent
 can reach the best models <b>and</b> the real world. Setting it up takes about a minute and
@@ -185,13 +199,13 @@ this machine except the sign-in you approve.</p>`;
   const rest = CLIENTS.filter((c) => !c.detected && !c.installable);
   const clientCard = (c: (typeof CLIENTS)[number], checked: boolean) => `
 <label class="tile agent${checked ? " on" : ""}" data-cid="${c.id}">
-  <input type="radio" name="client" value="${c.id}"${checked ? " checked" : ""}${c.installable ? ' data-install="1"' : ""}>
+  <input type="radio" class="dot" name="client" value="${c.id}"${checked ? " checked" : ""}${c.installable ? ' data-install="1"' : ""}>
   <span class="tlogo">${BRAND_LOGOS[c.id] ?? CLIENT_LOGOS[c.id] ?? I.terminal}</span>
-  <span class="tbody"><span class="thead"><span class="tname">${c.label}</span>
-    ${c.detected ? `<span class="badge ok">✓ detected</span>` : `<span class="badge todo" data-badge>not installed</span>`}</span>
+  <span class="tbody"><span class="thead"><span class="tname">${c.label}</span></span>
     <span class="tbrief" data-brief>${
       c.detected ? c.detail : `Install <b>and</b> connect it — <code>${c.command}</code>`
-    }</span></span></label>`;
+    }</span></span>
+  ${c.detected ? `<span class="badge ok end">✓ detected</span>` : `<span class="badge todo end" data-badge>not installed</span>`}</label>`;
   const agentCards =
     usable.map((c, i) => clientCard(c, i === 0)).join("") +
     installable.map((c) => clientCard(c, usable.length === 0 && c === installable[0])).join("");
@@ -212,10 +226,8 @@ ${restChips}
 <div class="side">
   <h3 id="agentNoteTitle">How it connects</h3>
   <p id="agentNote"></p>
-  <h3>Already have it set up?</h3>
-  <p>Nothing of yours is replaced. Your agent's own login and settings stay where they are; the next
-  step lets you add AIsa <b>beside</b> them (a separate <code>claude-aisa</code> / <code>codex-aisa</code>
-  command) or switch — your call.</p>
+  <h3 id="agentHaveTitle">Already have it set up?</h3>
+  <p id="agentHave"></p>
 </div>`;
 
   // ── step 3: models ──
@@ -231,7 +243,8 @@ accounts, no separate billing, no re-wiring when a better model ships next month
 <div class="callout">${I.sparkles}<div><b>Switching is the whole point.</b> One key, one endpoint:
   change the model name and you are on a different lab's best model — Claude today,
   DeepSeek for the cheap batch job tonight, GPT-5.5 tomorrow. No new sign-ups, no new config,
-  no juggling keys. Re-run <code>aisa connect</code> any time to change the default.</div></div>
+  no juggling keys. </div></div>
+<div class="rerun"><span>Change the default any time — just run</span><code>aisa connect</code><span>again.</span></div>
 
 <h2>How should <span id="mClient">your agent</span> use them?</h2>
 <div id="mFresh" class="grid2 choice" style="display:none">
@@ -360,6 +373,10 @@ you press the button; each step reports as it finishes.</p>
   var EXAMPLES = ${JSON.stringify(EXAMPLES)};
   var BACKUP_COPY = ${JSON.stringify(BACKUP_COPY)};
   var AGENT_NOTES = ${JSON.stringify(AGENT_NOTES)};
+  var HAVE_NOTES = ${JSON.stringify(HAVE_NOTES)};
+  var NEEDS_CLI = ${JSON.stringify(!isInstalled("aisa"))};
+  var PROVIDER_ID = ${JSON.stringify(AISA_PROVIDER_ID)};
+  var ART = ${JSON.stringify({ codex: CODEX_FACE, claude: CLAUDE_BOT, opencode: OPENCODE_MARK })};
   var LABEL = {}; CLIENTS.forEach(function (c) { LABEL[c.id] = c.label; });
   var BY_SLUG = {}; SERVERS.forEach(function (s) { BY_SLUG[s.slug] = s; });
   var ICON_COPY = ${JSON.stringify(I.copy)};
@@ -414,7 +431,11 @@ you press the button; each step reports as it finishes.</p>
   function syncAgent() {
     var id = clientId();
     $("#agentNoteTitle").textContent = id ? "How " + LABEL[id] + " connects" : "How it connects";
-    $("#agentNote").innerHTML = id ? (AGENT_NOTES[id] || "") : "Pick an agent on the left.";
+    $("#agentNote").innerHTML = id ? (AGENT_NOTES[id] || "") : "Pick an agent above.";
+    var have = id && HAVE_NOTES[id];
+    $("#agentHaveTitle").style.display = have ? "" : "none";
+    $("#agentHave").style.display = have ? "" : "none";
+    if (have) $("#agentHave").innerHTML = have;
     $$(".tile.agent").forEach(function (t) { t.classList.toggle("on", t.querySelector("input").checked); });
   }
   $$('input[name="client"]').forEach(function (r) { r.addEventListener("change", function () { syncAgent(); armed = false; }); });
@@ -505,6 +526,7 @@ you press the button; each step reports as it finishes.</p>
   function planPreview() {
     var id = clientId(), rows = [];
     if (installing()) rows.push(["Install " + LABEL[id], "through its official installer, no sudo"]);
+    if (NEEDS_CLI) rows.push(["Install the AIsa CLI", "npm install -g @aisa-one/cli — the aisa command for balance, top-up and key rotation"]);
     if (!${keyed}) rows.push(["Sign in to AIsa", "one browser approval — it issues your key"]);
     var n = pickedServers().length;
     rows.push(["Add " + n + " MCP server" + (n === 1 ? "" : "s"), "to " + LABEL[id]]);
@@ -642,7 +664,14 @@ you press the button; each step reports as it finishes.</p>
       (low ? "<div class='lownote'>Running a little low — a small top-up keeps your first calls flowing.</div>" : (bal === null || bal === undefined ? "<div class='lownote'>Could not read it just now — <code>aisa balance</code> will.</div>" : "")) +
       "<a class='cta sm' href='https://console.aisa.one/billing?source=aisa_cli' target='_blank' rel='noopener'>Top up now →</a></div></div>";
     var backupNote = backup ? "<p class='fine'><b>Your usual setup is untouched.</b> " + (id === "opencode" ? "Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa." : "Run <code>" + bin + "</code> whenever you want AIsa's models; delete that one file to remove it.") + "</p>" : "";
-    var launch = !mcpFailed && bin ? "<div class='launch'><div><b>Start " + name + " on AIsa now</b><div class='fine'>Opens a terminal in this folder running <code>" + bin + "</code>.</div></div><div><button type='button' class='cta sm' id='launch'>Launch " + bin + " →</button><div class='fine' id='launchnote'></div></div></div>" : "";
+    var model = MODEL_FOR[id] || "";
+    var preview = id === "opencode"
+      ? "<pre class='termlogo oc'>" + ART.opencode + "</pre><div class='termline'>Welcome to <b>opencode</b></div><div class='termline dim'>model: <b>" + PROVIDER_ID + "/" + model + "</b> · via AIsa</div><div class='termline dim'>config: ~/.config/opencode/opencode.json</div>"
+      : id === "codex"
+      ? "<pre class='termlogo codex'>" + ART.codex + "</pre><div class='termline'>Welcome to <b>Codex</b>, OpenAI's command-line coding agent</div><div class='termline dim'>model: <b>" + model + "</b> · via AIsa</div>"
+      : "<pre class='termlogo claude'>" + ART.claude + "</pre><div class='termline'><b class='ccname'>Claude Code</b></div><div class='termline dim'>" + model + " · via AIsa</div><div class='termline accent'>Using " + model + " (from .claude/settings.json)</div>";
+    var launch = !mcpFailed && bin ? "<div class='termcard'><div class='termwin'><div class='termbar'><span class='tdot r'></span><span class='tdot y'></span><span class='tdot g'></span></div><div class='termbody'>" + preview + "</div></div>" +
+      "<div class='termside'><button type='button' class='cta sm' id='launch'>Launch " + bin + " →</button><span class='fine' id='launchnote'></span></div></div>" : "";
     var withEx = chosen.filter(function (x) { return EXAMPLES[x.slug]; });
     var cards = withEx.length === 1 ? EXAMPLES[withEx[0].slug].slice(0, 2).map(function (t) { return { slug: withEx[0].slug, text: t }; })
       : withEx.slice(0, 4).map(function (x) { return { slug: x.slug, text: EXAMPLES[x.slug][0] }; });
@@ -721,9 +750,9 @@ function shellT2(title: string, body: string): string {
      the space above and below them is equal at any window height. */
   .rail { border-right: 1px solid var(--line); padding: 1.6rem 2.2rem; position: sticky; top: 0;
     height: 100vh; display: flex; flex-direction: column; }
-  .railhead { display: flex; align-items: center; gap: .6rem; color: var(--ink); padding: 0 .6rem; }
-  .railhead svg { width: 70px; height: auto; }
-  .railhead span { font-weight: 600; font-size: 1rem; color: var(--muted); }
+  .railhead { display: flex; align-items: flex-end; gap: .6rem; color: var(--ink); padding: 0 .6rem; }
+  .railhead svg { width: 70px; height: auto; display: block; }
+  .railhead span { font-weight: 600; font-size: 1rem; line-height: 1; color: var(--muted); padding-bottom: 3px; }
   /* Sits a little above centre: the gap below is noticeably larger than the gap above. */
   .railsteps { margin: auto 0; display: flex; flex-direction: column; gap: .3rem; padding-bottom: 22vh; }
   .rstep { display: flex; gap: .8rem; align-items: center; text-align: left; background: transparent;
@@ -798,6 +827,9 @@ function shellT2(title: string, body: string): string {
   .tile:hover { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); }
   .tile.on { border-left-color: var(--red); background: color-mix(in srgb, var(--tint) 55%, var(--card)); }
   .tile input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .tile input.dot { position: static; opacity: 1; width: 20px; height: 20px; margin-top: .3rem; accent-color: var(--red-cta); flex: none; }
+  .tile.agent { align-items: center; }
+  .badge.end { margin-left: auto; flex: none; }
   .tlogo { flex: none; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
   .tlogo svg { width: 100%; height: 100%; }
   .tbody { min-width: 0; } .thead { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
@@ -820,6 +852,10 @@ function shellT2(title: string, body: string): string {
     border-radius: 10px; padding: 1rem 1.1rem; color: var(--muted); font-size: .95rem; margin: 1rem 0; }
   .callout svg { flex: none; color: var(--red); margin-top: .15rem; }
   .callout b { color: var(--ink); }
+  .rerun { display: flex; align-items: center; justify-content: center; gap: .7rem; flex-wrap: wrap;
+    margin: 1.2rem 0 .4rem; font-size: 1.05rem; font-weight: 600; }
+  .rerun code { font-size: 1.35rem; font-weight: 700; padding: .35rem .9rem; border-radius: 8px;
+    background: var(--ink); color: #fff; }
   .modelwarn { margin-top: 1rem; border: 2px solid var(--warn); border-radius: 10px;
     background: color-mix(in srgb, var(--warn) 12%, var(--card)); padding: .9rem 1rem; }
   .mw-head { font-weight: 800; color: color-mix(in srgb, #b45309 60%, var(--ink)); margin-bottom: .3rem; }
@@ -901,10 +937,11 @@ function shellT2(title: string, body: string): string {
   .bigcheck svg { width: 34px; height: 34px; }
   .recap, .balcard, .launch { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 1rem 1.2rem; margin: 0 0 1.2rem; }
   .rsum { font-weight: 600; padding-bottom: .5rem; border-bottom: 1px dashed var(--line); margin-bottom: .5rem; }
-  .rrow { display: flex; gap: .7rem; align-items: baseline; padding: .4rem 0; border-bottom: 1px solid var(--line); }
+  .rrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .8rem; align-items: center;
+    min-height: 2.9rem; padding: .3rem 0; border-bottom: 1px solid var(--line); }
   .rrow:last-child { border-bottom: 0; }
   .rrow .rl { font-weight: 700; flex: none; } .rrow .rd { color: var(--muted); font-size: .92rem; overflow-wrap: anywhere; }
-  .rrow .ri { margin-left: auto; font-weight: 800; flex: none; }
+  .rrow .ri { font-weight: 800; }
   .rrow.ok .ri { color: var(--ok); } .rrow.fail .ri { color: var(--red); } .rrow.skip .ri { color: #9ca3af; }
   .balcard, .launch { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
   .balcard.low { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--card)); }
@@ -912,6 +949,22 @@ function shellT2(title: string, body: string): string {
   .balright { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
   .lownote { font-size: .9rem; color: color-mix(in srgb, #b45309 70%, var(--ink)); max-width: 26rem; }
   .launch .fine { margin-top: .2rem; }
+  /* The launch card: a believable little terminal with the agent's own art. */
+  .termcard { display: flex; justify-content: space-between; align-items: center; gap: 1.2rem; border: 1px solid var(--line);
+    border-radius: 12px; background: var(--card); padding: 1rem 1.2rem; margin: 0 0 1.4rem; flex-wrap: wrap; }
+  .termwin { background: #0d0d0b; border-radius: 10px; overflow: hidden; flex: 1 1 24rem; min-width: 0; box-shadow: inset 0 0 0 1px #262622; }
+  .termbar { display: flex; gap: .38rem; padding: .5rem .7rem; background: #1a1a17; }
+  .tdot { width: .62rem; height: .62rem; border-radius: 50%; }
+  .tdot.r { background: #ff5f57; } .tdot.y { background: #febc2e; } .tdot.g { background: #28c840; }
+  .termbody { padding: .8rem 1rem 1rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; line-height: 1.35; }
+  .termlogo { margin: 0 0 .6rem; font-size: .35rem; line-height: 1.15; overflow-x: auto; }
+  .termlogo.codex { color: #33d17a; }
+  .termlogo.oc { color: #fafafa; font-size: .62rem; line-height: 1.2; }
+  .termlogo.claude { color: #e07b54; font-size: .56rem; line-height: 1.05; }
+  .termline { color: #d8d8d2; padding: .08rem 0; overflow-wrap: anywhere; } .termline b { color: #fff; }
+  .termline.dim { color: #8a8a82; } .termline.accent { border-left: 2px solid #33d17a; padding-left: .5rem; }
+  .ccname { color: #33d17a !important; }
+  .termside { display: flex; flex-direction: column; align-items: flex-end; gap: .5rem; flex: none; }
   .examples { display: grid; gap: .8rem; }
   .example { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; display: flex; gap: .9rem; align-items: flex-start; }
   .example .srv { color: var(--red); font-weight: 600; font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; display: block; margin-bottom: .25rem; }
