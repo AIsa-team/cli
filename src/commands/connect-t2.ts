@@ -135,7 +135,8 @@ export function renderT2Page(
     toolCount: s.toolCount,
     description: s.description,
   }));
-  const CLIENTS = clients.map((c) => ({
+  // Windsurf is not part of this flow; the file-config path stays in T1.
+  const CLIENTS = clients.filter((c) => c.id !== "windsurf").map((c) => ({
     id: c.id,
     label: c.label,
     kind: c.kind,
@@ -147,7 +148,7 @@ export function renderT2Page(
   const MODEL_FOR = Object.fromEntries(clients.map((c) => [c.id, defaultModelsFor(c.id).model]));
 
   // ── step 1: welcome ──
-  const logoStrip = PROVIDERS.map(
+  const logoStrip = PROVIDERS.slice(0, 6).map(
     (p) => `<span class="blogo" title="${p.name}">${BRAND_LOGOS[p.id] ?? ""}</span>`
   ).join("");
   const welcome = `
@@ -203,23 +204,18 @@ this machine except the sign-in you approve.</p>`;
         ).join("")}</div>`
       : "";
   const agent = `
-<div class="eyebrow">Step 2 of 6</div>
 <h1>Which agent should AIsa <em>plug into</em>?</h1>
 <p class="lede">One agent per run, so a problem is always easy to place. Detected tools are ready
 to connect; a missing one can be installed right here through its official installer.</p>
-<div class="two">
-<div>
-<div class="grid2">${agentCards}</div>
+<div class="grid1">${agentCards}</div>
 ${restChips}
-</div>
-<aside class="side">
+<div class="side">
   <h3 id="agentNoteTitle">How it connects</h3>
   <p id="agentNote"></p>
   <h3>Already have it set up?</h3>
   <p>Nothing of yours is replaced. Your agent's own login and settings stay where they are; the next
   step lets you add AIsa <b>beside</b> them (a separate <code>claude-aisa</code> / <code>codex-aisa</code>
   command) or switch — your call.</p>
-</aside>
 </div>`;
 
   // ── step 3: models ──
@@ -228,7 +224,6 @@ ${restChips}
 <span class="pname">${p.name}</span><span class="pmodels">${p.models}</span></div>`
   ).join("");
   const models = `
-<div class="eyebrow">Step 3 of 6</div>
 <h1>Every major model, <em>one account</em> — and switching is a one-liner</h1>
 <p class="lede">Whatever you decide below, this is what sits behind your AIsa key. No separate
 accounts, no separate billing, no re-wiring when a better model ships next month.</p>
@@ -297,7 +292,6 @@ accounts, no separate billing, no re-wiring when a better model ships next month
     )
     .join("");
   const caps = `
-<div class="eyebrow">Step 4 of 6</div>
 <h1>What should your agent be able to <em>reach</em>?</h1>
 <p class="lede">Four areas, ${servers.length} servers, ${totalTools} tools. Open an area to pick the servers
 inside it. Everything here is live production data with licensed sources; you can add more later
@@ -311,7 +305,6 @@ with one more <code>aisa connect</code>.</p>
 
   // ── step 5: install ──
   const install = `
-<div class="eyebrow">Step 5 of 6</div>
 <h1 id="inTitle">Ready to <em>connect</em></h1>
 <p class="lede" id="inLede">Here is everything that is about to happen, in order. Nothing runs until
 you press the button; each step reports as it finishes.</p>
@@ -722,16 +715,17 @@ function shellT2(title: string, body: string): string {
     font: 17px/1.6 Inter, "Inter Fallback", "PingFang SC", ui-sans-serif, system-ui, sans-serif;
     background-image: radial-gradient(color-mix(in srgb, var(--muted) 22%, transparent) 1px, transparent 1px);
     background-size: 22px 22px; }
-  .wrap { display: grid; grid-template-columns: 272px minmax(0, 1fr); min-height: 100vh; }
+  .wrap { display: grid; grid-template-columns: 408px minmax(0, 1fr); min-height: 100vh; }
   /* The rail: same paper as the main area, one hairline between them. The
      wordmark sits at the top; the six steps float at the vertical centre so
      the space above and below them is equal at any window height. */
-  .rail { border-right: 1px solid var(--line); padding: 1.6rem 1.2rem; position: sticky; top: 0;
+  .rail { border-right: 1px solid var(--line); padding: 1.6rem 2.2rem; position: sticky; top: 0;
     height: 100vh; display: flex; flex-direction: column; }
   .railhead { display: flex; align-items: center; gap: .6rem; color: var(--ink); padding: 0 .6rem; }
   .railhead svg { width: 70px; height: auto; }
   .railhead span { font-weight: 600; font-size: 1rem; color: var(--muted); }
-  .railsteps { margin: auto 0; display: flex; flex-direction: column; gap: .3rem; padding-bottom: 3.2rem; }
+  /* Sits a little above centre: the gap below is noticeably larger than the gap above. */
+  .railsteps { margin: auto 0; display: flex; flex-direction: column; gap: .3rem; padding-bottom: 22vh; }
   .rstep { display: flex; gap: .8rem; align-items: center; text-align: left; background: transparent;
     border: 0; border-radius: 8px; padding: .7rem .7rem; font: inherit; color: var(--muted);
     cursor: default; opacity: .55; position: relative; }
@@ -749,8 +743,8 @@ function shellT2(title: string, body: string): string {
      stay readable on a wide screen. */
   .main { display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
   .content { width: 100%; max-width: 980px; }
-  .topnav { min-height: 2.6rem; margin-bottom: .6rem; }
-  .topnav .ghost { padding: .45rem .9rem; font-size: .9rem; }
+  .topnav { min-height: 3rem; margin-bottom: 2.4rem; }
+  .topnav .ghost { padding: .65rem 1.3rem; font-size: 1rem; }
   .pane { display: none; animation: fade .25s ease; }
   .pane.show { display: block; }
   @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -791,8 +785,9 @@ function shellT2(title: string, body: string): string {
   /* tiles (agents, model choice) */
   .two { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 2rem; margin-top: 1.6rem; align-items: start; }
   @media (max-width: 960px) { .two { grid-template-columns: 1fr; } }
-  .side { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.2rem 1.3rem;
-    font-size: .92rem; color: var(--muted); position: sticky; top: 74px; }
+  .side { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.2rem 1.4rem;
+    font-size: .95rem; color: var(--muted); margin-top: 1.4rem; }
+  .grid1 { display: grid; grid-template-columns: 1fr; gap: .8rem; margin-top: 1.6rem; }
   .side h3 { color: var(--ink); margin-top: 1rem; } .side h3:first-child { margin-top: 0; }
   .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
   .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
