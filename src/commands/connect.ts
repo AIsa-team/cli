@@ -1848,7 +1848,6 @@ export async function connectAction(options: {
         } else {
           // Dry run: no success tab is opened, but the page (and T2's done
           // step) stays reachable for a minute so a rehearsal can be read.
-          state.doneUrl = `http://127.0.0.1:${port}/done?token=${token}`;
           setTimeout(() => {
             srv.close();
             process.exit(0);

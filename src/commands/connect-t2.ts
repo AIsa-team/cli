@@ -61,7 +61,6 @@ const PROVIDERS: Array<{ id: string; name: string; models: string }> = [
   { id: "glm", name: "GLM (Zhipu)", models: "GLM-5.2 · GLM-5.1 · GLM-5" },
   { id: "qwen", name: "Qwen", models: "Qwen3.7 Max · Qwen3 Coder" },
   { id: "grok", name: "Grok (xAI)", models: "Grok 4.6 · Grok 4.5" },
-  { id: "mistral", name: "Mistral", models: "and 100+ more" },
 ];
 
 /** Clients we do not connect yet but will, shown so the roadmap is visible. */
@@ -94,6 +93,10 @@ const BACKUP_COPY: Record<string, string> = {
   opencode:
     "Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b> — pick <code>aisa/…</code> from the model list whenever you want it.",
 };
+
+/** The wordmark recoloured for the paper background: the white "sa" of the
+ *  dark-background original becomes the ink colour via currentColor. */
+const LOGO_INK = LOGO.replace(/#FFFFFF/g, "currentColor");
 
 function normCategory(c: string): string {
   return /^search/i.test(c) ? "Search & Research" : c;
@@ -335,11 +338,12 @@ you press the button; each step reports as it finishes.</p>
   const body = `
 <div class="wrap">
 <nav class="rail">
-  <div class="railhead">Setup</div>
-  ${rail}
-  <div class="railfoot">local · 127.0.0.1</div>
+  <div class="railhead">${LOGO_INK}<span>Connect</span></div>
+  <div class="railsteps">${rail}</div>
 </nav>
 <section class="main">
+<div class="content">
+  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button></div>
   <div class="pane" data-pane="1">${welcome}</div>
   <div class="pane" data-pane="2">${agent}</div>
   <div class="pane" data-pane="3">${models}</div>
@@ -347,10 +351,10 @@ you press the button; each step reports as it finishes.</p>
   <div class="pane" data-pane="5">${install}</div>
   <div class="pane" data-pane="6">${done}</div>
   <div class="navbar">
-    <button type="button" class="ghost" id="back">← Back</button>
-    <span class="navnote" id="navnote"></span>
     <button type="button" class="cta" id="next">Let's get started ${I.arrow}</button>
+    <span class="navnote" id="navnote"></span>
   </div>
+</div>
 </section>
 </div>
 <script>
@@ -715,52 +719,56 @@ function shellT2(title: string, body: string): string {
   * { box-sizing: border-box; margin: 0; }
   html { scroll-behavior: smooth; }
   body { background: var(--paper); color: var(--ink);
-    font: 16px/1.6 Inter, "Inter Fallback", "PingFang SC", ui-sans-serif, system-ui, sans-serif;
+    font: 17px/1.6 Inter, "Inter Fallback", "PingFang SC", ui-sans-serif, system-ui, sans-serif;
     background-image: radial-gradient(color-mix(in srgb, var(--muted) 22%, transparent) 1px, transparent 1px);
     background-size: 22px 22px; }
-  .bar { background: var(--bar); color: #fff; display: flex; align-items: center; gap: .55rem;
-    padding: .8rem 1.4rem; font-weight: 600; position: sticky; top: 0; z-index: 5; }
-  .bar .tag { margin-left: .4rem; font-weight: 400; opacity: .55; font-size: .85rem; }
-  .wrap { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: calc(100vh - 54px); }
-  /* The rail: narrow, sticky, six rows — where you are, nothing more. */
-  .rail { border-right: 1px solid var(--line); background: color-mix(in srgb, var(--card) 70%, var(--paper));
-    padding: 1.4rem 1rem; position: sticky; top: 54px; height: calc(100vh - 54px);
-    display: flex; flex-direction: column; gap: .25rem; }
-  .railhead { font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
-    color: var(--muted); padding: 0 .6rem .8rem; }
-  .railfoot { margin-top: auto; font-size: .74rem; color: var(--muted); padding: 0 .6rem; opacity: .7; }
-  .rstep { display: flex; gap: .7rem; align-items: center; text-align: left; background: transparent;
-    border: 0; border-radius: 8px; padding: .6rem .6rem; font: inherit; color: var(--muted);
+  .wrap { display: grid; grid-template-columns: 272px minmax(0, 1fr); min-height: 100vh; }
+  /* The rail: same paper as the main area, one hairline between them. The
+     wordmark sits at the top; the six steps float at the vertical centre so
+     the space above and below them is equal at any window height. */
+  .rail { border-right: 1px solid var(--line); padding: 1.6rem 1.2rem; position: sticky; top: 0;
+    height: 100vh; display: flex; flex-direction: column; }
+  .railhead { display: flex; align-items: center; gap: .6rem; color: var(--ink); padding: 0 .6rem; }
+  .railhead svg { width: 70px; height: auto; }
+  .railhead span { font-weight: 600; font-size: 1rem; color: var(--muted); }
+  .railsteps { margin: auto 0; display: flex; flex-direction: column; gap: .3rem; padding-bottom: 3.2rem; }
+  .rstep { display: flex; gap: .8rem; align-items: center; text-align: left; background: transparent;
+    border: 0; border-radius: 8px; padding: .7rem .7rem; font: inherit; color: var(--muted);
     cursor: default; opacity: .55; position: relative; }
   .rstep.open { opacity: 1; cursor: pointer; }
   .rstep.open:hover { background: color-mix(in srgb, var(--tint) 60%, transparent); }
   .rstep .rn { flex: none; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line);
     display: flex; align-items: center; justify-content: center; font-size: .82rem; font-weight: 700; }
-  .rstep .rtitle { display: block; font-weight: 700; font-size: .95rem; color: var(--ink); }
-  .rstep .rsub { display: block; font-size: .76rem; color: var(--muted); }
+  .rstep .rtitle { display: block; font-weight: 700; font-size: 1rem; color: var(--ink); }
+  .rstep .rsub { display: block; font-size: .8rem; color: var(--muted); }
   .rstep.active { background: var(--card); box-shadow: 0 1px 0 var(--line), 0 0 0 1px var(--line); }
   .rstep.active .rn { background: var(--red); border-color: var(--red); color: #fff; }
   .rstep.done .rn { background: var(--ok); border-color: var(--ok); color: #fff; font-size: 0; }
   .rstep.done .rn::after { content: "\\2713"; font-size: .85rem; }
-  .main { padding: 2.2rem 4.5rem 6rem; max-width: 1180px; }
+  /* The main area centres its content both ways; panes are capped so lines
+     stay readable on a wide screen. */
+  .main { display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
+  .content { width: 100%; max-width: 980px; }
+  .topnav { min-height: 2.6rem; margin-bottom: .6rem; }
+  .topnav .ghost { padding: .45rem .9rem; font-size: .9rem; }
   .pane { display: none; animation: fade .25s ease; }
   .pane.show { display: block; }
   @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   @media (max-width: 960px) {
     .wrap { grid-template-columns: 1fr; }
-    .rail { position: static; height: auto; flex-direction: row; flex-wrap: wrap; border-right: 0;
-      border-bottom: 1px solid var(--line); }
-    .rail .rsub, .railhead, .railfoot { display: none; }
-    .main { padding: 1.6rem 5% 5rem; }
+    .rail { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+    .railsteps { flex-direction: row; flex-wrap: wrap; margin: .8rem 0 0; padding: 0; }
+    .rail .rsub { display: none; }
+    .main { padding: 1.6rem 5% 4rem; align-items: flex-start; }
   }
   .eyebrow { display: flex; align-items: center; gap: .55rem; color: var(--muted); font-size: .74rem;
     font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
   .eyebrow::before { content: ""; width: 26px; height: 3px; background: var(--red); }
-  h1 { font-size: 2.3rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin: .5rem 0 .6rem; }
+  h1 { font-size: 2.45rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin: .5rem 0 .6rem; }
   h1 em { font-style: normal; color: var(--red); }
   h2 { font-size: 1.15rem; font-weight: 700; margin: 2rem 0 .8rem; }
   h3 { font-size: 1rem; font-weight: 700; margin: 0 0 .3rem; }
-  .lede { color: var(--muted); font-size: 1.05rem; max-width: 62rem; }
+  .lede { color: var(--muted); font-size: 1.08rem; }
   .fine { color: var(--muted); font-size: .86rem; margin-top: .9rem; }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em;
     background: color-mix(in srgb, var(--muted) 12%, transparent); padding: .1em .35em; border-radius: 4px; }
@@ -807,7 +815,7 @@ function shellT2(title: string, body: string): string {
   body.locked .tile, body.locked .stile { cursor: default; }
   body.locked .tile:not(.on), body.locked .stile:not(.on) { opacity: .45; }
   /* models */
-  .pgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; margin: 1.6rem 0 1.2rem; }
+  .pgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; margin: 1.6rem 0 1.2rem; }
   @media (max-width: 720px) { .pgrid { grid-template-columns: repeat(2, 1fr); } }
   .ptile { display: grid; grid-template-columns: 40px 1fr; grid-template-rows: auto auto; column-gap: .8rem;
     align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .9rem 1rem; }
@@ -881,8 +889,8 @@ function shellT2(title: string, body: string): string {
   .authnote svg { flex: none; margin-top: .1rem; color: var(--red); } .authnote b { color: var(--ink); }
   .authnote.warn { border-color: var(--warn); } .authnote ul { margin: .4rem 0 .4rem 1.1rem; }
   /* nav */
-  .navbar { display: flex; align-items: center; gap: 1rem; margin-top: 2.4rem; padding-top: 1.4rem; border-top: 1px solid var(--line); }
-  .navnote { color: var(--red); font-size: .9rem; margin-left: auto; }
+  .navbar { display: flex; flex-direction: column; align-items: center; gap: .6rem; margin-top: 2.4rem; }
+  .navnote { color: var(--red); font-size: .9rem; min-height: 1.2em; }
   .cta { display: inline-flex; align-items: center; justify-content: center; gap: .6rem; background: var(--red-cta); color: #fff;
     border: none; border-radius: 6px; font: inherit; font-weight: 600; font-size: 1.08rem; padding: .85rem 1.9rem; cursor: pointer;
     text-decoration: none; }
@@ -916,7 +924,6 @@ function shellT2(title: string, body: string): string {
     font-weight: 600; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: .35rem .7rem; cursor: pointer; }
   .example button:hover { border-color: var(--red); color: var(--red); }
 </style></head><body>
-<div class="bar">${LOGO}<span class="tag">Connect</span></div>
 ${body}
 </body></html>`;
 }
