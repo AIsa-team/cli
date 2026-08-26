@@ -963,10 +963,10 @@ function shellT2(title: string, body: string): string {
   /* done */
   /* The tick sits at the end of the headline, headline-sized, and pops in
      once the pane is on screen. */
-  .h1check { display: inline-flex; vertical-align: middle; margin-left: .45rem; width: 1em; height: 1em;
+  .h1check { display: inline-flex; vertical-align: middle; margin-left: .45rem; width: .85em; height: .85em;
     border-radius: 50%; background: var(--red); color: #fff; align-items: center; justify-content: center;
     transform: scale(0); opacity: 0; }
-  .h1check svg { width: .62em; height: .62em; }
+  .h1check svg { width: .53em; height: .53em; }
   .h1check.show { animation: tickpop .5s cubic-bezier(.2,1.4,.4,1) forwards; }
   @keyframes tickpop { 0% { transform: scale(0); opacity: 0; } 70% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
   .recap, .balcard, .launch { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 1rem 1.2rem; margin: 0 0 1.2rem; }
