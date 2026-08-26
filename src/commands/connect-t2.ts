@@ -102,11 +102,11 @@ const HAVE_NOTES: Record<string, string> = {
 /** Backup-mode consent copy, per client — the same contract T1 shows. */
 const BACKUP_COPY: Record<string, string> = {
   "claude-code":
-    "Installs one small command, <b><code>claude-aisa</code></b>, next to your other tools. Your original <b><code>claude</code></b> keeps its login, models and settings <b>exactly as they are</b>. Run <b><code>claude-aisa</code></b> whenever you want AIsa's models at lower prices; delete that one file to remove it.",
+    "Installs one small command, <b><code>claude-aisa</code></b>, next to your other tools. Your original <b><code>claude</code></b> keeps its login, models and settings <b>exactly as they are</b>.<br>You can use the newly added <b><code>claude-aisa</code></b> whenever you want AIsa's models at lower prices. Delete that one file to remove it.",
   codex:
-    "Adds an <b>aisa profile</b> inside Codex's own config and a <b><code>codex-aisa</code></b> command. Your default Codex is <b>untouched</b> — <b><code>codex-aisa</code></b> (or <code>codex --profile aisa</code>) uses AIsa for that session only.",
+    "Adds an <b>aisa profile</b> inside Codex's own config and a <b><code>codex-aisa</code></b> command. Your default Codex is <b>untouched</b>.<br>You can use the newly added <b><code>codex-aisa</code></b> (or <code>codex --profile aisa</code>) whenever you want AIsa's models; it applies to that session only.",
   opencode:
-    "Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b> — pick <code>aisa/…</code> from the model list whenever you want it.",
+    "Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b>.<br>You can pick the newly added <code>aisa/…</code> models from opencode's model list whenever you want them.",
 };
 
 /** The wordmark recoloured for the paper background: the white "sa" of the
@@ -319,8 +319,8 @@ with one more <code>aisa connect</code>.</p>
   // ── step 5: install ──
   const install = `
 <h1 id="inTitle">Ready to <em>connect</em></h1>
-<p class="lede" id="inLede">Here is everything that is about to happen, in order. Nothing runs until
-you press the button; each step reports as it finishes.</p>
+<p class="lede" id="inLede">Here is everything that happens, in order. It starts on its own;
+each step reports as it finishes, and your results open on the last step.</p>
 <div class="plan" id="plan"></div>
 <div class="barwrap" id="barwrap" style="display:none"><div class="barfill" id="barfill"></div></div>
 <div class="barnote" id="barnote"></div>
@@ -543,9 +543,11 @@ you press the button; each step reports as it finishes.</p>
   function renderInstallPane() {
     if (serverSteps) { renderSteps(); return; }
     $("#plan").innerHTML = planPreview();
-    nextBtn.style.display = ""; nextBtn.disabled = false;
+    nextBtn.style.display = ""; nextBtn.disabled = true;
     nextBtn.innerHTML = (installing() ? "Install &amp; connect " : "Connect ") + ARROW;
-    navnote.textContent = "";
+    navnote.textContent = "Starting…";
+    // Arriving here is the decision: the plan shows for a beat, then runs.
+    setTimeout(function () { if (current === 5 && !serverSteps && !locked) start(); }, 500);
   }
   function renderSteps() {
     var steps = serverSteps || [];
@@ -615,6 +617,7 @@ you press the button; each step reports as it finishes.</p>
   function start() {
     var body = { servers: pickedServers(), clients: [clientId()], install: installing() ? [clientId()] : [], llmMode: llmMode() };
     nextBtn.disabled = true; nextBtn.textContent = installing() ? "Installing…" : "Connecting…";
+    navnote.textContent = "";
     lockSelections();
     fetch("/apply", { method: "POST", headers: { "content-type": "application/json", "x-connect-token": TOKEN }, body: JSON.stringify(body) })
       .then(function (r) { return r.json(); })
@@ -665,10 +668,15 @@ you press the button; each step reports as it finishes.</p>
       "</ul>Fix the above, then run <code>npx @aisa-one/cli connect</code> again — it is safe to re-run.</div></div>" : "";
     var ICON = { ok: "✓", fail: "✕", skip: "–", pending: "·", running: "·" };
     var recap = "<h2>Everything you just gained</h2><div class='recap'><div class='rsum'>" + chosen.length + " capabilit" + (chosen.length === 1 ? "y" : "ies") + " · " + tools + " tools · " + name + "</div>" +
-      steps.map(function (x) { return "<div class='rrow " + x.state + "'><span class='rl'>" + x.label + "</span><span class='rd' title=\\"" + (x.detail || "").replace(/"/g, "&quot;") + "\\">" + (x.detail || "") + "</span><span class='ri'>" + ICON[x.state] + "</span></div>"; }).join("") + "</div>";
+      // The balance has its own card right below, so its row stays out of the recap.
+      steps.filter(function (x) { return x.id !== "balance"; }).map(function (x) { return "<div class='rrow " + x.state + "'><span class='rl'>" + x.label + "</span><span class='rd' title=\\"" + (x.detail || "").replace(/"/g, "&quot;") + "\\">" + (x.detail || "") + "</span><span class='ri'>" + ICON[x.state] + "</span></div>"; }).join("") + "</div>";
     var bal = s.balanceMicros, low = bal !== null && bal !== undefined && bal < 5e6;
-    var balCard = "<div class='balcard" + (low ? " low" : "") + "'><div><div class='balnum'>" + (bal === null || bal === undefined ? "—" : fmtUsd(bal)) + "</div><div class='ballbl'>AIsa balance</div></div><div class='balright'>" +
-      (low ? "<div class='lownote'>Running a little low — a small top-up keeps your first calls flowing.</div>" : (bal === null || bal === undefined ? "<div class='lownote'>Could not read it just now — <code>aisa balance</code> will.</div>" : "")) +
+    // The $1 welcome credit: say so loudly and point at the top-up.
+    // TEMP: also shown for a $108.xx balance so the copy can be previewed on a
+    // real account; drop the second clause once reviewed.
+    var gift = bal === 1e6 || (bal >= 108e6 && bal < 109e6);
+    var balCard = "<div class='balcard" + (low || gift ? " low" : "") + "'><div><div class='balnum'>" + (bal === null || bal === undefined ? "—" : fmtUsd(bal)) + "</div><div class='ballbl'>AIsa balance</div></div><div class='balright'>" +
+      (gift ? "<div class='giftnote'><b>AIsa has given you $1 to get started.</b> That covers your first few calls — top up now so your agent never stops mid-task.</div>" : low ? "<div class='lownote'>Running a little low — a small top-up keeps your first calls flowing.</div>" : (bal === null || bal === undefined ? "<div class='lownote'>Could not read it just now — <code>aisa balance</code> will.</div>" : "")) +
       "<a class='cta sm' href='https://console.aisa.one/billing?source=aisa_cli' target='_blank' rel='noopener'>Top up now →</a></div></div>";
     var backupNote = backup ? "<p class='fine'><b>Your usual setup is untouched.</b> " + (id === "opencode" ? "Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa." : "Run <code>" + bin + "</code> whenever you want AIsa's models; delete that one file to remove it.") + "</p>" : "";
     var model = MODEL_FOR[id] || "";
@@ -687,7 +695,7 @@ you press the button; each step reports as it finishes.</p>
     }).join("");
     var more = SERVERS.length - chosen.length;
     var rest = mcpFailed ? failBlock + recap + balCard
-      : "<p class='lede'>You are connected to <b>AIsa</b> — one account for <b>Claude, GPT, Gemini, DeepSeek, Kimi, GLM</b> and the live data behind them." + (more > 0 ? " " + more + " more MCP server" + (more > 1 ? "s are" : " is") + " one <code>npx @aisa-one/cli connect</code> away." : "") + " Explore at <a href='https://aisa.one' target='_blank' rel='noopener'>aisa.one</a> · billing at <a href='https://console.aisa.one' target='_blank' rel='noopener'>console.aisa.one</a>.</p>" +
+      : "<p class='lede'>You are connected to <b>AIsa</b> — one account for all the well-known models and the live data behind them." + (more > 0 ? " " + more + " more MCP server" + (more > 1 ? "s are" : " is") + " one <code>npx @aisa-one/cli connect</code> away." : "") + " See your account dashboard at <a class='lnk' href='https://console.aisa.one' target='_blank' rel='noopener'>console.aisa.one</a>.</p>" +
         failBlock + recap + balCard + backupNote + launch +
         "<h2>Try it now — paste one of these into " + name + "</h2><div class='examples'>" + (examples || "<p class='fine'>Ask your agent to use any of the aisa-* MCP tools.</p>") + "</div>" +
         "<p class='fine'>These first prompts mention <b>AIsa</b> once so the demo lands on your new tools; after that plain language is enough.</p>" +
@@ -749,7 +757,7 @@ function shellT2(title: string, body: string): string {
   * { box-sizing: border-box; margin: 0; }
   html { scroll-behavior: smooth; }
   body { background: var(--paper); color: var(--ink);
-    font: 17px/1.6 Inter, "Inter Fallback", "PingFang SC", ui-sans-serif, system-ui, sans-serif;
+    font: 18px/1.6 Inter, "Inter Fallback", "PingFang SC", ui-sans-serif, system-ui, sans-serif;
     background-image: radial-gradient(color-mix(in srgb, var(--muted) 22%, transparent) 1px, transparent 1px);
     background-size: 22px 22px; }
   .wrap { display: grid; grid-template-columns: 408px minmax(0, 1fr); min-height: 100vh; }
@@ -770,8 +778,8 @@ function shellT2(title: string, body: string): string {
   .rstep.open:hover { background: color-mix(in srgb, var(--tint) 60%, transparent); }
   .rstep .rn { flex: none; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line);
     display: flex; align-items: center; justify-content: center; font-size: .82rem; font-weight: 700; }
-  .rstep .rtitle { display: block; font-weight: 700; font-size: 1rem; color: var(--ink); }
-  .rstep .rsub { display: block; font-size: .8rem; color: var(--muted); }
+  .rstep .rtitle { display: block; font-weight: 700; font-size: 1.08rem; color: var(--ink); }
+  .rstep .rsub { display: block; font-size: .86rem; color: var(--muted); }
   .rstep.active { background: var(--card); box-shadow: 0 1px 0 var(--line), 0 0 0 1px var(--line); }
   .rstep.active .rn { background: var(--red); border-color: var(--red); color: #fff; }
   .rstep.done .rn { background: var(--ok); border-color: var(--ok); color: #fff; font-size: 0; }
@@ -827,6 +835,9 @@ function shellT2(title: string, body: string): string {
   .grid1 { display: grid; grid-template-columns: 1fr; gap: .8rem; margin-top: 1.6rem; }
   .choice.grid1 { margin-top: .4rem; }
   .choice .tile { align-items: center; }
+  .choice .tbody { flex: 1; min-width: 0; }
+  .choice .thead { width: 100%; }
+  .badge.rec { margin-left: auto; }
   .side h3 { color: var(--ink); margin-top: 1rem; } .side h3:first-child { margin-top: 0; }
   .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
   .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
@@ -959,6 +970,8 @@ function shellT2(title: string, body: string): string {
   .balcard.low { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--card)); }
   .balnum { font-size: 1.6rem; font-weight: 800; } .ballbl { font-size: .8rem; color: var(--muted); }
   .balright { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .giftnote { font-size: 1rem; color: color-mix(in srgb, #b45309 70%, var(--ink)); max-width: 30rem; }
+  .giftnote b { color: var(--red); }
   .lownote { font-size: .9rem; color: color-mix(in srgb, #b45309 70%, var(--ink)); max-width: 26rem; }
   .launch .fine { margin-top: .2rem; }
   /* The launch card: a believable little terminal with the agent's own art. */
@@ -968,15 +981,17 @@ function shellT2(title: string, body: string): string {
   .termbar { display: flex; gap: .38rem; padding: .5rem .7rem; background: #1a1a17; }
   .tdot { width: .62rem; height: .62rem; border-radius: 50%; }
   .tdot.r { background: #ff5f57; } .tdot.y { background: #febc2e; } .tdot.g { background: #28c840; }
-  .termbody { padding: .8rem 1rem 1rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; line-height: 1.35; }
-  .termlogo { margin: 0 0 .6rem; font-size: .35rem; line-height: 1.15; overflow-x: auto; }
+  .termbody { padding: .6rem 1rem .8rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .74rem; line-height: 1.25; }
+  .termlogo { margin: 0 0 .45rem; font-size: .3rem; line-height: 1.1; overflow-x: auto; }
   .termlogo.codex { color: #33d17a; }
-  .termlogo.oc { color: #fafafa; font-size: .62rem; line-height: 1.2; }
-  .termlogo.claude { color: #e07b54; font-size: .56rem; line-height: 1.05; }
+  .termlogo.oc { color: #fafafa; font-size: .54rem; line-height: 1.15; }
+  .termlogo.claude { color: #e07b54; font-size: .48rem; line-height: 1; }
   .termline { color: #d8d8d2; padding: .08rem 0; overflow-wrap: anywhere; } .termline b { color: #fff; }
   .termline.dim { color: #8a8a82; } .termline.accent { border-left: 2px solid #33d17a; padding-left: .5rem; }
   .ccname { color: #33d17a !important; }
   .termside { display: flex; flex-direction: column; align-items: flex-end; gap: .5rem; flex: none; }
+  a.lnk { color: var(--red); text-decoration: none; font-weight: 600; }
+  a.lnk:hover { text-decoration: underline; }
   .examples { display: grid; gap: .8rem; }
   .example { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; display: flex; gap: .9rem; align-items: flex-start; }
   .example .srv { color: var(--red); font-weight: 600; font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; display: block; margin-bottom: .25rem; }
