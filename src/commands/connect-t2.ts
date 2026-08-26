@@ -405,7 +405,7 @@ each step reports as it finishes, and your results open on the last step.</p>
     });
     backBtn.style.visibility = n === 1 ? "hidden" : "visible";
     if (n === 5) { renderInstallPane(); }
-    else if (n === 6) { nextBtn.style.display = "none"; navnote.textContent = ""; }
+    else if (n === 6) { nextBtn.style.display = "none"; navnote.textContent = ""; revealCheck(); }
     else { nextBtn.style.display = ""; nextBtn.disabled = false; nextBtn.innerHTML = (locked ? "Next " : NEXT_WORD[n]) + ARROW; navnote.textContent = ""; }
     if (n === 5 && unlocked >= 6) { nextBtn.style.display = ""; nextBtn.innerHTML = "See your results " + ARROW; }
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -642,9 +642,19 @@ each step reports as it finishes, and your results open on the last step.</p>
   }
 
   // ── step 6 ──
+  var doneRendered = false;
+  // The tick after the headline draws itself only once the results pane is
+  // actually on screen, a beat after it appears.
+  function revealCheck() {
+    if (doneRendered) return;
+    var c = $(".h1check"); if (!c) return;
+    doneRendered = true;
+    setTimeout(function () { c.classList.add("show"); }, 350);
+  }
   function fmtUsd(m) { return "$" + (m / 1e6).toFixed(2); }
   function renderDone() {
     var s = lastStatus; if (!s || !s.selection) return;
+    doneRendered = false;
     var sel = s.selection, steps = s.steps || [];
     var id = sel.clients[0], name = LABEL[id] || id;
     var chosen = sel.servers.map(function (x) { return BY_SLUG[x]; }).filter(Boolean);
@@ -659,9 +669,9 @@ each step reports as it finishes, and your results open on the last step.</p>
 
     var head = mcpFailed
       ? "<div class='eyebrow'>Almost there</div><h1>Your agent is <em>not connected yet</em></h1><p class='lede'>The MCP entries could not be added to <b>" + name + "</b> — details below.</p>"
-      : "<div class='bigcheck'>" + ICON_CHECK + "</div>" + (installed.length
-        ? "<h1>Congratulations — <em>" + installed.join(" & ") + "</em> is installed and armed with <em>" + tools + " powerful tools</em></h1><p class='lede'><b>" + installed.join(" & ") + "</b> is on this machine, signed in to AIsa" + (llmOk ? ", running on <b>" + MODEL_FOR[id] + "</b> through AIsa," : ",") + " with " + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " wired in — a complete setup, nothing else to configure.</p>"
-        : "<h1>Congratulations — your agent just got <em>" + tools + " powerful new tool" + (tools > 1 ? "s" : "") + "</em></h1><p class='lede'>" + chosen.length + " AIsa MCP server" + (chosen.length > 1 ? "s are" : " is") + " now installed and signed in for <b>" + name + "</b> — nothing else to configure.</p>");
+      : (installed.length
+        ? "<h1><em>Congratulations!</em> " + installed.join(" & ") + " is installed and armed with " + tools + " powerful tools<span class='h1check'>" + ICON_CHECK + "</span></h1><p class='lede'><b>" + installed.join(" & ") + "</b> is on this machine, signed in to AIsa" + (llmOk ? ", running on <b>" + MODEL_FOR[id] + "</b> through AIsa," : ",") + " with " + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " wired in — a complete setup, nothing else to configure.</p>"
+        : "<h1><em>Congratulations!</em> Your agent just got " + tools + " powerful new tool" + (tools > 1 ? "s" : "") + ".<span class='h1check'>" + ICON_CHECK + "</span></h1><p class='lede'>" + chosen.length + " AIsa MCP server" + (chosen.length > 1 ? "s are" : " is") + " now installed and signed in for <b>" + name + "</b> — nothing else to configure.</p>");
 
     var failBlock = failed.length ? "<div class='authnote warn'><div><b>" + failed.length + " step" + (failed.length > 1 ? "s" : "") + " did not complete:</b><ul>" +
       failed.map(function (x) { return "<li><b>" + x.label + "</b> — " + (x.detail || "failed") + "</li>"; }).join("") +
@@ -952,9 +962,14 @@ function shellT2(title: string, body: string): string {
     font-weight: 600; padding: .8rem 1.2rem; cursor: pointer; }
   .ghost:hover { border-color: var(--red); color: var(--red); }
   /* done */
-  .bigcheck { width: 64px; height: 64px; border-radius: 50%; background: var(--red); color: #fff; display: flex;
-    align-items: center; justify-content: center; margin-bottom: 1.2rem; }
-  .bigcheck svg { width: 34px; height: 34px; }
+  /* The tick sits at the end of the headline, headline-sized, and pops in
+     once the pane is on screen. */
+  .h1check { display: inline-flex; vertical-align: middle; margin-left: .45rem; width: 1em; height: 1em;
+    border-radius: 50%; background: var(--red); color: #fff; align-items: center; justify-content: center;
+    transform: scale(0); opacity: 0; }
+  .h1check svg { width: .62em; height: .62em; }
+  .h1check.show { animation: tickpop .5s cubic-bezier(.2,1.4,.4,1) forwards; }
+  @keyframes tickpop { 0% { transform: scale(0); opacity: 0; } 70% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
   .recap, .balcard, .launch { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 1rem 1.2rem; margin: 0 0 1.2rem; }
   .rsum { font-weight: 600; padding-bottom: .5rem; border-bottom: 1px dashed var(--line); margin-bottom: .5rem; }
   .rrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .8rem; align-items: center;
