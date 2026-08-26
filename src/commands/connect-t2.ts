@@ -92,9 +92,9 @@ const AGENT_NOTES: Record<string, string> = {
 /** What "nothing of yours changes" means for each agent, on the Your-agent step. */
 const HAVE_NOTES: Record<string, string> = {
   "claude-code":
-    "Nothing of yours is replaced. Your <code>claude</code> keeps its login, models and settings; the next step lets you add AIsa <b>beside</b> it as a separate <code>claude-aisa</code> command, or switch — your call.",
+    "Nothing of yours is replaced. Your <code>claude</code> keeps its login, models and settings; the next step lets you add AIsa <b>beside</b> it as a separate <b><code>claude-aisa</code></b> command, or switch — your call.",
   codex:
-    "Nothing of yours is replaced. Your <code>codex</code> keeps its login and config; the next step lets you add AIsa <b>beside</b> it as an <code>aisa</code> profile and a <code>codex-aisa</code> command, or switch — your call.",
+    "Nothing of yours is replaced. Your <code>codex</code> keeps its login and config; the next step lets you add AIsa <b>beside</b> it as an <code>aisa</code> profile and a <b><code>codex-aisa</code></b> command, or switch — your call.",
   opencode:
     "Nothing of yours is replaced. Your default model stays; the next step can add AIsa as an extra <code>aisa/…</code> provider you pick from the model list, or switch — your call.",
 };
@@ -102,9 +102,9 @@ const HAVE_NOTES: Record<string, string> = {
 /** Backup-mode consent copy, per client — the same contract T1 shows. */
 const BACKUP_COPY: Record<string, string> = {
   "claude-code":
-    "Installs one small command, <b><code>claude-aisa</code></b>, next to your other tools. Your original <b><code>claude</code></b> keeps its login, models and settings <b>exactly as they are</b>. Run <code>claude-aisa</code> whenever you want AIsa's models at lower prices; delete that one file to remove it.",
+    "Installs one small command, <b><code>claude-aisa</code></b>, next to your other tools. Your original <b><code>claude</code></b> keeps its login, models and settings <b>exactly as they are</b>. Run <b><code>claude-aisa</code></b> whenever you want AIsa's models at lower prices; delete that one file to remove it.",
   codex:
-    "Adds an <b>aisa profile</b> inside Codex's own config and a <b><code>codex-aisa</code></b> command. Your default Codex is <b>untouched</b> — <code>codex-aisa</code> (or <code>codex --profile aisa</code>) uses AIsa for that session only.",
+    "Adds an <b>aisa profile</b> inside Codex's own config and a <b><code>codex-aisa</code></b> command. Your default Codex is <b>untouched</b> — <b><code>codex-aisa</code></b> (or <code>codex --profile aisa</code>) uses AIsa for that session only.",
   opencode:
     "Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b> — pick <code>aisa/…</code> from the model list whenever you want it.",
 };
@@ -244,28 +244,28 @@ accounts, no separate billing, no re-wiring when a better model ships next month
   change the model name and you are on a different lab's best model — Claude today,
   DeepSeek for the cheap batch job tonight, GPT-5.5 tomorrow. No new sign-ups, no new config,
   no juggling keys. </div></div>
-<div class="rerun"><span>Change the default any time — just run</span><code>aisa connect</code><span>again.</span></div>
+<p class="rerun">Change the default any time — just run <b><code>aisa connect</code></b> again.</p>
 
 <h2>How should <span id="mClient">your agent</span> use them?</h2>
-<div id="mFresh" class="grid2 choice" style="display:none">
-  <label class="tile on"><input type="radio" name="lmodeFresh" value="switch" checked>
+<div id="mFresh" class="grid1 choice" style="display:none">
+  <label class="tile on"><input type="radio" class="dot" name="lmodeFresh" value="switch" checked>
     <span class="tbody"><span class="thead"><span class="tname">Run it on AIsa models</span><span class="badge rec">recommended</span></span>
     <span class="tbrief">A fresh install has no model backend yet. This writes the agent's own
     provider settings so it starts on <b id="mModel"></b> through AIsa — reversible.</span></span></label>
-  <label class="tile"><input type="radio" name="lmodeFresh" value="skip">
+  <label class="tile"><input type="radio" class="dot" name="lmodeFresh" value="skip">
     <span class="tbody"><span class="thead"><span class="tname">Not now</span></span>
     <span class="tbrief">Install it without a model. It will not answer a prompt until you
     configure a provider by hand.</span></span></label>
 </div>
-<div id="mDetected" class="grid3 choice" style="display:none">
-  <label class="tile on"><input type="radio" name="lmodeDet" value="backup" checked>
+<div id="mDetected" class="grid1 choice" style="display:none">
+  <label class="tile on"><input type="radio" class="dot" name="lmodeDet" value="backup" checked>
     <span class="tbody"><span class="thead"><span class="tname">Add AIsa beside it</span><span class="badge rec">recommended</span></span>
     <span class="tbrief" id="mBackup"></span></span></label>
-  <label class="tile"><input type="radio" name="lmodeDet" value="switch">
+  <label class="tile"><input type="radio" class="dot" name="lmodeDet" value="switch">
     <span class="tbody"><span class="thead"><span class="tname">Switch it to AIsa</span></span>
     <span class="tbrief">Points this agent's model traffic at AIsa (<b id="mModel2"></b>). Writes the
     agent's own provider settings and nothing else — reversible.</span></span></label>
-  <label class="tile"><input type="radio" name="lmodeDet" value="skip">
+  <label class="tile"><input type="radio" class="dot" name="lmodeDet" value="skip">
     <span class="tbody"><span class="thead"><span class="tname">Not now</span></span>
     <span class="tbrief">Leave models exactly as they are; only the MCP tools are added.</span></span></label>
 </div>
@@ -521,12 +521,13 @@ you press the button; each step reports as it finishes.</p>
   var shown = {};              // step id -> state we are displaying
   var lastFlip = 0, ticker = null;
   var STATE_WORD = { pending: "waiting", running: "working…", ok: "done", fail: "failed", skip: "skipped" };
-  var MIN_DWELL = 1500;        // a step stays visibly "working" and then "done" at least this long
+  var MIN_DWELL = 1800;        // a step stays visibly "working" and then "done" at least this long
+  var LOW_DWELL = 3000;        // the balance step, when the account is running low
 
   function planPreview() {
     var id = clientId(), rows = [];
     if (installing()) rows.push(["Install " + LABEL[id], "through its official installer, no sudo"]);
-    if (NEEDS_CLI) rows.push(["Install the AIsa CLI", "npm install -g @aisa-one/cli — the aisa command for balance, top-up and key rotation"]);
+    rows.push(["Install the AIsa CLI", NEEDS_CLI ? "npm install -g @aisa-one/cli — the aisa command for balance, top-up and key rotation" : "the aisa command is already on this machine"]);
     if (!${keyed}) rows.push(["Sign in to AIsa", "one browser approval — it issues your key"]);
     var n = pickedServers().length;
     rows.push(["Add " + n + " MCP server" + (n === 1 ? "" : "s"), "to " + LABEL[id]]);
@@ -572,20 +573,26 @@ you press the button; each step reports as it finishes.</p>
     for (var i = 0; i < steps.length; i++) {
       var s = steps[i], cur = shown[s.id] || "pending";
       if (cur === s.state) continue;
+      var dwell = s.id === "balance" && lastStatus && lastStatus.balanceMicros !== null &&
+        lastStatus.balanceMicros !== undefined && lastStatus.balanceMicros <= 5e6 ? LOW_DWELL : MIN_DWELL;
       if (cur === "pending" && (s.state === "running" || /ok|skip|fail/.test(s.state))) {
         // Even an instant step gets a visible moment of work before its tick.
-        if (now - lastFlip < MIN_DWELL && i > 0) break;
+        if (now - lastFlip < MIN_DWELL && lastFlip) break;
         shown[s.id] = "running"; lastFlip = now; renderSteps(); break;
       }
       if (cur === "running" && /ok|skip|fail/.test(s.state)) {
-        if (now - lastFlip < MIN_DWELL) break;
+        if (now - lastFlip < dwell) break;
         shown[s.id] = s.state; lastFlip = now; renderSteps(); break;
       }
       break; // a running step stays running until the server settles it
     }
     if ((phase === "done" || phase === "failed") && caughtUp()) {
+      // One last beat on the final tick, then tell the process the checklist
+      // has been seen — only now may it open the results tab.
+      if (now - lastFlip < MIN_DWELL) return;
       clearInterval(ticker); ticker = null;
       finish();
+      fetch("/seen?token=" + TOKEN, { method: "POST" }).catch(function () {});
     }
   }
   function finish() {
@@ -658,7 +665,7 @@ you press the button; each step reports as it finishes.</p>
       "</ul>Fix the above, then run <code>npx @aisa-one/cli connect</code> again — it is safe to re-run.</div></div>" : "";
     var ICON = { ok: "✓", fail: "✕", skip: "–", pending: "·", running: "·" };
     var recap = "<h2>Everything you just gained</h2><div class='recap'><div class='rsum'>" + chosen.length + " capabilit" + (chosen.length === 1 ? "y" : "ies") + " · " + tools + " tools · " + name + "</div>" +
-      steps.map(function (x) { return "<div class='rrow " + x.state + "'><span class='rl'>" + x.label + "</span><span class='rd'>" + (x.detail || "") + "</span><span class='ri'>" + ICON[x.state] + "</span></div>"; }).join("") + "</div>";
+      steps.map(function (x) { return "<div class='rrow " + x.state + "'><span class='rl'>" + x.label + "</span><span class='rd' title=\\"" + (x.detail || "").replace(/"/g, "&quot;") + "\\">" + (x.detail || "") + "</span><span class='ri'>" + ICON[x.state] + "</span></div>"; }).join("") + "</div>";
     var bal = s.balanceMicros, low = bal !== null && bal !== undefined && bal < 5e6;
     var balCard = "<div class='balcard" + (low ? " low" : "") + "'><div><div class='balnum'>" + (bal === null || bal === undefined ? "—" : fmtUsd(bal)) + "</div><div class='ballbl'>AIsa balance</div></div><div class='balright'>" +
       (low ? "<div class='lownote'>Running a little low — a small top-up keeps your first calls flowing.</div>" : (bal === null || bal === undefined ? "<div class='lownote'>Could not read it just now — <code>aisa balance</code> will.</div>" : "")) +
@@ -683,7 +690,8 @@ you press the button; each step reports as it finishes.</p>
       : "<p class='lede'>You are connected to <b>AIsa</b> — one account for <b>Claude, GPT, Gemini, DeepSeek, Kimi, GLM</b> and the live data behind them." + (more > 0 ? " " + more + " more MCP server" + (more > 1 ? "s are" : " is") + " one <code>npx @aisa-one/cli connect</code> away." : "") + " Explore at <a href='https://aisa.one' target='_blank' rel='noopener'>aisa.one</a> · billing at <a href='https://console.aisa.one' target='_blank' rel='noopener'>console.aisa.one</a>.</p>" +
         failBlock + recap + balCard + backupNote + launch +
         "<h2>Try it now — paste one of these into " + name + "</h2><div class='examples'>" + (examples || "<p class='fine'>Ask your agent to use any of the aisa-* MCP tools.</p>") + "</div>" +
-        "<p class='fine'>These first prompts mention <b>AIsa</b> once so the demo lands on your new tools; after that plain language is enough.</p>";
+        "<p class='fine'>These first prompts mention <b>AIsa</b> once so the demo lands on your new tools; after that plain language is enough.</p>" +
+        "<p class='rerun'>Change the default any time — just run <b><code>aisa connect</code></b> again.</p>";
     $("#doneBody").innerHTML = head + rest;
     $$("[data-copy]").forEach(function (b) { b.addEventListener("click", function () {
       navigator.clipboard.writeText(b.getAttribute("data-copy")).then(function () {
@@ -817,6 +825,8 @@ function shellT2(title: string, body: string): string {
   .side { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.2rem 1.4rem;
     font-size: .95rem; color: var(--muted); margin-top: 1.4rem; }
   .grid1 { display: grid; grid-template-columns: 1fr; gap: .8rem; margin-top: 1.6rem; }
+  .choice.grid1 { margin-top: .4rem; }
+  .choice .tile { align-items: center; }
   .side h3 { color: var(--ink); margin-top: 1rem; } .side h3:first-child { margin-top: 0; }
   .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
   .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
@@ -852,10 +862,8 @@ function shellT2(title: string, body: string): string {
     border-radius: 10px; padding: 1rem 1.1rem; color: var(--muted); font-size: .95rem; margin: 1rem 0; }
   .callout svg { flex: none; color: var(--red); margin-top: .15rem; }
   .callout b { color: var(--ink); }
-  .rerun { display: flex; align-items: center; justify-content: center; gap: .7rem; flex-wrap: wrap;
-    margin: 1.2rem 0 .4rem; font-size: 1.05rem; font-weight: 600; }
-  .rerun code { font-size: 1.35rem; font-weight: 700; padding: .35rem .9rem; border-radius: 8px;
-    background: var(--ink); color: #fff; }
+  .rerun { margin: .2rem 0 .4rem; font-size: 1.02rem; color: var(--muted); }
+  .rerun code { font-size: 1.05em; color: var(--ink); }
   .modelwarn { margin-top: 1rem; border: 2px solid var(--warn); border-radius: 10px;
     background: color-mix(in srgb, var(--warn) 12%, var(--card)); padding: .9rem 1rem; }
   .mw-head { font-weight: 800; color: color-mix(in srgb, #b45309 60%, var(--ink)); margin-bottom: .3rem; }
@@ -908,6 +916,7 @@ function shellT2(title: string, body: string): string {
   .step.running .mark { border-color: var(--red); border-top-color: transparent; animation: r .8s linear infinite; }
   .step.ok .mark { background: var(--ok); border-color: var(--ok); animation: pop .35s ease; }
   .step.ok .mark::after { content: "\\2713"; }
+  .step.ok .st, .step.fail .st { animation: fade .4s ease; }
   .step.fail .mark { background: var(--red); border-color: var(--red); } .step.fail .mark::after { content: "\\2715"; }
   .step.skip .mark { border-style: dotted; }
   @keyframes r { to { transform: rotate(360deg); } }
@@ -940,7 +949,10 @@ function shellT2(title: string, body: string): string {
   .rrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .8rem; align-items: center;
     min-height: 2.9rem; padding: .3rem 0; border-bottom: 1px solid var(--line); }
   .rrow:last-child { border-bottom: 0; }
-  .rrow .rl { font-weight: 700; flex: none; } .rrow .rd { color: var(--muted); font-size: .92rem; overflow-wrap: anywhere; }
+  /* Every row the same height: the detail is one line, clipped, full text on hover. */
+  .rrow .rl { font-weight: 700; white-space: nowrap; }
+  .rrow .rd { color: var(--muted); font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rrow { height: 2.9rem; }
   .rrow .ri { font-weight: 800; }
   .rrow.ok .ri { color: var(--ok); } .rrow.fail .ri { color: var(--red); } .rrow.skip .ri { color: #9ca3af; }
   .balcard, .launch { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }

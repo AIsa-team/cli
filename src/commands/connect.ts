@@ -91,6 +91,9 @@ const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
 /** How long the success page stays served before the process exits. Copy
  *  buttons are client-side, so the page keeps working after exit. */
 const LINGER_AFTER_DONE_MS = 5 * 60 * 1000;
+/** How long to wait for the T2 page to finish playing its checklist before
+ *  the success tab opens anyway (the tab may have been closed). */
+const PAGE_SEEN_TIMEOUT_MS = 90 * 1000;
 
 
 export function detectClients(): ClientInfo[] {
@@ -333,6 +336,9 @@ const BEFORE_HANDOFF_MS = 3000;
  *  Matches the CLI's own variable so an exported key also just works. */
 const CODEX_KEY_ENV_VAR = "AISA_API_KEY";
 
+/** Below this the balance step lingers and nudges towards a top-up. */
+const LOW_BALANCE_MICROS = 5_000_000;
+
 /** The manual fallback when the inline sign-in cannot mint a key. */
 const CONSOLE_KEYS_URL = "https://console.aisa.one/api-keys";
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -375,15 +381,16 @@ function buildPlan(input: PlanInput): Step[] {
   }
   // The aisa command itself, so the npx visitor leaves with the full
   // toolbox (balance, topup, login/key rotation) — shown as its own step,
-  // never a silent side effect. Skipped when already installed.
-  if (!input.dryRun && !isInstalled("aisa")) {
-    steps.push({
-      id: "install:aisa-cli",
-      label: "Install the AIsa CLI",
-      state: "pending",
-      detail: "npm install -g @aisa-one/cli — the aisa command for balance, top-up and key rotation",
-    });
-  }
+  // never a silent side effect. Always listed, so the plan reads the same on
+  // every machine; when the command is already there the step simply says so.
+  steps.push({
+    id: "install:aisa-cli",
+    label: "Install the AIsa CLI",
+    state: "pending",
+    detail: isInstalled("aisa")
+      ? "the aisa command is already on this machine"
+      : "npm install -g @aisa-one/cli — the aisa command for balance, top-up and key rotation",
+  });
   // One sign-in, before anything that wants a credential: the browser
   // approval mints the durable CLI key, and with it every MCP entry is a
   // bearer and the model provider can be written — no per-server popups.
@@ -497,7 +504,9 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
   // ── the CLI itself, so the npx visitor keeps the toolbox ──
   if (state.steps.some((s) => s.id === "install:aisa-cli")) {
     setStep(state, "install:aisa-cli", { state: "running", detail: "npm install -g @aisa-one/cli" });
-    const outcome = await installAgent("aisa-cli");
+    const outcome = input.dryRun
+      ? { ok: true as const, alreadyInstalled: isInstalled("aisa"), detail: "", command: "" }
+      : await installAgent("aisa-cli");
     if (outcome.ok) {
       ok("install:aisa-cli", outcome.alreadyInstalled ? "already installed" : "installed — try `aisa balance` anytime");
     } else {
@@ -703,6 +712,11 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       detail: "no credit yet — add some with 'aisa topup' before your first call",
     });
     hint("No credit yet — run 'aisa topup' to add some");
+  } else if (balance <= LOW_BALANCE_MICROS) {
+    setStep(state, "balance", {
+      state: "ok",
+      detail: `${formatMicrosUSD(balance)} available — running low; top up on the results page so nothing stops mid-task`,
+    });
   } else {
     setStep(state, "balance", { state: "ok", detail: `${formatMicrosUSD(balance)} available` });
   }
@@ -1655,6 +1669,12 @@ export async function connectAction(options: {
   let chosenClients: string[] = [];
   let port = 0;
 
+  // T2 tells us when its step-5 animation has finished playing; the success
+  // tab waits for that so the user is never yanked away mid-checklist. A
+  // closed tab would never say so, hence the bounded wait below.
+  let pageSeen: () => void = () => {};
+  const pageSeenP = new Promise<void>((r) => (pageSeen = r));
+
   let settled = false;
   const idle = setTimeout(() => {
     if (settled) return;
@@ -1695,6 +1715,15 @@ export async function connectAction(options: {
           ? renderT2Page(servers, clients, token, Boolean(key), supported(), "done")
           : renderDone(chosenServers, chosenClients, state.steps, servers, state.balanceMicros ?? null, state.llmMode)
       );
+      return;
+    }
+    if (req.method === "POST" && url.pathname === "/seen") {
+      if (!tokenOk) {
+        res.writeHead(403).end();
+        return;
+      }
+      pageSeen();
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true }));
       return;
     }
     if (req.method === "POST" && url.pathname === "/launch") {
@@ -1807,6 +1836,7 @@ export async function connectAction(options: {
           const doneUrl = `http://127.0.0.1:${port}/done?token=${token}`;
           state.doneUrl = doneUrl;
           info("Opening a success page with try-it-now examples…");
+          if (template === "t2") await Promise.race([pageSeenP, pause(PAGE_SEEN_TIMEOUT_MS)]);
           await pause(BEFORE_HANDOFF_MS);
           openBrowser(doneUrl);
           hint("A success page with try-it-now examples just opened in your browser");
