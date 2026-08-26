@@ -1,0 +1,922 @@
+import { MCP_DEFAULT_SLUGS } from "../constants.js";
+import { INSTALLERS } from "./install.js";
+import { defaultModelsFor } from "./llm-config.js";
+import { stripped, type LiveServer } from "./mcp.js";
+import { BRAND_LOGOS } from "./brand-logos.js";
+import {
+  RED,
+  RED_CTA,
+  INK,
+  PAPER,
+  I,
+  LOGO,
+  CATEGORY_ICON,
+  EXAMPLES,
+  CLIENT_LOGOS,
+  type ClientInfo,
+} from "./connect-shared.js";
+
+/**
+ * T2 — the guided six-step connect flow.
+ *
+ * One page, six panes, a narrow step rail on the left and the current step
+ * filling the rest of the screen. The shape is borrowed from the onboarding
+ * flows that feel effortless (Sapiom's six-step rail was the reference): the
+ * rail says where you are, the main area has room to actually explain the
+ * step instead of cramming everything into one sidebar.
+ *
+ *   1 Welcome        what you are about to get
+ *   2 Your agent     which tool to connect (install it if missing)
+ *   3 Models         which models it runs on, and how easy it is to switch
+ *   4 Capabilities   live data — a grid of capability areas, servers inside
+ *   5 Install        sign in, install, wire up — animated, one tick at a time
+ *   6 Done           congratulations, recap, balance, launch, try-it-now
+ *
+ * The install tab parks on step 5 and the success tab the process opens lands
+ * on step 6; both are this same page, hydrated from GET /status, so from
+ * either tab every other step remains one click away. Steps 1–4 turn
+ * read-only once the run has started.
+ *
+ * The T1 flow (renderPage / renderDone in connect.ts) is untouched; the
+ * server picks a template per run and both share the same endpoints.
+ */
+
+const STEPS = [
+  { n: 1, title: "Welcome", sub: "What you are about to get" },
+  { n: 2, title: "Your agent", sub: "Pick the tool to connect" },
+  { n: 3, title: "Models", sub: "What it runs on" },
+  { n: 4, title: "Capabilities", sub: "Live data for your agent" },
+  { n: 5, title: "Install", sub: "Sign in and wire it up" },
+  { n: 6, title: "Done", sub: "Try it now" },
+] as const;
+
+/** Providers shown on the Models step. Model names are from the live
+ *  `aisa models` catalogue (2026-08-23); a representative few per provider. */
+const PROVIDERS: Array<{ id: string; name: string; models: string }> = [
+  { id: "claude", name: "Claude", models: "Sonnet 5 · Opus 5 · Haiku 4.5" },
+  { id: "openai", name: "OpenAI", models: "GPT-5.5 · GPT-5.3-codex · 5.4-mini" },
+  { id: "gemini", name: "Gemini", models: "Gemini 3.5 Flash" },
+  { id: "deepseek", name: "DeepSeek", models: "V4 Pro · V4 Flash · R1" },
+  { id: "kimi", name: "Kimi", models: "K3 · K2.7-code · K2 thinking" },
+  { id: "glm", name: "GLM (Zhipu)", models: "GLM-5.2 · GLM-5.1 · GLM-5" },
+  { id: "qwen", name: "Qwen", models: "Qwen3.7 Max · Qwen3 Coder" },
+  { id: "grok", name: "Grok (xAI)", models: "Grok 4.6 · Grok 4.5" },
+  { id: "mistral", name: "Mistral", models: "and 100+ more" },
+];
+
+/** Clients we do not connect yet but will, shown so the roadmap is visible. */
+const COMING_SOON: Array<{ id: string; label: string; note: string }> = [
+  { id: "vscode", label: "VS Code", note: "install deeplink" },
+  { id: "chatgpt", label: "ChatGPT", note: "connector" },
+];
+
+/** One paragraph per agent on what connecting it means, for the Your-agent
+ *  step's side column. */
+const AGENT_NOTES: Record<string, string> = {
+  "claude-code":
+    "Servers are added with <code>claude mcp add</code> in user scope — the official mechanism, reversible with <code>claude mcp remove</code>. Models, if you choose to, are set through Claude Code's own settings file.",
+  codex:
+    "Servers are added with <code>codex mcp add</code>, Codex's own command. Models go in an <code>aisa</code> provider inside <code>~/.codex/config.toml</code> — only keys we wrote are ever touched.",
+  opencode:
+    "Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.",
+  cursor: "The AIsa servers are written into <code>~/.cursor/mcp.json</code>. Models stay as they are — Cursor picks its own.",
+  "claude-desktop":
+    "The AIsa servers are written into Claude Desktop's <code>claude_desktop_config.json</code>. Restart the app to see them.",
+  windsurf: "The AIsa servers are written into Windsurf's <code>mcp_config.json</code>.",
+};
+
+/** Backup-mode consent copy, per client — the same contract T1 shows. */
+const BACKUP_COPY: Record<string, string> = {
+  "claude-code":
+    "Installs one small command, <b><code>claude-aisa</code></b>, next to your other tools. Your original <b><code>claude</code></b> keeps its login, models and settings <b>exactly as they are</b>. Run <code>claude-aisa</code> whenever you want AIsa's models at lower prices; delete that one file to remove it.",
+  codex:
+    "Adds an <b>aisa profile</b> inside Codex's own config and a <b><code>codex-aisa</code></b> command. Your default Codex is <b>untouched</b> — <code>codex-aisa</code> (or <code>codex --profile aisa</code>) uses AIsa for that session only.",
+  opencode:
+    "Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b> — pick <code>aisa/…</code> from the model list whenever you want it.",
+};
+
+function normCategory(c: string): string {
+  return /^search/i.test(c) ? "Search & Research" : c;
+}
+
+const CATEGORY_BLURB: Record<string, string> = {
+  "Search & Research": "Ranked web results with page text already extracted, plus YouTube.",
+  Finance: "US equities, crypto, prediction markets and what X is saying about a ticker.",
+  Social: "Public X/Twitter, Reddit, Instagram and Pinterest — profiles, posts, engagement.",
+  Sales: "Apollo B2B data — enrich people and companies, find prospects.",
+};
+
+export function renderT2Page(
+  servers: LiveServer[],
+  clients: ClientInfo[],
+  token: string,
+  keyed: boolean,
+  canInstall: boolean,
+  view: "start" | "done"
+): string {
+  const totalTools = servers.reduce((n, s) => n + s.toolCount, 0);
+  const cats = new Map<string, LiveServer[]>();
+  for (const s of servers) {
+    const c = normCategory(s.category);
+    cats.set(c, [...(cats.get(c) ?? []), s]);
+  }
+  const ORDER = ["Search & Research", "Finance", "Social", "Sales"];
+  const rank = (c: string) => (ORDER.indexOf(c) === -1 ? 99 : ORDER.indexOf(c));
+  const catList = [...cats.entries()].sort((a, b) => rank(a[0]) - rank(b[0]));
+
+  // ── data handed to the page script ──
+  const SERVERS = servers.map((s) => ({
+    slug: s.slug,
+    name: stripped(s.name),
+    category: normCategory(s.category),
+    toolCount: s.toolCount,
+    description: s.description,
+  }));
+  const CLIENTS = clients.map((c) => ({
+    id: c.id,
+    label: c.label,
+    kind: c.kind,
+    detected: c.detected,
+    detail: c.detail,
+    installable: !c.detected && Boolean(INSTALLERS[c.id]) && canInstall,
+    command: INSTALLERS[c.id]?.command ?? "",
+  }));
+  const MODEL_FOR = Object.fromEntries(clients.map((c) => [c.id, defaultModelsFor(c.id).model]));
+
+  // ── step 1: welcome ──
+  const logoStrip = PROVIDERS.map(
+    (p) => `<span class="blogo" title="${p.name}">${BRAND_LOGOS[p.id] ?? ""}</span>`
+  ).join("");
+  const welcome = `
+<div class="eyebrow">Welcome to AIsa</div>
+<h1>One connection. <em>Every major model</em>, live data and skills — inside the agent you already use.</h1>
+<p class="lede">AIsa is the capability layer for AI agents: one account, one key, and your coding agent
+can reach the best models <b>and</b> the real world. Setting it up takes about a minute and
+nothing here is irreversible.</p>
+<div class="feat">
+  <div class="ftile"><div class="fico">${I.sparkles}</div>
+    <h3>100+ models, one key, lower prices</h3>
+    <p>Claude, GPT, Gemini, DeepSeek, Kimi, GLM, Qwen, Grok — all behind one endpoint,
+    well below going direct. Switch between them with a single setting, no re-configuring.</p>
+    <div class="strip">${logoStrip}</div></div>
+  <div class="ftile"><div class="fico">${I.finance}</div>
+    <h3>${totalTools} live tools your agent can act on</h3>
+    <p>Market analysis and expansion research, finance data, social media signals, B2B
+    prospecting — ${servers.length} MCP servers of licensed, production data, not scraped guesses.</p></div>
+  <div class="ftile"><div class="fico">${I.terminal}</div>
+    <h3>Agent skills, ready to run</h3>
+    <p>A public catalogue of skills that teach your agent how to use each capability well —
+    install with <code>aisa skills</code>, no prompt engineering needed.</p></div>
+  <div class="ftile"><div class="fico">${I.shield}</div>
+    <h3>MCP the friendly way</h3>
+    <p>One sign-in in your browser, zero keys to paste, every entry written through your
+    agent's own official command. Remove it all just as easily.</p></div>
+</div>
+<p class="fine">Served by the local <code>aisa connect</code> process on 127.0.0.1 — nothing leaves
+this machine except the sign-in you approve.</p>`;
+
+  // ── step 2: your agent ──
+  const usable = CLIENTS.filter((c) => c.detected);
+  const installable = CLIENTS.filter((c) => c.installable);
+  const rest = CLIENTS.filter((c) => !c.detected && !c.installable);
+  const clientCard = (c: (typeof CLIENTS)[number], checked: boolean) => `
+<label class="tile agent${checked ? " on" : ""}" data-cid="${c.id}">
+  <input type="radio" name="client" value="${c.id}"${checked ? " checked" : ""}${c.installable ? ' data-install="1"' : ""}>
+  <span class="tlogo">${BRAND_LOGOS[c.id] ?? CLIENT_LOGOS[c.id] ?? I.terminal}</span>
+  <span class="tbody"><span class="thead"><span class="tname">${c.label}</span>
+    ${c.detected ? `<span class="badge ok">✓ detected</span>` : `<span class="badge todo" data-badge>not installed</span>`}</span>
+    <span class="tbrief" data-brief>${
+      c.detected ? c.detail : `Install <b>and</b> connect it — <code>${c.command}</code>`
+    }</span></span></label>`;
+  const agentCards =
+    usable.map((c, i) => clientCard(c, i === 0)).join("") +
+    installable.map((c) => clientCard(c, usable.length === 0 && c === installable[0])).join("");
+  const restChips =
+    rest.length || COMING_SOON.length
+      ? `<div class="soon">${rest
+          .map((c) => `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>not found</i></span>`)
+          .join("")}${COMING_SOON.map(
+          (c) => `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>${c.note} · soon</i></span>`
+        ).join("")}</div>`
+      : "";
+  const agent = `
+<div class="eyebrow">Step 2 of 6</div>
+<h1>Which agent should AIsa <em>plug into</em>?</h1>
+<p class="lede">One agent per run, so a problem is always easy to place. Detected tools are ready
+to connect; a missing one can be installed right here through its official installer.</p>
+<div class="two">
+<div>
+<div class="grid2">${agentCards}</div>
+${restChips}
+</div>
+<aside class="side">
+  <h3 id="agentNoteTitle">How it connects</h3>
+  <p id="agentNote"></p>
+  <h3>Already have it set up?</h3>
+  <p>Nothing of yours is replaced. Your agent's own login and settings stay where they are; the next
+  step lets you add AIsa <b>beside</b> them (a separate <code>claude-aisa</code> / <code>codex-aisa</code>
+  command) or switch — your call.</p>
+</aside>
+</div>`;
+
+  // ── step 3: models ──
+  const providerTiles = PROVIDERS.map(
+    (p) => `<div class="ptile"><span class="blogo lg">${BRAND_LOGOS[p.id] ?? ""}</span>
+<span class="pname">${p.name}</span><span class="pmodels">${p.models}</span></div>`
+  ).join("");
+  const models = `
+<div class="eyebrow">Step 3 of 6</div>
+<h1>Every major model, <em>one account</em> — and switching is a one-liner</h1>
+<p class="lede">Whatever you decide below, this is what sits behind your AIsa key. No separate
+accounts, no separate billing, no re-wiring when a better model ships next month.</p>
+<div class="pgrid">${providerTiles}</div>
+<div class="callout">${I.sparkles}<div><b>Switching is the whole point.</b> One key, one endpoint:
+  change the model name and you are on a different lab's best model — Claude today,
+  DeepSeek for the cheap batch job tonight, GPT-5.5 tomorrow. No new sign-ups, no new config,
+  no juggling keys. Re-run <code>aisa connect</code> any time to change the default.</div></div>
+
+<h2>How should <span id="mClient">your agent</span> use them?</h2>
+<div id="mFresh" class="grid2 choice" style="display:none">
+  <label class="tile on"><input type="radio" name="lmodeFresh" value="switch" checked>
+    <span class="tbody"><span class="thead"><span class="tname">Run it on AIsa models</span><span class="badge rec">recommended</span></span>
+    <span class="tbrief">A fresh install has no model backend yet. This writes the agent's own
+    provider settings so it starts on <b id="mModel"></b> through AIsa — reversible.</span></span></label>
+  <label class="tile"><input type="radio" name="lmodeFresh" value="skip">
+    <span class="tbody"><span class="thead"><span class="tname">Not now</span></span>
+    <span class="tbrief">Install it without a model. It will not answer a prompt until you
+    configure a provider by hand.</span></span></label>
+</div>
+<div id="mDetected" class="grid3 choice" style="display:none">
+  <label class="tile on"><input type="radio" name="lmodeDet" value="backup" checked>
+    <span class="tbody"><span class="thead"><span class="tname">Add AIsa beside it</span><span class="badge rec">recommended</span></span>
+    <span class="tbrief" id="mBackup"></span></span></label>
+  <label class="tile"><input type="radio" name="lmodeDet" value="switch">
+    <span class="tbody"><span class="thead"><span class="tname">Switch it to AIsa</span></span>
+    <span class="tbrief">Points this agent's model traffic at AIsa (<b id="mModel2"></b>). Writes the
+    agent's own provider settings and nothing else — reversible.</span></span></label>
+  <label class="tile"><input type="radio" name="lmodeDet" value="skip">
+    <span class="tbody"><span class="thead"><span class="tname">Not now</span></span>
+    <span class="tbrief">Leave models exactly as they are; only the MCP tools are added.</span></span></label>
+</div>
+<div id="mFile" class="callout" style="display:none">${I.shield}<div>This client picks its own
+  models inside the app, so nothing is changed here — only the MCP servers are added.</div></div>
+<div id="modelwarn" class="modelwarn" style="display:none">
+  <div class="mw-head">⚠︎ Installing without a model backend</div>
+  <div class="mw-body">A fresh install <b>cannot answer a single prompt</b> until you configure a
+  provider by hand. Turn on AIsa models and it leaves here ready to work.</div>
+  <button type="button" class="mw-fix" id="modelfix">Use AIsa models →</button>
+</div>`;
+
+  // ── step 4: capabilities ──
+  const catTiles = catList
+    .map(([cat, list]) => {
+      const tools = list.reduce((n, s) => n + s.toolCount, 0);
+      return `<button type="button" class="ctile" data-cat="${cat}">
+  <span class="cico">${CATEGORY_ICON[cat] ?? I.sparkles}</span>
+  <span class="cname">${cat}</span>
+  <span class="cmeta">${list.length} server${list.length > 1 ? "s" : ""} · ${tools} tools</span>
+  <span class="cblurb">${CATEGORY_BLURB[cat] ?? ""}</span>
+  <span class="csel" data-csel></span></button>`;
+    })
+    .join("");
+  const serverTiles = catList
+    .map(([cat, list]) =>
+      list
+        .map((s) => {
+          const checked = MCP_DEFAULT_SLUGS.includes(s.slug);
+          return `<label class="stile${checked ? " on" : ""}" data-cat="${cat}">
+  <input type="checkbox" name="server" value="${s.slug}"${checked ? " checked" : ""}>
+  <span class="tbody"><span class="thead"><span class="tname">${stripped(s.name)}</span>
+    <span class="badge">${s.toolCount} tools</span></span>
+    <span class="sdesc">${s.description}</span></span></label>`;
+        })
+        .join("")
+    )
+    .join("");
+  const caps = `
+<div class="eyebrow">Step 4 of 6</div>
+<h1>What should your agent be able to <em>reach</em>?</h1>
+<p class="lede">Four areas, ${servers.length} servers, ${totalTools} tools. Open an area to pick the servers
+inside it. Everything here is live production data with licensed sources; you can add more later
+with one more <code>aisa connect</code>.</p>
+<div class="cgrid">${catTiles}</div>
+<div class="spanel" id="spanel">
+  <div class="sphead"><h2 id="spTitle">Pick an area above</h2><button type="button" class="link" id="spAll">Select all in this area</button></div>
+  <div class="sgrid" id="sgrid">${serverTiles}</div>
+</div>
+<div class="tally" id="tally"></div>`;
+
+  // ── step 5: install ──
+  const install = `
+<div class="eyebrow">Step 5 of 6</div>
+<h1 id="inTitle">Ready to <em>connect</em></h1>
+<p class="lede" id="inLede">Here is everything that is about to happen, in order. Nothing runs until
+you press the button; each step reports as it finishes.</p>
+<div class="plan" id="plan"></div>
+<div class="barwrap" id="barwrap" style="display:none"><div class="barfill" id="barfill"></div></div>
+<div class="barnote" id="barnote"></div>
+<div class="authnote">${I.shield}<div>${
+    keyed
+      ? `Your configured AIsa API key is written into each entry — <b>no sign-in needed</b>.`
+      : `<b>One sign-in, nothing to paste.</b> Your browser opens the AIsa approval once; it issues a
+  long-lived key for this machine, and every server and model is configured with it.`
+  }</div></div>
+<div id="inResult" class="fine"></div>`;
+
+  // ── step 6: done (filled by the page script from /status) ──
+  const done = `<div id="doneBody"><div class="eyebrow">Step 6 of 6</div>
+<h1>Almost there…</h1><p class="lede">The results appear here as soon as the run finishes.</p></div>`;
+
+  const rail = STEPS.map(
+    (s) => `<button type="button" class="rstep" data-step="${s.n}">
+  <span class="rn">${s.n}</span><span class="rt"><span class="rtitle">${s.title}</span><span class="rsub">${s.sub}</span></span></button>`
+  ).join("");
+
+  const body = `
+<div class="wrap">
+<nav class="rail">
+  <div class="railhead">Setup</div>
+  ${rail}
+  <div class="railfoot">local · 127.0.0.1</div>
+</nav>
+<section class="main">
+  <div class="pane" data-pane="1">${welcome}</div>
+  <div class="pane" data-pane="2">${agent}</div>
+  <div class="pane" data-pane="3">${models}</div>
+  <div class="pane" data-pane="4">${caps}</div>
+  <div class="pane" data-pane="5">${install}</div>
+  <div class="pane" data-pane="6">${done}</div>
+  <div class="navbar">
+    <button type="button" class="ghost" id="back">← Back</button>
+    <span class="navnote" id="navnote"></span>
+    <button type="button" class="cta" id="next">Let's get started ${I.arrow}</button>
+  </div>
+</section>
+</div>
+<script>
+(function () {
+  var TOKEN = ${JSON.stringify(token)};
+  var VIEW = ${JSON.stringify(view)};
+  var SERVERS = ${JSON.stringify(SERVERS)};
+  var CLIENTS = ${JSON.stringify(CLIENTS)};
+  var MODEL_FOR = ${JSON.stringify(MODEL_FOR)};
+  var EXAMPLES = ${JSON.stringify(EXAMPLES)};
+  var BACKUP_COPY = ${JSON.stringify(BACKUP_COPY)};
+  var AGENT_NOTES = ${JSON.stringify(AGENT_NOTES)};
+  var LABEL = {}; CLIENTS.forEach(function (c) { LABEL[c.id] = c.label; });
+  var BY_SLUG = {}; SERVERS.forEach(function (s) { BY_SLUG[s.slug] = s; });
+  var ICON_COPY = ${JSON.stringify(I.copy)};
+  var ICON_CHECK = ${JSON.stringify(I.check)};
+
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  // ── navigation ──
+  var current = 1, unlocked = 1, locked = false, phase = "selecting";
+  var panes = $$(".pane"), rails = $$(".rstep");
+  var nextBtn = $("#next"), backBtn = $("#back"), navnote = $("#navnote");
+  var ARROW = nextBtn.innerHTML.replace(/^[^<]*/, "");
+  var NEXT_WORD = { 1: "Let's get started ", 2: "Continue to models ", 3: "Continue to capabilities ",
+                    4: "Review and connect ", 5: "", 6: "" };
+
+  function go(n) {
+    if (n < 1 || n > 6 || n > unlocked) return;
+    current = n;
+    panes.forEach(function (p) { p.classList.toggle("show", Number(p.dataset.pane) === n); });
+    rails.forEach(function (r) {
+      var k = Number(r.dataset.step);
+      r.classList.toggle("active", k === n);
+      r.classList.toggle("done", k < n || (k <= unlocked && k !== n && (locked || k < current)));
+      r.classList.toggle("open", k <= unlocked);
+    });
+    backBtn.style.visibility = n === 1 ? "hidden" : "visible";
+    if (n === 5) { renderInstallPane(); }
+    else if (n === 6) { nextBtn.style.display = "none"; navnote.textContent = ""; }
+    else { nextBtn.style.display = ""; nextBtn.disabled = false; nextBtn.innerHTML = (locked ? "Next " : NEXT_WORD[n]) + ARROW; navnote.textContent = ""; }
+    if (n === 5 && unlocked >= 6) { nextBtn.style.display = ""; nextBtn.innerHTML = "See your results " + ARROW; }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (n === 2) syncAgent(); if (n === 3) syncModels(); if (n === 4) syncCaps();
+  }
+  rails.forEach(function (r) { r.addEventListener("click", function () { go(Number(r.dataset.step)); }); });
+  backBtn.addEventListener("click", function () { go(current - 1); });
+
+  // ── selection state ──
+  function chosenClient() { return $('input[name="client"]:checked'); }
+  function clientId() { var c = chosenClient(); return c ? c.value : null; }
+  function installing() { var c = chosenClient(); return Boolean(c && c.dataset.install === "1"); }
+  function clientKind() { var id = clientId(); var c = CLIENTS.filter(function (x) { return x.id === id; })[0]; return c ? c.kind : "file"; }
+  function llmMode() {
+    if (!clientId()) return "skip";
+    if (clientKind() !== "cli") return "skip";
+    if (installing()) return ($('input[name="lmodeFresh"]:checked') || {}).value || "skip";
+    return ($('input[name="lmodeDet"]:checked') || {}).value || "skip";
+  }
+  function pickedServers() { return $$('input[name="server"]:checked').map(function (i) { return i.value; }); }
+
+  // ── step 2 ──
+  function syncAgent() {
+    var id = clientId();
+    $("#agentNoteTitle").textContent = id ? "How " + LABEL[id] + " connects" : "How it connects";
+    $("#agentNote").innerHTML = id ? (AGENT_NOTES[id] || "") : "Pick an agent on the left.";
+    $$(".tile.agent").forEach(function (t) { t.classList.toggle("on", t.querySelector("input").checked); });
+  }
+  $$('input[name="client"]').forEach(function (r) { r.addEventListener("change", function () { syncAgent(); armed = false; }); });
+
+  // ── step 3 ──
+  var armed = false;
+  function syncModels() {
+    var id = clientId(), fresh = installing(), kind = clientKind();
+    $("#mClient").textContent = id ? LABEL[id] : "your agent";
+    $("#mModel").textContent = MODEL_FOR[id] || ""; $("#mModel2").textContent = MODEL_FOR[id] || "";
+    $("#mFresh").style.display = kind === "cli" && fresh ? "" : "none";
+    $("#mDetected").style.display = kind === "cli" && !fresh ? "" : "none";
+    $("#mFile").style.display = kind !== "cli" ? "" : "none";
+    if (kind === "cli" && !fresh) $("#mBackup").innerHTML = BACKUP_COPY[id] || "";
+    $$(".choice .tile").forEach(function (t) { t.classList.toggle("on", t.querySelector("input").checked); });
+    updateWarn();
+  }
+  function updateWarn() {
+    var need = installing() && llmMode() === "skip";
+    $("#modelwarn").style.display = need ? "" : "none";
+    if (!need) armed = false;
+  }
+  $$('input[name="lmodeFresh"], input[name="lmodeDet"]').forEach(function (r) { r.addEventListener("change", syncModels); });
+  $("#modelfix").addEventListener("click", function () {
+    $('input[name="lmodeFresh"][value="switch"]').checked = true; syncModels();
+  });
+
+  // ── step 4 ──
+  var activeCat = null;
+  function syncCaps() {
+    var picked = pickedServers();
+    $$(".ctile").forEach(function (t) {
+      var cat = t.dataset.cat;
+      var n = SERVERS.filter(function (s) { return s.category === cat && picked.indexOf(s.slug) !== -1; }).length;
+      var sel = t.querySelector("[data-csel]");
+      sel.textContent = n ? n + " selected" : "";
+      t.classList.toggle("has", n > 0);
+      t.classList.toggle("active", cat === activeCat);
+    });
+    $$(".stile").forEach(function (t) {
+      t.classList.toggle("on", t.querySelector("input").checked);
+      t.style.display = t.dataset.cat === activeCat ? "" : "none";
+    });
+    $("#spanel").classList.toggle("open", Boolean(activeCat));
+    $("#spTitle").textContent = activeCat ? activeCat : "Pick an area above";
+    var tools = picked.reduce(function (n, s) { return n + (BY_SLUG[s] ? BY_SLUG[s].toolCount : 0); }, 0);
+    $("#tally").innerHTML = picked.length
+      ? "<b>" + picked.length + " server" + (picked.length > 1 ? "s" : "") + "</b> · " + tools + " tools selected"
+      : "Nothing selected yet — pick at least one server.";
+  }
+  $$(".ctile").forEach(function (t) { t.addEventListener("click", function () {
+    activeCat = activeCat === t.dataset.cat ? null : t.dataset.cat; syncCaps();
+    if (activeCat) $("#spanel").scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }); });
+  $$('input[name="server"]').forEach(function (c) { c.addEventListener("change", syncCaps); });
+  $("#spAll").addEventListener("click", function () {
+    if (!activeCat) return;
+    var boxes = $$('.stile[data-cat="' + activeCat + '"] input');
+    var all = boxes.every(function (b) { return b.checked; });
+    boxes.forEach(function (b) { b.checked = !all; });
+    syncCaps();
+  });
+  // Open the area holding the default selection so the page never starts blank.
+  (function () { var first = $('input[name="server"]:checked'); if (first) activeCat = first.closest(".stile").dataset.cat; })();
+
+  // ── next button ──
+  nextBtn.addEventListener("click", function () {
+    if (current === 2 && !clientId()) { navnote.textContent = "Pick an agent first."; return; }
+    if (current === 3 && installing() && llmMode() === "skip" && !armed) {
+      armed = true; updateWarn();
+      var w = $("#modelwarn"); w.scrollIntoView({ block: "center", behavior: "smooth" });
+      w.style.animation = "none"; void w.offsetWidth; w.style.animation = "mwshake .45s";
+      nextBtn.innerHTML = "Continue without a model " + ARROW; return;
+    }
+    if (current === 4 && !pickedServers().length) { navnote.textContent = "Pick at least one server."; return; }
+    if (current === 5) { if (unlocked >= 6) go(6); else start(); return; }
+    unlocked = Math.max(unlocked, current + 1);
+    go(current + 1);
+  });
+
+  // ── step 5: plan preview, start, animated progress ──
+  var serverSteps = null;      // what the server reports
+  var shown = {};              // step id -> state we are displaying
+  var lastFlip = 0, ticker = null;
+  var STATE_WORD = { pending: "waiting", running: "working…", ok: "done", fail: "failed", skip: "skipped" };
+  var MIN_DWELL = 1500;        // a step stays visibly "working" and then "done" at least this long
+
+  function planPreview() {
+    var id = clientId(), rows = [];
+    if (installing()) rows.push(["Install " + LABEL[id], "through its official installer, no sudo"]);
+    if (!${keyed}) rows.push(["Sign in to AIsa", "one browser approval — it issues your key"]);
+    var n = pickedServers().length;
+    rows.push(["Add " + n + " MCP server" + (n === 1 ? "" : "s"), "to " + LABEL[id]]);
+    var m = llmMode();
+    if (m === "switch") rows.push(["Point its models at AIsa", MODEL_FOR[id] + " by default; reversible"]);
+    if (m === "backup") rows.push([id === "claude-code" ? "Install the claude-aisa command" : id === "codex" ? "Add the aisa profile and codex-aisa" : "Add AIsa as a backup provider", "your current setup stays untouched"]);
+    rows.push(["Check your AIsa balance", "so an empty account is never a surprise"]);
+    return rows.map(function (r) {
+      return "<div class='step pending'><span class='mark'></span><span class='body'><span class='lbl'>" + r[0] +
+        "</span><span class='det'>" + r[1] + "</span></span><span class='st'>planned</span></div>";
+    }).join("");
+  }
+  function renderInstallPane() {
+    if (serverSteps) { renderSteps(); return; }
+    $("#plan").innerHTML = planPreview();
+    nextBtn.style.display = ""; nextBtn.disabled = false;
+    nextBtn.innerHTML = (installing() ? "Install &amp; connect " : "Connect ") + ARROW;
+    navnote.textContent = "";
+  }
+  function renderSteps() {
+    var steps = serverSteps || [];
+    var rows = steps.map(function (s) {
+      var st = shown[s.id] || "pending";
+      var det = st === "pending" ? "" : (s.detail || "");
+      return "<div class='step " + st + "'><span class='mark'></span><span class='body'><span class='lbl'>" + s.label +
+        "</span>" + (det ? "<span class='det'>" + det + "</span>" : "") + "</span><span class='st'>" + STATE_WORD[st] + "</span></div>";
+    }).join("");
+    $("#plan").innerHTML = rows;
+    var settled = steps.filter(function (s) { return /ok|skip|fail/.test(shown[s.id] || ""); }).length;
+    var pct = steps.length ? Math.round(settled / steps.length * 100) : 0;
+    $("#barwrap").style.display = ""; $("#barfill").style.width = pct + "%";
+    var running = steps.filter(function (s) { return shown[s.id] === "running"; })[0];
+    $("#barnote").textContent = settled + " of " + steps.length + " · " + (running ? running.label : pct === 100 ? "finished" : "…");
+    var BTN = { install: "Installing…", signin: "Signing in…", mcp: "Connecting…", llm: "Configuring models…", auth: "Authorizing…", balance: "Finishing…" };
+    if (running) { nextBtn.disabled = true; nextBtn.textContent = BTN[running.id.split(":")[0]] || "Working…"; }
+  }
+  function caughtUp() {
+    return (serverSteps || []).every(function (s) { return shown[s.id] === s.state; });
+  }
+  function tick() {
+    var now = Date.now();
+    var steps = serverSteps || [];
+    for (var i = 0; i < steps.length; i++) {
+      var s = steps[i], cur = shown[s.id] || "pending";
+      if (cur === s.state) continue;
+      if (cur === "pending" && (s.state === "running" || /ok|skip|fail/.test(s.state))) {
+        // Even an instant step gets a visible moment of work before its tick.
+        if (now - lastFlip < MIN_DWELL && i > 0) break;
+        shown[s.id] = "running"; lastFlip = now; renderSteps(); break;
+      }
+      if (cur === "running" && /ok|skip|fail/.test(s.state)) {
+        if (now - lastFlip < MIN_DWELL) break;
+        shown[s.id] = s.state; lastFlip = now; renderSteps(); break;
+      }
+      break; // a running step stays running until the server settles it
+    }
+    if ((phase === "done" || phase === "failed") && caughtUp()) {
+      clearInterval(ticker); ticker = null;
+      finish();
+    }
+  }
+  function finish() {
+    var failed = (serverSteps || []).filter(function (s) { return s.state === "fail"; }).length;
+    $("#inTitle").innerHTML = failed ? "Finished, <em>with " + failed + " issue" + (failed > 1 ? "s" : "") + "</em>" : "All <em>connected</em>";
+    $("#inLede").textContent = failed ? "Some steps did not complete — the details are in the list; your results page explains how to retry." : "Everything ran. Your results, balance and try-it-now prompts are on the last step.";
+    unlocked = 6; rails.forEach(function (r) { r.classList.add("open"); });
+    renderSteps();
+    nextBtn.disabled = false; nextBtn.style.display = ""; nextBtn.innerHTML = "See your results " + ARROW;
+    navnote.textContent = VIEW === "start" && lastStatus && lastStatus.doneUrl ? "A results tab also opened on its own." : "";
+    renderDone();
+    rails[4].classList.add("done");
+  }
+  function lockSelections() {
+    locked = true;
+    $$('.pane[data-pane="2"] input, .pane[data-pane="3"] input, .pane[data-pane="4"] input').forEach(function (i) { i.disabled = true; });
+    $$(".ctile, #spAll").forEach(function (b) { b.disabled = false; });
+    document.body.classList.add("locked");
+  }
+  function start() {
+    var body = { servers: pickedServers(), clients: [clientId()], install: installing() ? [clientId()] : [], llmMode: llmMode() };
+    nextBtn.disabled = true; nextBtn.textContent = installing() ? "Installing…" : "Connecting…";
+    lockSelections();
+    fetch("/apply", { method: "POST", headers: { "content-type": "application/json", "x-connect-token": TOKEN }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { serverSteps = d.steps; shown = {}; lastFlip = 0; renderSteps(); ticker = setInterval(tick, 250); poll(); });
+  }
+  function poll() {
+    fetch("/status?token=" + TOKEN).then(function (r) { return r.json(); }).then(function (s) {
+      phase = s.phase; serverSteps = s.steps; lastStatus = s;
+      syncClientCard(s.steps);
+      if (phase === "done" || phase === "failed") { document.title = "✓ AIsa Connected"; return; }
+      setTimeout(poll, 1000);
+    }).catch(function () { setTimeout(poll, 1500); });
+  }
+  var lastStatus = null;
+  function syncClientCard(steps) {
+    (steps || []).forEach(function (s) {
+      if (s.id.indexOf("install:") !== 0 || s.state !== "ok") return;
+      var card = $('.tile.agent[data-cid="' + s.id.slice(8) + '"]'); if (!card) return;
+      var b = card.querySelector("[data-badge]"); if (b) { b.className = "badge ok"; b.textContent = "✓ installed"; }
+      var br = card.querySelector("[data-brief]"); if (br) br.innerHTML = "<b>Installed</b> — " + (s.detail || "ready");
+    });
+  }
+
+  // ── step 6 ──
+  function fmtUsd(m) { return "$" + (m / 1e6).toFixed(2); }
+  function renderDone() {
+    var s = lastStatus; if (!s || !s.selection) return;
+    var sel = s.selection, steps = s.steps || [];
+    var id = sel.clients[0], name = LABEL[id] || id;
+    var chosen = sel.servers.map(function (x) { return BY_SLUG[x]; }).filter(Boolean);
+    var tools = chosen.reduce(function (n, x) { return n + x.toolCount; }, 0);
+    var failed = steps.filter(function (x) { return x.state === "fail"; });
+    var mcpFailed = failed.some(function (x) { return x.id === "mcp"; });
+    var installed = steps.filter(function (x) { return x.id.indexOf("install:") === 0 && x.id !== "install:aisa-cli" && x.state === "ok"; })
+      .map(function (x) { return LABEL[x.id.slice(8)] || x.id.slice(8); });
+    var llmOk = steps.some(function (x) { return x.id === "llm" && x.state === "ok"; });
+    var backup = sel.llmMode === "backup";
+    var bin = id === "codex" ? (backup ? "codex-aisa" : "codex") : id === "claude-code" ? (backup ? "claude-aisa" : "claude") : id === "opencode" ? "opencode" : null;
+
+    var head = mcpFailed
+      ? "<div class='eyebrow'>Almost there</div><h1>Your agent is <em>not connected yet</em></h1><p class='lede'>The MCP entries could not be added to <b>" + name + "</b> — details below.</p>"
+      : "<div class='bigcheck'>" + ICON_CHECK + "</div><div class='eyebrow'>Connected</div>" + (installed.length
+        ? "<h1>Congratulations — <em>" + installed.join(" & ") + "</em> is installed and armed with <em>" + tools + " powerful tools</em></h1><p class='lede'><b>" + installed.join(" & ") + "</b> is on this machine, signed in to AIsa" + (llmOk ? ", running on <b>" + MODEL_FOR[id] + "</b> through AIsa," : ",") + " with " + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " wired in — a complete setup, nothing else to configure.</p>"
+        : "<h1>Congratulations — your agent just got <em>" + tools + " powerful new tool" + (tools > 1 ? "s" : "") + "</em></h1><p class='lede'>" + chosen.length + " AIsa MCP server" + (chosen.length > 1 ? "s are" : " is") + " now installed and signed in for <b>" + name + "</b> — nothing else to configure.</p>");
+
+    var failBlock = failed.length ? "<div class='authnote warn'><div><b>" + failed.length + " step" + (failed.length > 1 ? "s" : "") + " did not complete:</b><ul>" +
+      failed.map(function (x) { return "<li><b>" + x.label + "</b> — " + (x.detail || "failed") + "</li>"; }).join("") +
+      "</ul>Fix the above, then run <code>npx @aisa-one/cli connect</code> again — it is safe to re-run.</div></div>" : "";
+    var ICON = { ok: "✓", fail: "✕", skip: "–", pending: "·", running: "·" };
+    var recap = "<h2>Everything you just gained</h2><div class='recap'><div class='rsum'>" + chosen.length + " capabilit" + (chosen.length === 1 ? "y" : "ies") + " · " + tools + " tools · " + name + "</div>" +
+      steps.map(function (x) { return "<div class='rrow " + x.state + "'><span class='rl'>" + x.label + "</span><span class='rd'>" + (x.detail || "") + "</span><span class='ri'>" + ICON[x.state] + "</span></div>"; }).join("") + "</div>";
+    var bal = s.balanceMicros, low = bal !== null && bal !== undefined && bal < 5e6;
+    var balCard = "<div class='balcard" + (low ? " low" : "") + "'><div><div class='balnum'>" + (bal === null || bal === undefined ? "—" : fmtUsd(bal)) + "</div><div class='ballbl'>AIsa balance</div></div><div class='balright'>" +
+      (low ? "<div class='lownote'>Running a little low — a small top-up keeps your first calls flowing.</div>" : (bal === null || bal === undefined ? "<div class='lownote'>Could not read it just now — <code>aisa balance</code> will.</div>" : "")) +
+      "<a class='cta sm' href='https://console.aisa.one/billing?source=aisa_cli' target='_blank' rel='noopener'>Top up now →</a></div></div>";
+    var backupNote = backup ? "<p class='fine'><b>Your usual setup is untouched.</b> " + (id === "opencode" ? "Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa." : "Run <code>" + bin + "</code> whenever you want AIsa's models; delete that one file to remove it.") + "</p>" : "";
+    var launch = !mcpFailed && bin ? "<div class='launch'><div><b>Start " + name + " on AIsa now</b><div class='fine'>Opens a terminal in this folder running <code>" + bin + "</code>.</div></div><div><button type='button' class='cta sm' id='launch'>Launch " + bin + " →</button><div class='fine' id='launchnote'></div></div></div>" : "";
+    var withEx = chosen.filter(function (x) { return EXAMPLES[x.slug]; });
+    var cards = withEx.length === 1 ? EXAMPLES[withEx[0].slug].slice(0, 2).map(function (t) { return { slug: withEx[0].slug, text: t }; })
+      : withEx.slice(0, 4).map(function (x) { return { slug: x.slug, text: EXAMPLES[x.slug][0] }; });
+    var examples = cards.map(function (c) {
+      return "<div class='example'><div><span class='srv'>aisa-" + c.slug + "</span><div class='txt'>" + c.text + "</div></div><button type='button' data-copy=\\"" + c.text.replace(/"/g, "&quot;") + "\\">" + ICON_COPY + " Copy</button></div>";
+    }).join("");
+    var more = SERVERS.length - chosen.length;
+    var rest = mcpFailed ? failBlock + recap + balCard
+      : "<p class='lede'>You are connected to <b>AIsa</b> — one account for <b>Claude, GPT, Gemini, DeepSeek, Kimi, GLM</b> and the live data behind them." + (more > 0 ? " " + more + " more MCP server" + (more > 1 ? "s are" : " is") + " one <code>npx @aisa-one/cli connect</code> away." : "") + " Explore at <a href='https://aisa.one' target='_blank' rel='noopener'>aisa.one</a> · billing at <a href='https://console.aisa.one' target='_blank' rel='noopener'>console.aisa.one</a>.</p>" +
+        failBlock + recap + balCard + backupNote + launch +
+        "<h2>Try it now — paste one of these into " + name + "</h2><div class='examples'>" + (examples || "<p class='fine'>Ask your agent to use any of the aisa-* MCP tools.</p>") + "</div>" +
+        "<p class='fine'>These first prompts mention <b>AIsa</b> once so the demo lands on your new tools; after that plain language is enough.</p>";
+    $("#doneBody").innerHTML = head + rest;
+    $$("[data-copy]").forEach(function (b) { b.addEventListener("click", function () {
+      navigator.clipboard.writeText(b.getAttribute("data-copy")).then(function () {
+        b.textContent = "Copied ✓"; setTimeout(function () { b.innerHTML = ICON_COPY + " Copy"; }, 1600); });
+    }); });
+    var lb = $("#launch"); if (lb) lb.addEventListener("click", function () {
+      lb.disabled = true;
+      fetch("/launch?token=" + TOKEN, { method: "POST" }).then(function (r) { if (!r.ok) throw 0; lb.textContent = "✓ Opened in Terminal"; })
+        .catch(function () { lb.style.display = "none"; $("#launchnote").innerHTML = "Could not open a terminal — just run <code>" + bin + "</code> in any terminal."; });
+    });
+  }
+
+  // ── hydrate: a run may already be in flight (the done tab, or a reload) ──
+  function hydrate(s) {
+    var sel = s.selection; if (!sel) return false;
+    var c = $('input[name="client"][value="' + sel.clients[0] + '"]'); if (c) c.checked = true;
+    $$('input[name="server"]').forEach(function (i) { i.checked = sel.servers.indexOf(i.value) !== -1; });
+    var fresh = sel.install.length > 0;
+    var r = $('input[name="' + (fresh ? "lmodeFresh" : "lmodeDet") + '"][value="' + sel.llmMode + '"]'); if (r) r.checked = true;
+    var first = $('input[name="server"]:checked'); if (first) activeCat = first.closest(".stile").dataset.cat;
+    syncAgent(); syncModels(); syncCaps(); lockSelections();
+    phase = s.phase; serverSteps = s.steps; lastStatus = s;
+    var settled = phase === "done" || phase === "failed";
+    if (settled || VIEW === "done") {
+      serverSteps.forEach(function (x) { shown[x.id] = x.state; });
+      unlocked = 6; renderSteps(); finish();
+      syncClientCard(s.steps);
+    } else {
+      unlocked = 5; renderSteps(); ticker = setInterval(tick, 250); poll();
+    }
+    return true;
+  }
+  fetch("/status?token=" + TOKEN).then(function (r) { return r.json(); }).then(function (s) {
+    if (hydrate(s)) { go(VIEW === "done" || s.phase === "done" || s.phase === "failed" ? (VIEW === "done" ? 6 : 5) : 5); return; }
+    go(1);
+  }).catch(function () { go(1); });
+})();
+</script>`;
+
+  return shellT2(view === "done" ? "✓ AIsa Connected" : "AIsa Connect", body);
+}
+
+// ── T2 shell: same brand tokens as T1, a rail + main layout ─────────────────
+function shellT2(title: string, body: string): string {
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><title>${title}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root { --paper: ${PAPER}; --ink: #1c1b1a; --muted: #6d6a66; --line: #e7e4df; --card: #ffffff;
+    --red: ${RED}; --red-cta: ${RED_CTA}; --bar: ${INK}; --tint: #fdf1ef; --ok: #2e7d43; --warn: #f59e0b; }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper: #141312; --ink: #f0eeeb; --muted: #9b9792; --line: #2c2a27; --card: #1d1c1a;
+      --tint: #2a1917; --ok: #57b06f; }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--paper); color: var(--ink);
+    font: 16px/1.6 Inter, "Inter Fallback", "PingFang SC", ui-sans-serif, system-ui, sans-serif;
+    background-image: radial-gradient(color-mix(in srgb, var(--muted) 22%, transparent) 1px, transparent 1px);
+    background-size: 22px 22px; }
+  .bar { background: var(--bar); color: #fff; display: flex; align-items: center; gap: .55rem;
+    padding: .8rem 1.4rem; font-weight: 600; position: sticky; top: 0; z-index: 5; }
+  .bar .tag { margin-left: .4rem; font-weight: 400; opacity: .55; font-size: .85rem; }
+  .wrap { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: calc(100vh - 54px); }
+  /* The rail: narrow, sticky, six rows — where you are, nothing more. */
+  .rail { border-right: 1px solid var(--line); background: color-mix(in srgb, var(--card) 70%, var(--paper));
+    padding: 1.4rem 1rem; position: sticky; top: 54px; height: calc(100vh - 54px);
+    display: flex; flex-direction: column; gap: .25rem; }
+  .railhead { font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); padding: 0 .6rem .8rem; }
+  .railfoot { margin-top: auto; font-size: .74rem; color: var(--muted); padding: 0 .6rem; opacity: .7; }
+  .rstep { display: flex; gap: .7rem; align-items: center; text-align: left; background: transparent;
+    border: 0; border-radius: 8px; padding: .6rem .6rem; font: inherit; color: var(--muted);
+    cursor: default; opacity: .55; position: relative; }
+  .rstep.open { opacity: 1; cursor: pointer; }
+  .rstep.open:hover { background: color-mix(in srgb, var(--tint) 60%, transparent); }
+  .rstep .rn { flex: none; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line);
+    display: flex; align-items: center; justify-content: center; font-size: .82rem; font-weight: 700; }
+  .rstep .rtitle { display: block; font-weight: 700; font-size: .95rem; color: var(--ink); }
+  .rstep .rsub { display: block; font-size: .76rem; color: var(--muted); }
+  .rstep.active { background: var(--card); box-shadow: 0 1px 0 var(--line), 0 0 0 1px var(--line); }
+  .rstep.active .rn { background: var(--red); border-color: var(--red); color: #fff; }
+  .rstep.done .rn { background: var(--ok); border-color: var(--ok); color: #fff; font-size: 0; }
+  .rstep.done .rn::after { content: "\\2713"; font-size: .85rem; }
+  .main { padding: 2.2rem 4.5rem 6rem; max-width: 1180px; }
+  .pane { display: none; animation: fade .25s ease; }
+  .pane.show { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (max-width: 960px) {
+    .wrap { grid-template-columns: 1fr; }
+    .rail { position: static; height: auto; flex-direction: row; flex-wrap: wrap; border-right: 0;
+      border-bottom: 1px solid var(--line); }
+    .rail .rsub, .railhead, .railfoot { display: none; }
+    .main { padding: 1.6rem 5% 5rem; }
+  }
+  .eyebrow { display: flex; align-items: center; gap: .55rem; color: var(--muted); font-size: .74rem;
+    font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+  .eyebrow::before { content: ""; width: 26px; height: 3px; background: var(--red); }
+  h1 { font-size: 2.3rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin: .5rem 0 .6rem; }
+  h1 em { font-style: normal; color: var(--red); }
+  h2 { font-size: 1.15rem; font-weight: 700; margin: 2rem 0 .8rem; }
+  h3 { font-size: 1rem; font-weight: 700; margin: 0 0 .3rem; }
+  .lede { color: var(--muted); font-size: 1.05rem; max-width: 62rem; }
+  .fine { color: var(--muted); font-size: .86rem; margin-top: .9rem; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em;
+    background: color-mix(in srgb, var(--muted) 12%, transparent); padding: .1em .35em; border-radius: 4px; }
+  .badge { font-size: .72rem; font-weight: 700; padding: .16rem .6rem; border-radius: 99px;
+    border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .badge.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .badge.todo { background: var(--warn); border-color: var(--warn); color: #fff; }
+  .badge.rec { background: var(--red); border-color: var(--red); color: #fff; }
+  /* welcome */
+  .feat { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1.8rem 0 1rem; }
+  .ftile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.3rem 1.4rem; }
+  .ftile p { color: var(--muted); font-size: .95rem; }
+  .fico { width: 38px; height: 38px; border-radius: 10px; background: var(--tint); color: var(--red);
+    display: flex; align-items: center; justify-content: center; margin-bottom: .8rem; }
+  .fico svg { width: 20px; height: 20px; }
+  .strip { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .9rem; }
+  .blogo { display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; }
+  .blogo svg { width: 100%; height: 100%; }
+  .blogo.lg { width: 36px; height: 36px; }
+  /* tiles (agents, model choice) */
+  .two { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 2rem; margin-top: 1.6rem; align-items: start; }
+  @media (max-width: 960px) { .two { grid-template-columns: 1fr; } }
+  .side { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.2rem 1.3rem;
+    font-size: .92rem; color: var(--muted); position: sticky; top: 74px; }
+  .side h3 { color: var(--ink); margin-top: 1rem; } .side h3:first-child { margin-top: 0; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
+  @media (max-width: 720px) { .grid2, .grid3, .feat { grid-template-columns: 1fr; } }
+  .tile { display: flex; gap: .8rem; align-items: flex-start; background: var(--card); border: 1px solid var(--line);
+    border-left: 3px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; cursor: pointer;
+    transition: border-color .15s, box-shadow .15s; }
+  .tile:hover { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); }
+  .tile.on { border-left-color: var(--red); background: color-mix(in srgb, var(--tint) 55%, var(--card)); }
+  .tile input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .tlogo { flex: none; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
+  .tlogo svg { width: 100%; height: 100%; }
+  .tbody { min-width: 0; } .thead { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+  .tname { font-weight: 700; } .tbrief { display: block; color: var(--muted); font-size: .9rem; margin-top: .2rem; }
+  .choice { margin-top: .4rem; }
+  .soon { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: 1rem; }
+  .chip { display: inline-flex; align-items: center; gap: .4rem; font-size: .82rem; color: var(--muted);
+    border: 1px dashed var(--line); border-radius: 99px; padding: .3rem .75rem; }
+  .chip svg { width: 16px; height: 16px; }
+  body.locked .tile, body.locked .stile { cursor: default; }
+  body.locked .tile:not(.on), body.locked .stile:not(.on) { opacity: .45; }
+  /* models */
+  .pgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; margin: 1.6rem 0 1.2rem; }
+  @media (max-width: 720px) { .pgrid { grid-template-columns: repeat(2, 1fr); } }
+  .ptile { display: grid; grid-template-columns: 40px 1fr; grid-template-rows: auto auto; column-gap: .8rem;
+    align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .9rem 1rem; }
+  .ptile .blogo { grid-row: 1 / 3; }
+  .pname { font-weight: 700; } .pmodels { font-size: .8rem; color: var(--muted); }
+  .callout { display: flex; gap: .8rem; align-items: flex-start; background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem 1.1rem; color: var(--muted); font-size: .95rem; margin: 1rem 0; }
+  .callout svg { flex: none; color: var(--red); margin-top: .15rem; }
+  .callout b { color: var(--ink); }
+  .modelwarn { margin-top: 1rem; border: 2px solid var(--warn); border-radius: 10px;
+    background: color-mix(in srgb, var(--warn) 12%, var(--card)); padding: .9rem 1rem; }
+  .mw-head { font-weight: 800; color: color-mix(in srgb, #b45309 60%, var(--ink)); margin-bottom: .3rem; }
+  .mw-body { font-size: .92rem; color: color-mix(in srgb, #92400e 45%, var(--ink)); }
+  .mw-fix { margin-top: .7rem; background: var(--red-cta); color: #fff; border: 0; border-radius: 6px;
+    padding: .5rem 1.2rem; font: inherit; font-weight: 700; cursor: pointer; }
+  @keyframes mwshake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+  /* capabilities: the area grid, then the servers of the open area */
+  .cgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .9rem; margin: 1.6rem 0 1rem; }
+  .ctile { position: relative; display: flex; flex-direction: column; gap: .25rem; align-items: flex-start; text-align: left;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.2rem 1.2rem 1.1rem;
+    font: inherit; color: var(--ink); cursor: pointer; min-height: 168px; transition: border-color .15s, transform .15s; }
+  .ctile:hover { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); transform: translateY(-1px); }
+  .ctile.active { border-color: var(--red); box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 18%, transparent); }
+  .ctile.has { border-left: 3px solid var(--ok); }
+  .cico { width: 40px; height: 40px; border-radius: 10px; background: var(--tint); color: var(--red);
+    display: flex; align-items: center; justify-content: center; margin-bottom: .4rem; }
+  .cico svg { width: 20px; height: 20px; }
+  .cname { font-weight: 800; font-size: 1.05rem; }
+  .cmeta { font-size: .78rem; color: var(--muted); }
+  .cblurb { font-size: .86rem; color: var(--muted); margin-top: .3rem; }
+  .csel { position: absolute; top: .8rem; right: .9rem; font-size: .74rem; font-weight: 700; color: var(--ok); }
+  .spanel { display: none; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--card) 60%, var(--paper));
+    padding: 1rem 1.2rem 1.2rem; }
+  .spanel.open { display: block; animation: fade .2s ease; }
+  .sphead { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .sphead h2 { margin: .2rem 0 .8rem; }
+  .link { background: none; border: 0; color: var(--red); font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; }
+  .sgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: .8rem; }
+  .stile { display: flex; gap: .7rem; align-items: flex-start; background: var(--card); border: 1px solid var(--line);
+    border-left: 3px solid var(--line); border-radius: 10px; padding: .9rem 1rem; cursor: pointer; }
+  .stile.on { border-left-color: var(--red); background: color-mix(in srgb, var(--tint) 55%, var(--card)); }
+  .stile input { width: 18px; height: 18px; margin-top: .2rem; accent-color: var(--red-cta); flex: none; }
+  .sdesc { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    color: var(--muted); font-size: .88rem; margin-top: .2rem; }
+  .tally { margin-top: 1rem; font-size: .95rem; color: var(--muted); }
+  .tally b { color: var(--ink); }
+  /* install */
+  .plan { margin-top: 1.6rem; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: .4rem 1.2rem; }
+  .step { display: flex; align-items: flex-start; gap: .8rem; padding: .8rem .2rem; border-bottom: 1px dashed var(--line);
+    font-size: 1.02rem; opacity: .5; transition: opacity .3s; }
+  .step:last-child { border-bottom: 0; }
+  .step.running, .step.ok, .step.fail { opacity: 1; }
+  .step .lbl { display: block; font-weight: 600; } .step .det { display: block; color: var(--muted); font-size: .86rem; margin-top: .1rem; }
+  .step .st { margin-left: auto; font-size: .8rem; font-weight: 600; color: var(--muted); white-space: nowrap; padding-left: .6rem; }
+  .step.ok .st { color: var(--ok); } .step.fail .st { color: var(--red); }
+  .step .mark { flex: none; width: 22px; height: 22px; margin-top: .15rem; border-radius: 50%; border: 2px solid var(--line);
+    display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff;
+    transition: background .25s, border-color .25s; }
+  .step.running .mark { border-color: var(--red); border-top-color: transparent; animation: r .8s linear infinite; }
+  .step.ok .mark { background: var(--ok); border-color: var(--ok); animation: pop .35s ease; }
+  .step.ok .mark::after { content: "\\2713"; }
+  .step.fail .mark { background: var(--red); border-color: var(--red); } .step.fail .mark::after { content: "\\2715"; }
+  .step.skip .mark { border-style: dotted; }
+  @keyframes r { to { transform: rotate(360deg); } }
+  @keyframes pop { 0% { transform: scale(.6); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
+  .barwrap { height: 5px; background: var(--line); border-radius: 99px; overflow: hidden; margin: 1rem 0 .3rem; }
+  .barfill { height: 100%; width: 0; background: var(--red); border-radius: 99px; transition: width .4s ease; }
+  .barnote { color: var(--muted); font-size: .82rem; min-height: 1.2em; }
+  .authnote { display: flex; gap: .7rem; align-items: flex-start; background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem 1.1rem; color: var(--muted); font-size: .92rem; margin-top: 1.2rem; }
+  .authnote svg { flex: none; margin-top: .1rem; color: var(--red); } .authnote b { color: var(--ink); }
+  .authnote.warn { border-color: var(--warn); } .authnote ul { margin: .4rem 0 .4rem 1.1rem; }
+  /* nav */
+  .navbar { display: flex; align-items: center; gap: 1rem; margin-top: 2.4rem; padding-top: 1.4rem; border-top: 1px solid var(--line); }
+  .navnote { color: var(--red); font-size: .9rem; margin-left: auto; }
+  .cta { display: inline-flex; align-items: center; justify-content: center; gap: .6rem; background: var(--red-cta); color: #fff;
+    border: none; border-radius: 6px; font: inherit; font-weight: 600; font-size: 1.08rem; padding: .85rem 1.9rem; cursor: pointer;
+    text-decoration: none; }
+  .cta:hover { background: color-mix(in srgb, var(--red-cta) 88%, black); }
+  .cta:disabled { opacity: .55; cursor: default; }
+  .cta.sm { font-size: .95rem; padding: .6rem 1.3rem; }
+  .ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); border-radius: 6px; font: inherit;
+    font-weight: 600; padding: .8rem 1.2rem; cursor: pointer; }
+  .ghost:hover { border-color: var(--red); color: var(--red); }
+  /* done */
+  .bigcheck { width: 64px; height: 64px; border-radius: 50%; background: var(--red); color: #fff; display: flex;
+    align-items: center; justify-content: center; margin-bottom: 1.2rem; }
+  .bigcheck svg { width: 34px; height: 34px; }
+  .recap, .balcard, .launch { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 1rem 1.2rem; margin: 0 0 1.2rem; }
+  .rsum { font-weight: 600; padding-bottom: .5rem; border-bottom: 1px dashed var(--line); margin-bottom: .5rem; }
+  .rrow { display: flex; gap: .7rem; align-items: baseline; padding: .4rem 0; border-bottom: 1px solid var(--line); }
+  .rrow:last-child { border-bottom: 0; }
+  .rrow .rl { font-weight: 700; flex: none; } .rrow .rd { color: var(--muted); font-size: .92rem; overflow-wrap: anywhere; }
+  .rrow .ri { margin-left: auto; font-weight: 800; flex: none; }
+  .rrow.ok .ri { color: var(--ok); } .rrow.fail .ri { color: var(--red); } .rrow.skip .ri { color: #9ca3af; }
+  .balcard, .launch { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .balcard.low { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--card)); }
+  .balnum { font-size: 1.6rem; font-weight: 800; } .ballbl { font-size: .8rem; color: var(--muted); }
+  .balright { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .lownote { font-size: .9rem; color: color-mix(in srgb, #b45309 70%, var(--ink)); max-width: 26rem; }
+  .launch .fine { margin-top: .2rem; }
+  .examples { display: grid; gap: .8rem; }
+  .example { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; display: flex; gap: .9rem; align-items: flex-start; }
+  .example .srv { color: var(--red); font-weight: 600; font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; display: block; margin-bottom: .25rem; }
+  .example button { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: .35rem; font: inherit; font-size: .8rem;
+    font-weight: 600; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: .35rem .7rem; cursor: pointer; }
+  .example button:hover { border-color: var(--red); color: var(--red); }
+</style></head><body>
+<div class="bar">${LOGO}<span class="tag">Connect</span></div>
+${body}
+</body></html>`;
+}

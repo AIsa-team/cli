@@ -596,6 +596,7 @@ program
   .option("--no-open", "Print the URL instead of opening the browser")
   .option("--port <port>", "Bind a specific port (default: random)")
   .option("--dry-run", "Show what would be configured without writing anything")
+  .option("--template <id>", "Page template: t2 (guided steps, default) or t1 (classic two-page)")
   .action(wrap(connectAction));
 
 const mcp = program.command("mcp").description("MCP server integration");
