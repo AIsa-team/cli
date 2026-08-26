@@ -681,12 +681,11 @@ each step reports as it finishes, and your results open on the last step.</p>
       // The balance has its own card right below, so its row stays out of the recap.
       steps.filter(function (x) { return x.id !== "balance"; }).map(function (x) { return "<div class='rrow " + x.state + "'><span class='rl'>" + x.label + "</span><span class='rd' title=\\"" + (x.detail || "").replace(/"/g, "&quot;") + "\\">" + (x.detail || "") + "</span><span class='ri'>" + ICON[x.state] + "</span></div>"; }).join("") + "</div>";
     var bal = s.balanceMicros, low = bal !== null && bal !== undefined && bal < 5e6;
-    // The $1 welcome credit: say so loudly and point at the top-up.
-    // TEMP: also shown for a $108.xx balance so the copy can be previewed on a
-    // real account; drop the second clause once reviewed.
-    var gift = bal === 1e6 || (bal >= 108e6 && bal < 109e6);
+    // The welcome-credit note is shown on every results page, whatever the
+    // balance: it is the one place the top-up is explained.
+    var gift = true;
     var balCard = "<div class='balcard" + (low || gift ? " low" : "") + "'><div><div class='balnum'>" + (bal === null || bal === undefined ? "—" : fmtUsd(bal)) + "</div><div class='ballbl'>AIsa balance</div></div><div class='balright'>" +
-      (gift ? "<div class='giftnote'><b>AIsa has given you $1 to get started.</b> That covers your first few calls — top up now so your agent never stops mid-task.</div>" : low ? "<div class='lownote'>Running a little low — a small top-up keeps your first calls flowing.</div>" : (bal === null || bal === undefined ? "<div class='lownote'>Could not read it just now — <code>aisa balance</code> will.</div>" : "")) +
+      (gift ? "<div class='giftnote'><b>AIsa has given you $1 to get started.</b> That covers your first few calls. Top up now so your agent never stops mid-task.</div>" : low ? "<div class='lownote'>Running a little low — a small top-up keeps your first calls flowing.</div>" : (bal === null || bal === undefined ? "<div class='lownote'>Could not read it just now — <code>aisa balance</code> will.</div>" : "")) +
       "<a class='cta sm' href='https://console.aisa.one/billing?source=aisa_cli' target='_blank' rel='noopener'>Top up now →</a></div></div>";
     var backupNote = backup ? "<p class='fine'><b>Your usual setup is untouched.</b> " + (id === "opencode" ? "Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa." : "Run <code>" + bin + "</code> whenever you want AIsa's models; delete that one file to remove it.") + "</p>" : "";
     var model = MODEL_FOR[id] || "";
