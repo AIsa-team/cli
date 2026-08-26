@@ -656,7 +656,7 @@ you press the button; each step reports as it finishes.</p>
 
     var head = mcpFailed
       ? "<div class='eyebrow'>Almost there</div><h1>Your agent is <em>not connected yet</em></h1><p class='lede'>The MCP entries could not be added to <b>" + name + "</b> — details below.</p>"
-      : "<div class='bigcheck'>" + ICON_CHECK + "</div><div class='eyebrow'>Connected</div>" + (installed.length
+      : "<div class='bigcheck'>" + ICON_CHECK + "</div>" + (installed.length
         ? "<h1>Congratulations — <em>" + installed.join(" & ") + "</em> is installed and armed with <em>" + tools + " powerful tools</em></h1><p class='lede'><b>" + installed.join(" & ") + "</b> is on this machine, signed in to AIsa" + (llmOk ? ", running on <b>" + MODEL_FOR[id] + "</b> through AIsa," : ",") + " with " + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " wired in — a complete setup, nothing else to configure.</p>"
         : "<h1>Congratulations — your agent just got <em>" + tools + " powerful new tool" + (tools > 1 ? "s" : "") + "</em></h1><p class='lede'>" + chosen.length + " AIsa MCP server" + (chosen.length > 1 ? "s are" : " is") + " now installed and signed in for <b>" + name + "</b> — nothing else to configure.</p>");
 

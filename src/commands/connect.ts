@@ -396,7 +396,8 @@ function buildPlan(input: PlanInput): Step[] {
   // bearer and the model provider can be written — no per-server popups.
   // If it fails at run time the per-server OAuth rounds come back as a
   // fallback (added to the plan then, not promised now).
-  if (!input.keyed && !input.dryRun) {
+  // Listed in a dry run too, so the rehearsal shows the real sequence.
+  if (!input.keyed) {
     steps.push({
       id: "signin",
       label: "Sign in to AIsa",
@@ -533,8 +534,12 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       detail: "waiting for you to approve it in the browser tab",
     });
     try {
-      key = await mintCliKey({ open: true });
-      ok("signin", "signed in — your CLI key is stored");
+      if (input.dryRun) {
+        ok("signin", "dry run — the browser approval would open here");
+      } else {
+        key = await mintCliKey({ open: true });
+        ok("signin", "signed in — your CLI key is stored");
+      }
     } catch (e) {
       // Not fatal: the per-server OAuth path still works, it is just one
       // browser round per server instead of none.
