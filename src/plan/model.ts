@@ -87,6 +87,8 @@ export interface ItemCost {
   /** unknown/placeholder 无法估算，为 null */
   estimateCreditMicros: number | null;
   maxCreditMicros: number;
+  /** 报价通过后的执行交接命令（aisa run …）；placeholder 或 scope 不全时为 null */
+  runCommand?: string | null;
   basis: {
     display: string;
     inputs: Record<string, number | string>;

@@ -16,6 +16,17 @@ consume the quoted credits.
 Plans live at `~/.aisa/plans/<plan_id>.json`. Set `AISA_PLAN_DIR` to store them
 somewhere else.
 
+## From quote to execution
+
+A `ready` quote includes an execution handoff per item: `run_command` in
+`--json` output and an "Execute next" section in text output. It is the
+canonical `aisa run <provider> <endpoint> -q "..."` invocation compiled from
+the item's normalized scope, with wire parameter names (`start` becomes
+`start_date`, etc.) and defaults filled in. Running it calls the real gateway,
+requires an API key (`aisa login`), and spends real credits — the local quote
+does not reserve anything. Placeholders and items with incomplete scope get
+`run_command: null`.
+
 ## Plan is data, not a program
 
 A plan has no conditionals, no loops, and no dataflow. It does not branch, it

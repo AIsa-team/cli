@@ -60,6 +60,8 @@ export interface ScopeField {
   maxItems?: number; // string_list 上限
   itemPattern?: RegExp; // string_list 单项格式
   description: string;
+  /** 真实网关的 query 参数名与 scope 字段名不同时的映射（如 start → start_date） */
+  wireName?: string;
 }
 
 export interface CapabilityContract {
@@ -137,8 +139,8 @@ export const REGISTRY: CapabilityContract[] = [
         default: "world",
         description: "One country code such as us, or world",
       },
-      { name: "start", type: "month", required: true, description: "Start month (YYYY-MM)" },
-      { name: "end", type: "month", required: true, description: "End month (YYYY-MM)" },
+      { name: "start", type: "month", required: true, wireName: "start_date", description: "Start month (YYYY-MM)" },
+      { name: "end", type: "month", required: true, wireName: "end_date", description: "End month (YYYY-MM)" },
       {
         name: "granularity",
         type: "enum",
@@ -388,4 +390,25 @@ export function searchCapabilities(query: string): CapabilityContract[] {
 
 export function capabilityRef(contract: CapabilityContract): string {
   return `${contract.capabilityId}@${contract.version}`;
+}
+
+/**
+ * 把规范化 scope 编译成真实执行命令（aisa run …）——plan 与执行网关之间的交接。
+ * 仅做展示与交接：plan/quote 本身不执行、不预留额度；执行花真实 credits。
+ * 字段顺序跟随 scopeSchema，参数名经 wireName 映射为网关真实名称。
+ */
+export function buildRunCommand(
+  contract: CapabilityContract,
+  normalizedScope: Record<string, unknown>
+): string {
+  const pairs: string[] = [];
+  for (const field of contract.scopeSchema) {
+    const value = normalizedScope[field.name];
+    if (value === undefined || value === null) continue;
+    const wireValue = Array.isArray(value) ? value.join(",") : String(value);
+    pairs.push(`${field.wireName ?? field.name}=${wireValue}`);
+  }
+  const method = contract.binding.method.toUpperCase();
+  const methodFlag = method === "GET" ? "" : ` --method ${method}`;
+  return `aisa run ${contract.binding.provider} ${contract.binding.endpoint}${methodFlag} -q "${pairs.join("&")}"`;
 }

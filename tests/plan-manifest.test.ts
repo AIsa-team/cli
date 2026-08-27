@@ -113,6 +113,45 @@ describe("quotePlan cost models", () => {
     expect(cappedQuote.quote.items[0].estimateCreditMicros).toBe(30 * CREDIT_MICROS);
   });
 
+  it("compiles a run_command handoff with wire param names and filled defaults", () => {
+    const plan = makePlan({
+      items: [
+        trafficItem({
+          scope: {
+            domain: "openai.com",
+            metrics: "visits",
+            country: "us",
+            start: "2026-07",
+            end: "2026-07",
+          },
+        }),
+      ],
+    });
+    const result = quotePlan(plan);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.quote.items[0].runCommand).toBe(
+      'aisa run similarweb website/traffic-engagement -q "domain=openai.com&metrics=visits&country=us&start_date=2026-07&end_date=2026-07&granularity=monthly&main_domain_only=true"'
+    );
+  });
+
+  it("omits run_command for placeholders", () => {
+    const plan = makePlan({
+      items: [
+        {
+          itemId: "itm_01",
+          kind: "placeholder",
+          capability: "similarweb.traffic_engagement@1",
+          maxCreditMicros: 5 * CREDIT_MICROS,
+        },
+      ],
+    });
+    const result = quotePlan(plan);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.quote.items[0].runCommand).toBeNull();
+  });
+
   it("prices demographics as a fixed 8 credits", () => {
     const plan = makePlan({
       items: [

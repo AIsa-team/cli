@@ -16,7 +16,7 @@ import type {
   ScopeValue,
 } from "./model.js";
 import type { CapabilityContract, ScopeField } from "./registry.js";
-import { CREDIT_MICROS, REGISTRY_REVISION, findCapability } from "./registry.js";
+import { CREDIT_MICROS, REGISTRY_REVISION, buildRunCommand, findCapability } from "./registry.js";
 import { newQuoteId } from "./store.js";
 
 const DOMAIN_RE =
@@ -107,6 +107,12 @@ export function quotePlan(
     if (priced.cost) {
       const capBlock = exactCapBlock(item, priced.cost);
       if (capBlock) addProblem(problems, item.itemId, capBlock);
+      // scope 完整的资源项附带执行交接命令；plan 本身仍不执行、不预留
+      const resolved = findCapability(item.capability);
+      priced.cost.runCommand =
+        item.kind !== "placeholder" && resolved.contract && validation.status === "valid"
+          ? buildRunCommand(resolved.contract, validation.normalizedScope)
+          : null;
       itemCosts.push(priced.cost);
     }
   }

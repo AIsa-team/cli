@@ -114,6 +114,7 @@ function wireItemCost(item: ItemCost): Record<string, unknown> {
     cost_model_kind: item.costModelKind,
     estimate_credits: wireCredits(item.estimateCreditMicros),
     max_credits: formatCreditMicros(item.maxCreditMicros),
+    run_command: item.runCommand ?? null,
     basis: item.basis,
   };
 }
@@ -215,6 +216,11 @@ function quoteNextActions(plan: Plan, quote: QuoteSnapshot): string[] {
         `Materialize placeholder ${item.itemId} with: aisa plan item-replace ${plan.planId} ${item.itemId} --scope key=value ...`
       );
     }
+  }
+  if (quote.status === "ready" && quote.items.some((item) => item.runCommand)) {
+    actions.push(
+      "Execute each item with its run_command (spends real credits; requires an API key via aisa login)."
+    );
   }
   actions.push(
     "This is a local preview quote — not a server reservation; do not treat it as a spend lock."
@@ -674,6 +680,13 @@ export async function planQuoteAction(planId: string, options: JsonOptions = {})
   if (quote.warnings.length > 0) {
     console.log(`\n  Warnings`);
     for (const warning of quote.warnings) console.log(`  - ${warning}`);
+  }
+  const runnable = quote.items.filter((item) => item.runCommand);
+  if (quote.status === "ready" && runnable.length > 0) {
+    console.log(`\n  ${chalk.cyan.bold("Execute next")}  (spends real credits; requires an API key: aisa login)`);
+    for (const item of runnable) {
+      console.log(`  ${item.itemId}: ${item.runCommand}`);
+    }
   }
   console.log(`\n  Next actions`);
   nextActions.forEach((action, index) => console.log(`  ${index + 1}. ${action}`));

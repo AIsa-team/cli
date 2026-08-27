@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `add`, `item-replace`, `item-remove`, `set-budget`, `check`, `quote`,
   `delete`. See [docs/plans.md](docs/plans.md).
 
+- **`aisa plan quote` execution handoff** — a `ready` quote now compiles each
+  fully-scoped item into its canonical `aisa run` invocation (`run_command` in
+  JSON, "Execute next" in text), mapping scope fields to real gateway
+  parameter names. Executing it spends real credits; the local quote still
+  reserves nothing.
+
 - **`npm run eval`** — a deterministic evaluation harness for the plan CLI
   (`eval/`): plain-language user goals are handed to an agent (default
   external baseline: pi + DeepSeek flash, a deliberately weak model) and
