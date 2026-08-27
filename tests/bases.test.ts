@@ -71,7 +71,7 @@ describe("formatPrice", () => {
     expect(formatPrice(0.008)).toBe("$0.008");
     expect(formatPrice(0.012)).toBe("$0.012");
     expect(formatPrice(0.08)).toBe("$0.08");
-    expect(formatPrice(0)).toBe("free");
+    expect(formatPrice(0)).toBe("unpriced (dynamic)");
     expect(formatPrice(undefined)).toBe("—");
   });
 });

@@ -187,10 +187,13 @@ export async function getAllEndpoints(options: {
  * Format a per-request price. Real values span $0.000001 to $0.08, so a fixed
  * number of decimals either rounds the cheap endpoints to $0.00 or pads the
  * rest with noise — keep two significant digits instead.
+ *
+ * Catalog 无法区分「真免费」和「动态未标价」，0 一律按未核实处理，
+ * 绝不渲染成 free / $0。
  */
 export function formatPrice(usd?: number): string {
   if (usd == null) return "—";
-  if (usd === 0) return "free";
+  if (usd === 0) return "unpriced (dynamic)";
 
   const precise = Number(usd.toPrecision(2));
   const text = precise.toString();

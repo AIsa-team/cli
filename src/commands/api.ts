@@ -39,6 +39,12 @@ function shortDate(iso?: string): string {
   return Number.isNaN(d.getTime()) ? "—" : d.toISOString().slice(0, 10);
 }
 
+/** Catalog 的 0 是未核实标价，不能拼进 "from … per request"。 */
+function priceClause(usd: number | undefined, whenPriced: (label: string) => string): string {
+  if (usd === 0) return "pricing: dynamic (not listed in catalog)";
+  return whenPriced(formatPrice(usd));
+}
+
 export async function apiListAction(options: {
   category?: string;
   health?: boolean;
@@ -124,7 +130,13 @@ function printEndpointDetail(detail: CatalogDetail, endpoint: CatalogEndpoint): 
   if (endpoint.description) console.log(`  ${endpoint.description}`);
   console.log(`\n  Path:     ${endpoint.path}`);
   console.log(`  Provider: ${detail.id}`);
-  console.log(`  Price:    ${formatPrice(endpoint.pricing?.normal)} per request`);
+  console.log(
+    `  Price:    ${
+      endpoint.pricing?.normal === 0
+        ? "dynamic (not listed in catalog)"
+        : `${formatPrice(endpoint.pricing?.normal)} per request`
+    }`
+  );
 
   const params = [...runPath.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
   if (params.length > 0) {
@@ -199,7 +211,9 @@ export async function apiShowAction(
     : undefined;
 
   console.log(`\n  ${chalk.cyan.bold(detail.id)} ${chalk.gray(`(${categoryOf(detail.id)})`)}`);
-  console.log(`  ${detail.endpoint_count} endpoints · from ${formatPrice(detail.pricing?.normal)} per request`);
+  console.log(
+    `  ${detail.endpoint_count} endpoints · ${priceClause(detail.pricing?.normal, (label) => `from ${label} per request`)}`
+  );
   console.log(`  Updated ${shortDate(detail.updated_at)}`);
   if (health) {
     // Health is tracked per provider, not per endpoint — the per-endpoint
@@ -326,7 +340,7 @@ export async function apiSearchAction(
     console.log(chalk.bold(`\n  Matching APIs\n`));
     for (const p of providerHits) {
       console.log(
-        `  ${chalk.cyan.bold(p.id)} ${chalk.gray(`${p.endpoint_count} endpoints · from ${formatPrice(p.pricing?.normal)}`)}`
+        `  ${chalk.cyan.bold(p.id)} ${chalk.gray(`${p.endpoint_count} endpoints · ${priceClause(p.pricing?.normal, (label) => `from ${label}`)}`)}`
       );
     }
   }
@@ -429,7 +443,7 @@ export async function apiCodeAction(
   const price = endpoint?.pricing?.normal;
   const note = [
     endpoint?.name || runPath,
-    price != null ? `${formatPrice(price)} per request` : undefined,
+    price != null ? priceClause(price, (label) => `${label} per request`) : undefined,
     "method is advisory — pass --method to override",
   ]
     .filter(Boolean)
