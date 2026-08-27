@@ -1,12 +1,13 @@
 {
   "id": "s4_jordan_capability_fit",
-  "title": "Jordan: complete capability fit before any paid Similarweb call",
-  "goal": "用户问：查询 openai.com 在美国市场最近一个月的网站流量；不需要历史流量，也不需要其他国家。先创建一个硬预算 1 credit 的资源计划。通过 aisa plan discover 和本地 capability contract 判断请求需要哪些完整参数；不要盲目调用 aisa run，也不要添加 geo-distribution。为 Similarweb Traffic & Engagement 添加唯一一个完整的月度 scope：domain=openai.com、country=us、start=2026-07、end=2026-07、granularity=monthly、metrics=visits。先 check，再 quote。最后给出 ready 的 local preview quote；它不是执行授权或真实 API 调用。",
+  "title": "Jordan case: compile one complete canonical scope instead of blind API trial",
+  "goal": "A user named Jordan asks: find out the website traffic of openai.com in the US market for the most recent complete month (July 2026). No historical range, no other countries. Create a resource plan with a hard budget of 1 credit. Discover the fitting capability first, then add exactly ONE item with a complete, fully explicit scope — domain openai.com, country us, start 2026-07, end 2026-07, granularity monthly, single metric visits. Do not guess undocumented parameters and do not add any other items. Finish with a quote whose status is ready.",
   "expect": {
     "quote_status": "ready",
     "budget_credits": "1",
     "totals_within_budget": true,
     "totals_max_credits_lte": "1",
+    "items_count": 1,
     "items": [
       {
         "capability": "similarweb.traffic_engagement@1",
@@ -24,15 +25,18 @@
   },
   "scripted_reference": [
     {
-      "argv": ["plan", "create", "--budget-credits", "1", "--budget-policy", "hard", "--intent", "Jordan US monthly traffic", "--json"],
+      "argv": [
+        "plan", "create", "--budget-credits", "1", "--budget-policy", "hard",
+        "--intent", "Jordan: openai.com US monthly traffic", "--json"
+      ],
       "capture": "plan_id"
     },
     { "argv": ["plan", "discover", "traffic"] },
     {
       "argv": [
         "plan", "add", "{plan}", "similarweb.traffic_engagement@1",
-        "--scope", "domain=openai.com", "country=us", "start=2026-07", "end=2026-07",
-        "granularity=monthly", "metrics=visits"
+        "--scope", "domain=openai.com", "country=us", "start=2026-07",
+        "end=2026-07", "granularity=monthly", "metrics=visits"
       ]
     },
     { "argv": ["plan", "check", "{plan}"] },

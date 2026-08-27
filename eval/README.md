@@ -68,6 +68,7 @@ Exit code is 0 only if every scenario passes.
 | `s1_traffic_quote` | capability discovery + typed scope + exact-formula quote within budget |
 | `s2_budget_negotiation` | reacting to exit code 2 by shrinking scope until the quote is ready |
 | `s3_unverified_pricing_cap` | unverified pricing requires an explicit `--max-credits` spend cap |
+| `s4_jordan_capability_fit` | capability fit: compile one complete canonical scope (domain/country/month/granularity/metric) instead of blind API trial; exactly one item, max 1 credit |
 | `s4_jordan_capability_fit` | capability-fit-before-cost: derive the one complete US/monthly scope before any paid Similarweb call |
 
 ## Adding a scenario
@@ -76,7 +77,8 @@ Drop a JSON file into `eval/scenarios/`:
 
 - `goal` — the user-style objective handed to the agent verbatim.
 - `expect` — assertions for the grader: `quote_status`, `budget_credits`,
-  `totals_within_budget`, `totals_max_credits_lte`, and `items[]` with
+  `totals_within_budget`, `totals_max_credits_lte`, `items_count`
+  (exact manifest size, for capability-fit scenarios), and `items[]` with
   `capability`, `scope_contains`, `estimate_credits` / `estimate_null`,
   `max_credits_set` / `max_credits_lte`.
 - `scripted_reference` — a known-good command replay. It doubles as the

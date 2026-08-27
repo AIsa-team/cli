@@ -1,6 +1,6 @@
 {
   "type": "command",
-  "provider": "deepseek",
+  "provider": "opencode-go",
   "model": "deepseek-v4-flash",
   "timeout_seconds": 600,
   "argv_template": [

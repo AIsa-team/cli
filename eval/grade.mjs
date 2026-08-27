@@ -86,6 +86,10 @@ export function grade(plan, expect) {
   if (expect.quote_status !== undefined) {
     push("quote_status", quote.status === expect.quote_status, `got ${quote.status}, want ${expect.quote_status}`);
   }
+  // 能力选型场景用：manifest 必须"不多不少"，防止 agent 靠堆无关 item 蒙混
+  if (expect.items_count !== undefined) {
+    push("items_count", plan.items.length === expect.items_count, `got ${plan.items.length}, want ${expect.items_count}`);
+  }
   if (expect.budget_credits !== undefined) {
     const want = creditsToMicros(expect.budget_credits);
     push(
