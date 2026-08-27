@@ -124,8 +124,9 @@ export function detectClients(): ClientInfo[] {
     detail: codex.status === 0 ? codex.stdout.trim() : "codex not found on PATH",
   });
 
-  // opencode: no `mcp add`, no login command — one JSON config file drives
-  // everything. Detection stays the same discipline: actually run the binary.
+  // opencode: `opencode mcp add` (1.18+) writes the MCP entries; models go
+  // into its one JSON config. Detection stays the same discipline: actually
+  // run the binary.
   const oc = spawnSync("opencode", ["--version"], { timeout: 5_000, encoding: "utf8" });
   clients.push({
     id: "opencode",
