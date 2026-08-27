@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `add`, `item-replace`, `item-remove`, `set-budget`, `check`, `quote`,
   `delete`. See [docs/plans.md](docs/plans.md).
 
+- **`npm run eval`** — a deterministic evaluation harness for the plan CLI
+  (`eval/`): plain-language user goals are handed to an agent (default
+  external baseline: pi + DeepSeek flash, a deliberately weak model) and
+  graded by inspecting the plan artifacts on disk — quote status, freshness,
+  budget, scopes, caps — never by an LLM judge. A no-LLM `scripted` agent
+  replays each scenario's reference solution to self-test the harness. See
+  [eval/README.md](eval/README.md).
+
 - **`aisa connect`** — a one-shot local page (`npx @aisa-one/cli connect`) to
   wire AIsa MCP servers into local coding agents. Detects Claude Code, Cursor,
   Claude Desktop and Windsurf; Claude Code entries go through `claude mcp add`

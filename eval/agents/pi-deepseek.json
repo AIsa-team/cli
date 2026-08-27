@@ -1,0 +1,18 @@
+{
+  "type": "command",
+  "provider": "deepseek",
+  "model": "deepseek-v4-flash",
+  "timeout_seconds": 600,
+  "argv_template": [
+    "pi",
+    "-p",
+    "{prompt}",
+    "--provider",
+    "{provider}",
+    "--model",
+    "{model}",
+    "--no-session",
+    "--tools",
+    "bash,read"
+  ]
+}
