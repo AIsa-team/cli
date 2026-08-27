@@ -356,6 +356,96 @@ All Similarweb capabilities are **charged only on success**.
 `discover` is the runtime view of this table. Registry v0 is the set the
 local quote engine knows how to price; it is not the full AIsa catalog.
 
+## Walkthrough: Jordan — validate capability fit before cost
+
+### User question
+
+> Query `openai.com` website traffic for the US market for the most recent
+> month. Do not query historical traffic or other countries.
+
+This is a capability-fit problem before it is a pricing problem. A blind agent
+previously tried several partial Similarweb requests: some omitted `metrics`,
+others omitted `start` / `end` or `granularity`, and one used numeric country
+code `840`. Domain-only calls succeeded, but that does **not** establish that
+an incomplete US/monthly request is the correct request or that it meets the
+user's scope.
+
+The public contract in registry v0 says the bounded monthly request needs a
+hostname, one metric, one country code, `start`, `end`, and
+`granularity=monthly`. The plan CLI makes this contract visible before it
+prices anything.
+
+### 1. Agent creates a bounded intent
+
+```bash
+aisa plan create --intent "Jordan: openai.com US traffic for one month" \
+  --budget-credits 1 --budget-policy hard
+# pln_...
+```
+
+The upstream Agent owns the interpretation of the user request. The CLI owns
+only the resource boundary: one item, at most 1 credit, and no execution.
+
+### 2. CLI reveals the capability contract
+
+```bash
+aisa plan discover traffic
+```
+
+Representative guidance for `similarweb.traffic_engagement@1`:
+
+```text
+Cost: 1 credit x metrics x countries x monthly time buckets
+Inputs: domain:domain, metrics:string_list, country?:country,
+        start:month, end:month, granularity?:enum, main_domain_only?:boolean
+Limits: weekly/daily buckets are not independently verified and are not offered here
+Next: add only after scope is complete
+```
+
+This tells the Agent not to guess a parameter sequence and not to try the
+unpublished `geo-distribution` route. It must supply the complete documented
+scope in one planned item.
+
+### 3. Agent adds and checks the only bounded scope
+
+```bash
+aisa plan add pln_... similarweb.traffic_engagement@1 \
+  --scope domain=openai.com --scope country=us \
+  --scope start=2026-07 --scope end=2026-07 \
+  --scope granularity=monthly --scope metrics=visits
+
+aisa plan check pln_...
+# exit 0: VALID
+```
+
+`check` is deterministic and local. A missing date, metric, or unsupported
+field produces an explicit gap/error and exit `3`; no provider request is
+made.
+
+### 4. CLI computes the result the Agent can show the user
+
+```bash
+aisa plan quote pln_...
+# exit 0
+```
+
+```text
+1 credit × 1 metric × 1 country × 1 monthly bucket = max 1 credit
+status: ready
+authority: local_preview
+```
+
+**Result:** the public capability/price contract supports this bounded plan.
+It does not prove a live provider response, reserve credit, or authorise an
+API call. If a later live call rejects the complete canonical scope, that is
+production capability evidence to record in the registry and re-evaluate —
+not a reason to silently fall back to global traffic or retry arbitrary
+parameters.
+
+The executable regression is `s4_jordan_capability_fit` in `eval/scenarios/`.
+It verifies the saved manifest and quote, while the poisoned eval key makes a
+real AIsa call impossible.
+
 ## Walkthrough: GTM research for a competitor
 
 An agent is sizing acme.com before a launch. Traffic and demographics are

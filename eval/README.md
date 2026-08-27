@@ -68,6 +68,7 @@ Exit code is 0 only if every scenario passes.
 | `s1_traffic_quote` | capability discovery + typed scope + exact-formula quote within budget |
 | `s2_budget_negotiation` | reacting to exit code 2 by shrinking scope until the quote is ready |
 | `s3_unverified_pricing_cap` | unverified pricing requires an explicit `--max-credits` spend cap |
+| `s4_jordan_capability_fit` | capability-fit-before-cost: derive the one complete US/monthly scope before any paid Similarweb call |
 
 ## Adding a scenario
 

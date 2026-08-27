@@ -375,11 +375,23 @@ export async function planDiscoverAction(query: string, options: JsonOptions = {
       matches.map((contract) => ({
         capability: capabilityRef(contract),
         title: contract.title,
+        binding: contract.binding,
         cost:
           contract.costModel.kind === "unknown" ? "unpriced (dynamic)" : contract.costModel.display,
+        charge_policy: contract.chargePolicy,
         verification: contract.verification.status,
         verified_at: contract.verification.verifiedAt ?? null,
+        sources: contract.verification.sources,
         coverage: contract.dataContract.coverage,
+        scope_schema: contract.scopeSchema.map((field) => ({
+          name: field.name,
+          type: field.type,
+          required: field.required,
+          default: field.default ?? null,
+          values: field.values ?? null,
+          description: field.description,
+        })),
+        known_limits: contract.dataContract.knownLimits,
       }))
     );
     return;
@@ -403,6 +415,15 @@ export async function planDiscoverAction(query: string, options: JsonOptions = {
     console.log(`    Cost: ${cost}`);
     console.log(`    Verification: ${contract.verification.status}${verifiedAt}`);
     console.log(`    Coverage: ${contract.dataContract.coverage.join("; ")}`);
+    console.log(
+      `    Inputs: ${contract.scopeSchema
+        .map((field) => `${field.name}${field.required ? "" : "?"}:${field.type}`)
+        .join(", ")}`
+    );
+    if (contract.dataContract.knownLimits.length > 0) {
+      console.log(`    Limits: ${contract.dataContract.knownLimits.join("; ")}`);
+    }
+    hint(`Add after scope is complete: aisa plan add <plan> ${capabilityRef(contract)} --scope key=value ...`);
   }
 }
 
