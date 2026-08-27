@@ -308,6 +308,15 @@ async function applySelection(
             }
           : { client: id, ok: false, message: `only ${added} of ${chosen.length} servers were added` }
       );
+    } else if (id === "claude-ai") {
+      // Nothing on this machine to write: claude.ai takes remote MCP servers
+      // as Connectors pasted in by the user, with its own OAuth. The page
+      // hands over the URLs; this step only confirms they are ready.
+      results.push({
+        client: id,
+        ok: true,
+        message: `${chosen.length} connector URL${chosen.length === 1 ? "" : "s"} ready — add them in claude.ai`,
+      });
     } else if (MCP_CONFIGS[id]) {
       if (dryRun) {
         results.push({ client: id, ok: true, message: `would write ${chosen.length + 1} entries to ${MCP_CONFIGS[id].path}` });
@@ -406,9 +415,12 @@ function buildPlan(input: PlanInput): Step[] {
       detail: "one browser approval — it mints your CLI key",
     });
   }
+  const web = input.clients[0] === "claude-ai";
   steps.push({
     id: "mcp",
-    label: `Add ${input.servers.length} MCP server${input.servers.length === 1 ? "" : "s"}`,
+    label: web
+      ? `Prepare ${input.servers.length} connector URL${input.servers.length === 1 ? "" : "s"}`
+      : `Add ${input.servers.length} MCP server${input.servers.length === 1 ? "" : "s"}`,
     state: "pending",
     detail: input.clients.join(", "),
   });

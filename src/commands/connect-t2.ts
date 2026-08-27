@@ -84,8 +84,8 @@ const AGENT_NOTES: Record<string, string> = {
   opencode:
     "Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.",
   cursor: "The AIsa servers are written into <code>~/.cursor/mcp.json</code>. Models stay as they are — Cursor picks its own.",
-  "claude-desktop":
-    "Claude Desktop only takes MCP servers over stdio, so each AIsa server is written into <code>claude_desktop_config.json</code> as an <code>npx mcp-remote</code> bridge carrying your key (plus the small <code>aisa-docs</code> server). Models cannot be changed here: Claude Desktop runs Anthropic's own. Restart the app afterwards and the servers appear under its tools menu.",
+  "claude-ai":
+    "Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own.",
   windsurf: "The AIsa servers are written into Windsurf's <code>mcp_config.json</code>.",
 };
 
@@ -97,16 +97,16 @@ const HAVE_NOTES: Record<string, string> = {
     "Nothing of yours is replaced. Your <code>codex</code> keeps its login and config; the next step lets you add AIsa <b>beside</b> it as an <code>aisa</code> profile and a <b><code>codex-aisa</code></b> command, or switch — your call.",
   opencode:
     "Nothing of yours is replaced. Your default model stays; the next step can add AIsa as an extra <code>aisa/…</code> provider you pick from the model list, or switch — your call.",
-  "claude-desktop":
-    "Nothing of yours is replaced. Any MCP servers already in your config stay; AIsa's are added beside them under <code>aisa-*</code> names. Your models are not touched.",
+  "claude-ai":
+    "Nothing of yours is touched — the connectors live in your claude.ai account, beside any you already have, and can be removed there in one click.",
   cursor:
     "Nothing of yours is replaced. Existing entries in <code>~/.cursor/mcp.json</code> stay; AIsa's are added beside them under <code>aisa-*</code> names.",
 };
 
 /** Why the Models step has nothing to offer a file-configured client. */
 const FILE_MODEL_NOTE: Record<string, string> = {
-  "claude-desktop":
-    "<b>Claude Desktop runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents (Claude Code, Codex, opencode) on the same AIsa account; only the MCP servers are added to Claude Desktop.",
+  "claude-ai":
+    "<b>claude.ai runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents (Claude Code, Codex, opencode) on the same AIsa account; claude.ai gets the MCP connectors.",
   cursor:
     "<b>Cursor picks its models inside the app</b>, so nothing changes here — only the MCP servers are added.",
 };
@@ -157,21 +157,35 @@ export function renderT2Page(
   // ── data handed to the page script ──
   const SERVERS = servers.map((s) => ({
     slug: s.slug,
+    endpoint: s.endpoint,
     name: stripped(s.name),
     category: normCategory(s.category),
     toolCount: s.toolCount,
     description: s.description,
   }));
-  // Windsurf is not part of this flow; the file-config path stays in T1.
-  const CLIENTS = clients.filter((c) => c.id !== "windsurf").map((c) => ({
-    id: c.id,
-    label: c.label,
-    kind: c.kind,
-    detected: c.detected,
-    detail: c.detail,
-    installable: !c.detected && Boolean(INSTALLERS[c.id]) && canInstall,
-    command: INSTALLERS[c.id]?.command ?? "",
-  }));
+  // Windsurf and Claude Desktop are not part of this flow (the file-config
+  // path stays in T1); claude.ai on the web is — nothing to install, the
+  // user pastes connector URLs into the site.
+  const CLIENTS = [
+    ...clients.filter((c) => c.id !== "windsurf" && c.id !== "claude-desktop").map((c) => ({
+      id: c.id,
+      label: c.label,
+      kind: c.kind,
+      detected: c.detected,
+      detail: c.detail,
+      installable: !c.detected && Boolean(INSTALLERS[c.id]) && canInstall,
+      command: INSTALLERS[c.id]?.command ?? "",
+    })),
+    {
+      id: "claude-ai",
+      label: "Claude.ai",
+      kind: "web" as const,
+      detected: true,
+      detail: "On the web — AIsa becomes a Connector you add in claude.ai, no install",
+      installable: false,
+      command: "",
+    },
+  ];
   const MODEL_FOR = Object.fromEntries(clients.map((c) => [c.id, defaultModelsFor(c.id).model]));
 
   // ── step 1: welcome ──
@@ -217,13 +231,13 @@ this machine except the sign-in you approve.</p>`;
     <span class="tbrief" data-brief>${
       c.detected ? c.detail : `Install <b>and</b> connect it — <code>${c.command}</code>`
     }</span></span>
-  ${c.detected ? `<span class="badge ok end">✓ detected</span>` : `<span class="badge todo end" data-badge>not installed</span>`}</label>`;
+  ${c.kind === "web" ? `<span class="badge web end">web · no install</span>` : c.detected ? `<span class="badge ok end">✓ detected</span>` : `<span class="badge todo end" data-badge>not installed</span>`}</label>`;
   const agentCards =
     usable.map((c, i) => clientCard(c, i === 0)).join("") +
     installable.map((c) => clientCard(c, usable.length === 0 && c === installable[0])).join("");
   // Fixed order: Claude Desktop, ChatGPT, Cursor, VS Code — by how likely a
   // reader is to care, not by which list they come from.
-  const chipOrder = ["claude-desktop", "chatgpt", "cursor", "vscode"];
+  const chipOrder = ["chatgpt", "cursor", "vscode"];
   const chips = [
     ...rest.map((c) => ({ id: c.id, html: `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>not found</i></span>` })),
     ...COMING_SOON.map((c) => ({ id: c.id, html: `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>${c.note} · soon</i></span>` })),
@@ -543,7 +557,7 @@ each step reports as it finishes, and your results open on the last step.</p>
     rows.push(["Install the AIsa CLI", NEEDS_CLI ? "npm install -g @aisa-one/cli — the aisa command for balance, top-up and key rotation" : "the aisa command is already on this machine"]);
     if (!${keyed}) rows.push(["Sign in to AIsa", "one browser approval — it issues your key"]);
     var n = pickedServers().length;
-    rows.push(["Add " + n + " MCP server" + (n === 1 ? "" : "s"), "to " + LABEL[id]]);
+    rows.push([clientKind() === "web" ? "Prepare " + n + " connector URL" + (n === 1 ? "" : "s") : "Add " + n + " MCP server" + (n === 1 ? "" : "s"), clientKind() === "web" ? "for you to add in claude.ai" : "to " + LABEL[id]]);
     var m = llmMode();
     if (m === "switch") rows.push(["Point its models at AIsa", MODEL_FOR[id] + " by default; reversible"]);
     if (m === "backup") rows.push([id === "claude-code" ? "Install the claude-aisa command" : id === "codex" ? "Add the aisa profile and codex-aisa" : "Add AIsa as a backup provider", "your current setup stays untouched"]);
@@ -684,7 +698,9 @@ each step reports as it finishes, and your results open on the last step.</p>
       ? "<div class='eyebrow'>Almost there</div><h1>Your agent is <em>not connected yet</em></h1><p class='lede'>The MCP entries could not be added to <b>" + name + "</b> — details below.</p>"
       : (installed.length
         ? "<h1><em>Congratulations!</em> " + installed.join(" & ") + " is installed and armed with " + tools + " powerful tools<span class='h1check'>" + ICON_CHECK + "</span></h1><p class='lede'><b>" + installed.join(" & ") + "</b> is on this machine, signed in to AIsa" + (llmOk ? ", running on <b>" + MODEL_FOR[id] + "</b> through AIsa," : ",") + " with " + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " wired in — a complete setup, nothing else to configure.</p>"
-        : "<h1><em>Congratulations!</em> Your agent just got " + tools + " powerful new tool" + (tools > 1 ? "s" : "") + ".<span class='h1check'>" + ICON_CHECK + "</span></h1><p class='lede'>" + chosen.length + " AIsa MCP server" + (chosen.length > 1 ? "s are" : " is") + " now installed and signed in for <b>" + name + "</b> — nothing else to configure.</p>");
+        : "<h1><em>Congratulations!</em> Your agent just got " + tools + " powerful new tool" + (tools > 1 ? "s" : "") + ".<span class='h1check'>" + ICON_CHECK + "</span></h1><p class='lede'>" + (id === "claude-ai"
+          ? chosen.length + " connector URL" + (chosen.length > 1 ? "s are" : " is") + " ready for <b>Claude.ai</b> — add them below, it takes about a minute."
+          : chosen.length + " AIsa MCP server" + (chosen.length > 1 ? "s are" : " is") + " now installed and signed in for <b>" + name + "</b> — nothing else to configure.") + "</p>");
 
     var failBlock = failed.length ? "<div class='authnote warn'><div><b>" + failed.length + " step" + (failed.length > 1 ? "s" : "") + " did not complete:</b><ul>" +
       failed.map(function (x) { return "<li><b>" + x.label + "</b> — " + (x.detail || "failed") + "</li>"; }).join("") +
@@ -700,7 +716,17 @@ each step reports as it finishes, and your results open on the last step.</p>
     var balCard = "<div class='balcard" + (low || gift ? " low" : "") + "'><div><div class='balnum'>" + (bal === null || bal === undefined ? "—" : fmtUsd(bal)) + "</div><div class='ballbl'>AIsa balance</div></div><div class='balright'>" +
       (gift ? "<div class='giftnote'><b>AIsa has given you $1 to get started.</b> That covers your first few calls. Top up now so your agent never stops mid-task.</div>" : low ? "<div class='lownote'>Running a little low — a small top-up keeps your first calls flowing.</div>" : (bal === null || bal === undefined ? "<div class='lownote'>Could not read it just now — <code>aisa balance</code> will.</div>" : "")) +
       "<a class='cta sm' href='https://console.aisa.one/billing?source=aisa_cli' target='_blank' rel='noopener'>Top up now →</a></div></div>";
-    var fileNote = id === "claude-desktop" ? "<p class='fine'><b>Restart Claude Desktop</b> to load the new servers — they appear under its tools menu as <code>aisa-…</code>.</p>" : "";
+    var fileNote = "";
+    if (id === "claude-ai") {
+      fileNote = "<h2>Finish in claude.ai — about a minute</h2><div class='webcard'>" +
+        "<ol class='websteps'><li>Open <a class='lnk' href='https://claude.ai/settings/connectors' target='_blank' rel='noopener'>claude.ai → Settings → Connectors</a></li>" +
+        "<li>Click <b>Add custom connector</b>, paste a name and URL from below, then <b>Add</b></li>" +
+        "<li>Press <b>Connect</b> and approve the AIsa sign-in — once per connector</li></ol>" +
+        chosen.map(function (x) {
+          return "<div class='weburl'><div><span class='srv'>aisa-" + x.slug + "</span><code>" + x.endpoint + "</code></div>" +
+            "<button type='button' data-copy=\\"" + x.endpoint + "\\">" + ICON_COPY + " Copy URL</button></div>";
+        }).join("") + "</div>";
+    }
     var backupNote = backup ? "<p class='fine'><b>Your usual setup is untouched.</b> " + (id === "opencode" ? "Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa." : "Run <code>" + bin + "</code> whenever you want AIsa's models; delete that one file to remove it.") + "</p>" : "";
     var model = MODEL_FOR[id] || "";
     var preview = id === "opencode"
@@ -720,7 +746,7 @@ each step reports as it finishes, and your results open on the last step.</p>
     var rest = mcpFailed ? failBlock + recap + balCard
       : "<p class='lede'>You are connected to <b>AIsa</b> — one account for all the well-known models and the live data behind them." + (more > 0 ? " " + more + " more MCP server" + (more > 1 ? "s are" : " is") + " one <code>npx @aisa-one/cli connect</code> away." : "") + " See your account dashboard at <a class='lnk' href='https://console.aisa.one' target='_blank' rel='noopener'>console.aisa.one</a>.</p>" +
         failBlock + recap + balCard + fileNote + backupNote + launch +
-        "<h2>Try it now — paste one of these into " + name + "</h2><div class='examples'>" + (examples || "<p class='fine'>Ask your agent to use any of the aisa-* MCP tools.</p>") + "</div>" +
+        "<h2>Try it now — paste one of these into " + name + (id === "claude-ai" ? " once the connectors are added" : "") + "</h2><div class='examples'>" + (examples || "<p class='fine'>Ask your agent to use any of the aisa-* MCP tools.</p>") + "</div>" +
         "<p class='fine'>These first prompts mention <b>AIsa</b> once so the demo lands on your new tools; after that plain language is enough.</p>" +
         "<p class='rerun'>Change the default any time — just run <b><code>aisa connect</code></b> again.</p>";
     $("#doneBody").innerHTML = head + rest;
@@ -839,6 +865,15 @@ function shellT2(title: string, body: string): string {
   .badge.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
   .badge.todo { background: var(--warn); border-color: var(--warn); color: #fff; }
   .badge.rec { background: var(--red); border-color: var(--red); color: #fff; }
+  .badge.web { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .webcard { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 1rem 1.2rem; margin: 0 0 1.4rem; }
+  .websteps { margin: 0 0 .9rem 1.2rem; font-size: .98rem; } .websteps li { margin: .25rem 0; }
+  .weburl { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .6rem 0; border-top: 1px dashed var(--line); }
+  .weburl .srv { display: block; color: var(--red); font-weight: 600; font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; }
+  .weburl code { font-size: .9rem; overflow-wrap: anywhere; }
+  .weburl button { flex: none; display: inline-flex; align-items: center; gap: .35rem; font: inherit; font-size: .8rem; font-weight: 600;
+    color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: .35rem .7rem; cursor: pointer; }
+  .weburl button:hover { border-color: var(--red); color: var(--red); }
   /* welcome */
   .feat { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1.8rem 0 1rem; }
   .ftile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.3rem 1.4rem; }

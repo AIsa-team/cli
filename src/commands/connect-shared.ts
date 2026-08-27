@@ -115,7 +115,9 @@ export const EXAMPLES: Record<string, string[]> = {
 export interface ClientInfo {
   id: string;
   label: string;
-  kind: "cli" | "file";
+  /** cli: its own command writes config · file: we write a JSON file ·
+   *  web: nothing to install, the user pastes connector URLs into the site */
+  kind: "cli" | "file" | "web";
   detected: boolean;
   detail: string;
 }
