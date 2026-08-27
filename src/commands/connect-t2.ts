@@ -85,7 +85,7 @@ const AGENT_NOTES: Record<string, string> = {
     "Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.",
   cursor: "The AIsa servers are written into <code>~/.cursor/mcp.json</code>. Models stay as they are — Cursor picks its own.",
   "claude-desktop":
-    "The AIsa servers are written into Claude Desktop's <code>claude_desktop_config.json</code>. Restart the app to see them.",
+    "Claude Desktop only takes MCP servers over stdio, so each AIsa server is written into <code>claude_desktop_config.json</code> as an <code>npx mcp-remote</code> bridge carrying your key (plus the small <code>aisa-docs</code> server). Models cannot be changed here: Claude Desktop runs Anthropic's own. Restart the app afterwards and the servers appear under its tools menu.",
   windsurf: "The AIsa servers are written into Windsurf's <code>mcp_config.json</code>.",
 };
 
@@ -97,6 +97,18 @@ const HAVE_NOTES: Record<string, string> = {
     "Nothing of yours is replaced. Your <code>codex</code> keeps its login and config; the next step lets you add AIsa <b>beside</b> it as an <code>aisa</code> profile and a <b><code>codex-aisa</code></b> command, or switch — your call.",
   opencode:
     "Nothing of yours is replaced. Your default model stays; the next step can add AIsa as an extra <code>aisa/…</code> provider you pick from the model list, or switch — your call.",
+  "claude-desktop":
+    "Nothing of yours is replaced. Any MCP servers already in your config stay; AIsa's are added beside them under <code>aisa-*</code> names. Your models are not touched.",
+  cursor:
+    "Nothing of yours is replaced. Existing entries in <code>~/.cursor/mcp.json</code> stay; AIsa's are added beside them under <code>aisa-*</code> names.",
+};
+
+/** Why the Models step has nothing to offer a file-configured client. */
+const FILE_MODEL_NOTE: Record<string, string> = {
+  "claude-desktop":
+    "<b>Claude Desktop runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents (Claude Code, Codex, opencode) on the same AIsa account; only the MCP servers are added to Claude Desktop.",
+  cursor:
+    "<b>Cursor picks its models inside the app</b>, so nothing changes here — only the MCP servers are added.",
 };
 
 /** Backup-mode consent copy, per client — the same contract T1 shows. */
@@ -209,14 +221,14 @@ this machine except the sign-in you approve.</p>`;
   const agentCards =
     usable.map((c, i) => clientCard(c, i === 0)).join("") +
     installable.map((c) => clientCard(c, usable.length === 0 && c === installable[0])).join("");
-  const restChips =
-    rest.length || COMING_SOON.length
-      ? `<div class="soon">${rest
-          .map((c) => `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>not found</i></span>`)
-          .join("")}${COMING_SOON.map(
-          (c) => `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>${c.note} · soon</i></span>`
-        ).join("")}</div>`
-      : "";
+  // Fixed order: Claude Desktop, ChatGPT, Cursor, VS Code — by how likely a
+  // reader is to care, not by which list they come from.
+  const chipOrder = ["claude-desktop", "chatgpt", "cursor", "vscode"];
+  const chips = [
+    ...rest.map((c) => ({ id: c.id, html: `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>not found</i></span>` })),
+    ...COMING_SOON.map((c) => ({ id: c.id, html: `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>${c.note} · soon</i></span>` })),
+  ].sort((a, b) => chipOrder.indexOf(a.id) - chipOrder.indexOf(b.id));
+  const restChips = chips.length ? `<div class="soon">${chips.map((c) => c.html).join("")}</div>` : "";
   const agent = `
 <h1>Which agent should AIsa <em>plug into</em>?</h1>
 <p class="lede">One agent per run, so a problem is always easy to place. Detected tools are ready
@@ -269,8 +281,7 @@ accounts, no separate billing, no re-wiring when a better model ships next month
     <span class="tbody"><span class="thead"><span class="tname">Not now</span></span>
     <span class="tbrief">Leave models exactly as they are; only the MCP tools are added.</span></span></label>
 </div>
-<div id="mFile" class="callout" style="display:none">${I.shield}<div>This client picks its own
-  models inside the app, so nothing is changed here — only the MCP servers are added.</div></div>
+<div id="mFile" class="callout" style="display:none">${I.shield}<div id="mFileText"></div></div>
 <div id="modelwarn" class="modelwarn" style="display:none">
   <div class="mw-head">⚠︎ Installing without a model backend</div>
   <div class="mw-body">A fresh install <b>cannot answer a single prompt</b> until you configure a
@@ -374,6 +385,7 @@ each step reports as it finishes, and your results open on the last step.</p>
   var BACKUP_COPY = ${JSON.stringify(BACKUP_COPY)};
   var AGENT_NOTES = ${JSON.stringify(AGENT_NOTES)};
   var HAVE_NOTES = ${JSON.stringify(HAVE_NOTES)};
+  var FILE_MODEL_NOTE = ${JSON.stringify(FILE_MODEL_NOTE)};
   var NEEDS_CLI = ${JSON.stringify(!isInstalled("aisa"))};
   var PROVIDER_ID = ${JSON.stringify(AISA_PROVIDER_ID)};
   var ART = ${JSON.stringify({ codex: CODEX_FACE, claude: CLAUDE_BOT, opencode: OPENCODE_MARK })};
@@ -450,6 +462,7 @@ each step reports as it finishes, and your results open on the last step.</p>
     $("#mDetected").style.display = kind === "cli" && !fresh ? "" : "none";
     $("#mFile").style.display = kind !== "cli" ? "" : "none";
     if (kind === "cli" && !fresh) $("#mBackup").innerHTML = BACKUP_COPY[id] || "";
+    if (kind !== "cli") $("#mFileText").innerHTML = FILE_MODEL_NOTE[id] || "This client picks its own models inside the app, so nothing is changed here — only the MCP servers are added.";
     $$(".choice .tile").forEach(function (t) { t.classList.toggle("on", t.querySelector("input").checked); });
     updateWarn();
   }
@@ -687,6 +700,7 @@ each step reports as it finishes, and your results open on the last step.</p>
     var balCard = "<div class='balcard" + (low || gift ? " low" : "") + "'><div><div class='balnum'>" + (bal === null || bal === undefined ? "—" : fmtUsd(bal)) + "</div><div class='ballbl'>AIsa balance</div></div><div class='balright'>" +
       (gift ? "<div class='giftnote'><b>AIsa has given you $1 to get started.</b> That covers your first few calls. Top up now so your agent never stops mid-task.</div>" : low ? "<div class='lownote'>Running a little low — a small top-up keeps your first calls flowing.</div>" : (bal === null || bal === undefined ? "<div class='lownote'>Could not read it just now — <code>aisa balance</code> will.</div>" : "")) +
       "<a class='cta sm' href='https://console.aisa.one/billing?source=aisa_cli' target='_blank' rel='noopener'>Top up now →</a></div></div>";
+    var fileNote = id === "claude-desktop" ? "<p class='fine'><b>Restart Claude Desktop</b> to load the new servers — they appear under its tools menu as <code>aisa-…</code>.</p>" : "";
     var backupNote = backup ? "<p class='fine'><b>Your usual setup is untouched.</b> " + (id === "opencode" ? "Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa." : "Run <code>" + bin + "</code> whenever you want AIsa's models; delete that one file to remove it.") + "</p>" : "";
     var model = MODEL_FOR[id] || "";
     var preview = id === "opencode"
@@ -705,7 +719,7 @@ each step reports as it finishes, and your results open on the last step.</p>
     var more = SERVERS.length - chosen.length;
     var rest = mcpFailed ? failBlock + recap + balCard
       : "<p class='lede'>You are connected to <b>AIsa</b> — one account for all the well-known models and the live data behind them." + (more > 0 ? " " + more + " more MCP server" + (more > 1 ? "s are" : " is") + " one <code>npx @aisa-one/cli connect</code> away." : "") + " See your account dashboard at <a class='lnk' href='https://console.aisa.one' target='_blank' rel='noopener'>console.aisa.one</a>.</p>" +
-        failBlock + recap + balCard + backupNote + launch +
+        failBlock + recap + balCard + fileNote + backupNote + launch +
         "<h2>Try it now — paste one of these into " + name + "</h2><div class='examples'>" + (examples || "<p class='fine'>Ask your agent to use any of the aisa-* MCP tools.</p>") + "</div>" +
         "<p class='fine'>These first prompts mention <b>AIsa</b> once so the demo lands on your new tools; after that plain language is enough.</p>" +
         "<p class='rerun'>Change the default any time — just run <b><code>aisa connect</code></b> again.</p>";

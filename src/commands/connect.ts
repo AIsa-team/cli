@@ -90,7 +90,7 @@ const execFileP = promisify(execFile);
 const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
 /** How long the success page stays served before the process exits. Copy
  *  buttons are client-side, so the page keeps working after exit. */
-const LINGER_AFTER_DONE_MS = 5 * 60 * 1000;
+const LINGER_AFTER_DONE_MS = 30 * 60 * 1000;
 /** How long to wait for the T2 page to finish playing its checklist before
  *  the success tab opens anyway (the tab may have been closed). */
 const PAGE_SEEN_TIMEOUT_MS = 90 * 1000;
@@ -1653,6 +1653,13 @@ export async function connectAction(options: {
     return;
   }
   const clients = detectClients();
+  // Rehearsal aid: in a dry run, pretend the listed clients are present so a
+  // page can be reviewed for a client this machine does not have. Never
+  // honoured outside --dry-run, where it could only mislead.
+  if (options.dryRun && process.env.AISA_CONNECT_PRETEND_DETECTED) {
+    const pretend = new Set(process.env.AISA_CONNECT_PRETEND_DETECTED.split(",").map((x) => x.trim()));
+    for (const c of clients) if (pretend.has(c.id)) { c.detected = true; c.detail = `${c.detail} (pretend)`; }
+  }
   const detected = clients.filter((c) => c.detected);
   if (detected.length === 0) {
     error("No supported client found (Claude Code, Cursor, Claude Desktop, Windsurf).");
@@ -1847,7 +1854,10 @@ export async function connectAction(options: {
           openBrowser(doneUrl);
           hint("A success page with try-it-now examples just opened in your browser");
           hint("Verify anytime with /mcp inside Claude Code — entries should show Connected");
-          info("Keeping the success page alive for 5 minutes (Ctrl-C to finish now)…");
+          const until = new Date(Date.now() + LINGER_AFTER_DONE_MS);
+          info(
+            `Keeping the results page alive until ${until.getHours()}:${String(until.getMinutes()).padStart(2, "0")} (Ctrl-C to finish now)…`
+          );
           setTimeout(() => {
             srv.close();
             process.exit(failures > 0 ? 1 : 0);
