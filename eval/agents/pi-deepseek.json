@@ -12,6 +12,8 @@
     "--model",
     "{model}",
     "--no-session",
+    "--mode",
+    "json",
     "--tools",
     "bash,read"
   ]
