@@ -776,8 +776,8 @@ function shellT2(title: string, body: string): string {
   .rail { border-right: 1px solid var(--line); padding: 1.6rem 2.2rem; position: sticky; top: 0;
     height: 100vh; display: flex; flex-direction: column; }
   .railhead { display: flex; align-items: flex-end; gap: .6rem; color: var(--ink); padding: 0 .6rem; }
-  .railhead svg { width: 70px; height: auto; display: block; }
-  .railhead span { font-weight: 600; font-size: 1rem; line-height: 1; color: var(--muted); padding-bottom: 3px; }
+  .railhead svg { width: 105px; height: auto; display: block; }
+  .railhead span { font-weight: 600; font-size: 1.5rem; line-height: 1; color: var(--muted); padding-bottom: 4px; }
   /* Sits a little above centre: the gap below is noticeably larger than the gap above. */
   .railsteps { margin: auto 0; display: flex; flex-direction: column; gap: .3rem; padding-bottom: 22vh; }
   .rstep { display: flex; gap: .8rem; align-items: center; text-align: left; background: transparent;
