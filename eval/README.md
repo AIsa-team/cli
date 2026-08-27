@@ -12,6 +12,23 @@ quote within budget, stronger models will almost certainly manage too. A
 scenario that a weak model keeps failing usually points at CLI ergonomics
 (unclear errors, missing hints), not at the model.
 
+## No real AIsa API calls, ever
+
+The eval is fully offline with respect to AIsa:
+
+- Every `plan` subcommand it exercises is local-only — the capability
+  registry is a code snapshot, quotes come from the local engine, and plans
+  are written to a scenario-scoped temp `AISA_PLAN_DIR`. No network, no API
+  key, no credits.
+- The runner additionally overrides `AISA_API_KEY` with a poisoned sentinel
+  in the child environment (env beats the `~/.aisa/key` file in the CLI's
+  key resolution). Even if an LLM agent ignores its briefing and runs
+  `aisa run` or another gateway command, the call fails auth — real spend is
+  mechanically impossible, not just forbidden by instructions.
+
+The only paid traffic an eval run generates is the evaluated model's own
+inference (e.g. DeepSeek tokens via pi), which is the thing being measured.
+
 ## How grading works
 
 Grading is **deterministic and artifact-based**: the grader reads the plan

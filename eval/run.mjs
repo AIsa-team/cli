@@ -26,6 +26,20 @@ const evalDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(evalDir, "..");
 const cliEntry = join(repoRoot, "dist", "index.js");
 
+/**
+ * 评测沙箱环境：plan 命令本身是纯本地的（不联网、不读密钥），
+ * 但外部 agent 拿着 bash 工具，理论上可以越界调用 `aisa run` 等真实网关命令。
+ * CLI 的密钥解析是 env 优先于 ~/.aisa/key 文件，所以这里用一个毒化的
+ * AISA_API_KEY 覆盖：任何真实 API 调用都会 401，机械性保证评测零消费。
+ */
+function sandboxEnv(planDir) {
+  return {
+    ...process.env,
+    AISA_PLAN_DIR: planDir,
+    AISA_API_KEY: "aisa-eval-offline-do-not-use",
+  };
+}
+
 function parseArgs(argv) {
   const args = { agent: "scripted", scenario: null, keep: false, report: null, model: null };
   for (let i = 0; i < argv.length; i++) {
@@ -65,7 +79,7 @@ function runScripted(scenario, planDir) {
     const argv = step.argv.map((a) => (planId ? a.replaceAll("{plan}", planId) : a));
     const result = spawnSync("node", [cliEntry, ...argv], {
       cwd: repoRoot,
-      env: { ...process.env, AISA_PLAN_DIR: planDir },
+      env: sandboxEnv(planDir),
       encoding: "utf-8",
       timeout: 60_000,
     });
@@ -96,7 +110,7 @@ function runCommand(agent, scenario, planDir, modelOverride) {
   );
   const result = spawnSync(argv[0], argv.slice(1), {
     cwd: repoRoot,
-    env: { ...process.env, AISA_PLAN_DIR: planDir },
+    env: sandboxEnv(planDir),
     encoding: "utf-8",
     timeout: (agent.timeout_seconds ?? 600) * 1000,
   });

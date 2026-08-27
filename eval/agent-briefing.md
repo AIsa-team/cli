@@ -16,6 +16,8 @@ Rules:
 - Discover capabilities and their scope fields with:
   `node dist/index.js plan discover <query>` and validate with
   `node dist/index.js plan check <plan_id>`.
-- Do not run `npm`, do not edit any files, do not use the network.
+- Do not run `npm`, do not edit any files, do not use the network. Gateway
+  commands like `aisa run` will fail auth in this sandbox — only `plan`
+  subcommands work.
 - The task is done when the plan's latest quote matches the GOAL below.
   The grader inspects the plan file on disk, not your words.
