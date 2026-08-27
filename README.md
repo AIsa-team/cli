@@ -88,6 +88,37 @@ per-request price is not what you pay. Other routes report only a price key, and
 the LLM gateway reports nothing; the output says so rather than implying a call
 was free.
 
+## Resource plans (preview)
+
+A plan is a **pre-flight resource manifest and credit quote**: you add items
+(each bound to a `capability@version` and a typed scope), then the CLI checks
+the manifest and prices it locally. This release is a **local preview** —
+quotes are computed on your machine from verified public pricing and stamped
+`authority=local_preview`. They are not a server-side quote, they do not
+reserve credits, and they are not a spend lock.
+
+A plan is data, not a program. There are no conditionals, loops, or dataflow.
+Items that depend on an upstream result are placeholders (capability + a spend
+ceiling); once you have the result, replace the item with a concrete scope.
+
+```bash
+aisa plan create --intent "competitor traffic" --budget-credits 50
+# pln_3f8a1c2b
+
+aisa plan add pln_3f8a1c2b similarweb.traffic_engagement@1 \
+  --scope domain=acme.com --scope metrics=visits,page_views \
+  --scope start=2026-01 --scope end=2026-03
+
+aisa plan add pln_3f8a1c2b similarweb.demographics@1 \
+  --scope domain=acme.com
+
+aisa plan quote pln_3f8a1c2b
+```
+
+Plans live in `~/.aisa/plans/` (override with `AISA_PLAN_DIR`). Full command
+reference, cost models, exit codes, and the v0 capability registry:
+[docs/plans.md](docs/plans.md).
+
 ## LLM Gateway
 
 80+ models (GPT, Claude, Gemini, Qwen, Deepseek, Grok) behind one
@@ -344,8 +375,9 @@ Settings:
 - `outputFormat` — `text` or `json`
 
 Environment variables: `AISA_API_KEY` takes precedence over the stored key.
-`AISA_CACHE_DIR` relocates the cache. `GITHUB_TOKEN` raises the GitHub rate
-limit for skills commands.
+`AISA_CACHE_DIR` relocates the cache. `AISA_PLAN_DIR` relocates stored
+resource plans (default `~/.aisa/plans`). `GITHUB_TOKEN` raises the GitHub
+rate limit for skills commands.
 
 ## Development
 

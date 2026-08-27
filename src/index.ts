@@ -11,6 +11,21 @@ import { balanceAction, topupAction, usageAction } from "./commands/account.js";
 import { apiListAction, apiSearchAction, apiShowAction, apiCodeAction } from "./commands/api.js";
 // Run
 import { runAction } from "./commands/run.js";
+// Resource plans
+import { planSimilarwebTrafficAction } from "./commands/plan.js";
+import {
+  planAddAction,
+  planCheckAction,
+  planCreateAction,
+  planDeleteAction,
+  planDiscoverAction,
+  planItemRemoveAction,
+  planItemReplaceAction,
+  planListAction,
+  planQuoteAction,
+  planSetBudgetAction,
+  planShowAction,
+} from "./commands/planManifest.js";
 // Chat
 import { chatAction } from "./commands/chat.js";
 // Models
@@ -175,6 +190,112 @@ program
       showCost: opts.showCost as boolean | undefined,
     })
   );
+
+// ── Resource Plans ──
+
+const plan = program.command("plan").description("Build and price multi-capability resource plans before executing");
+
+plan
+  .command("similarweb-traffic <domain>")
+  .description("Preview Similarweb Traffic & Engagement credits for a monthly scope (does not execute)")
+  .requiredOption("--start <YYYY-MM>", "Start month")
+  .requiredOption("--end <YYYY-MM>", "End month")
+  .requiredOption("--metrics <metrics>", "Comma-separated metrics, e.g. visits,average_visit_duration")
+  .option("--country <code>", "One country code, or world", "world")
+  .option("--granularity <value>", "P0 supports monthly only", "monthly")
+  .option("--no-main-domain-only", "Include subdomains")
+  .option("--max-credits <n>", "Mark the preview over budget above this credit ceiling")
+  .option("--json", "Output the structured plan manifest")
+  .action((domain: string, opts: Record<string, unknown>) =>
+    wrap(planSimilarwebTrafficAction)(domain, {
+      country: opts.country as string | undefined,
+      start: opts.start as string | undefined,
+      end: opts.end as string | undefined,
+      granularity: opts.granularity as string | undefined,
+      metrics: opts.metrics as string | undefined,
+      mainDomainOnly: opts.mainDomainOnly as boolean | undefined,
+      maxCredits: opts.maxCredits as string | undefined,
+      json: opts.json as boolean | undefined,
+    })
+  );
+
+plan
+  .command("create")
+  .description("Create an empty multi-capability plan")
+  .option("--budget-credits <n>", "Credit budget for the plan")
+  .option("--budget-policy <hard|advisory>", "Budget policy", "hard")
+  .option("--intent <text>", "Why this plan exists")
+  .option("--json", "Output JSON")
+  .action(wrap(planCreateAction));
+
+plan
+  .command("list")
+  .description("List local plans")
+  .option("--json", "Output JSON")
+  .action(wrap(planListAction));
+
+plan
+  .command("show <plan>")
+  .description("Show a plan, its items, and the latest quote")
+  .option("--json", "Output JSON")
+  .action(wrap(planShowAction));
+
+plan
+  .command("discover <query>")
+  .description("Search the local capability registry")
+  .option("--json", "Output JSON")
+  .action(wrap(planDiscoverAction));
+
+plan
+  .command("add <plan> <capability>")
+  .description("Add a capability item to a plan")
+  .option("--scope <kv...>", "Scope fields as key=value (values may contain commas)")
+  .option("--placeholder", "Add as a placeholder that needs a later scope")
+  .option("--max-credits <n>", "Per-item spend cap")
+  .option("--after <ids>", "Comma-separated item ids this item waits on")
+  .option("--on-dep-failure <mode>", "skip or proceed if a dependency fails")
+  .option("--phase <p>", "Optional phase label")
+  .option("--note <text>", "Optional note")
+  .option("--json", "Output JSON")
+  .action(wrap(planAddAction));
+
+plan
+  .command("item-replace <plan> <item>")
+  .description("Replace an item's scope (materialize a placeholder) or update cap/phase/note")
+  .option("--scope <kv...>", "Replace the entire scope as key=value pairs")
+  .option("--max-credits <n>", "Per-item spend cap")
+  .option("--phase <p>", "Optional phase label")
+  .option("--note <text>", "Optional note")
+  .option("--json", "Output JSON")
+  .action(wrap(planItemReplaceAction));
+
+plan
+  .command("item-remove <plan> <item>")
+  .description("Remove an item that nothing else depends on")
+  .action(wrap(planItemRemoveAction));
+
+plan
+  .command("set-budget <plan> <credits>")
+  .description("Set or update the plan credit budget")
+  .option("--policy <hard|advisory>", "Budget policy")
+  .action(wrap(planSetBudgetAction));
+
+plan
+  .command("check <plan>")
+  .description("Validate a plan without quoting")
+  .option("--json", "Output JSON")
+  .action(wrap(planCheckAction));
+
+plan
+  .command("quote <plan>")
+  .description("Price a plan (local preview; does not reserve credits)")
+  .option("--json", "Output JSON")
+  .action(wrap(planQuoteAction));
+
+plan
+  .command("delete <plan>")
+  .description("Delete a local plan")
+  .action(wrap(planDeleteAction));
 
 // ── Chat (LLM Gateway) ──
 

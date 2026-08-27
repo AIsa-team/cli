@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`aisa plan`** — a generic resource-plan command group: a local pre-flight
+  manifest plus credit quote for an upcoming run. Upstream agents add items
+  bound to a `capability@version` and a typed scope; the CLI checks the
+  manifest and quotes it against verified public pricing
+  (`authority=local_preview`). This is not a server-side quote, does not
+  reserve credits, and is not a spend lock. Plans are data — no
+  conditionals, loops, or dataflow. Items that depend on an upstream result
+  are placeholders (capability + spend ceiling); `item-replace` materialises
+  them. Stored at `~/.aisa/plans/<plan_id>.json` (override with
+  `AISA_PLAN_DIR`). Subcommands: `create`, `list`, `show`, `discover`,
+  `add`, `item-replace`, `item-remove`, `set-budget`, `check`, `quote`,
+  `delete`. See [docs/plans.md](docs/plans.md).
+
 - **`aisa connect`** — a one-shot local page (`npx @aisa-one/cli connect`) to
   wire AIsa MCP servers into local coding agents. Detects Claude Code, Cursor,
   Claude Desktop and Windsurf; Claude Code entries go through `claude mcp add`
@@ -45,6 +58,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI on every push/PR (build + tests), and a tag-triggered release workflow that
   publishes to npm via Trusted Publishing (OIDC — no stored token, 2FA stays on).
   From the next release, `git push origin vX.Y.Z` is the publish button.
+
+### Fixed
+
+- **`formatPrice` no longer renders a 0 catalog price as "free".** Zero now
+  displays as `unpriced (dynamic)`, so metered or unknown prices are not
+  mistaken for a complimentary call.
 
 ## [0.3.0] — 2026-08-18
 
