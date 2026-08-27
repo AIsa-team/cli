@@ -70,6 +70,7 @@ const PROVIDERS: Array<{ id: string; name: string; models: string }> = [
 
 /** Clients we do not connect yet but will, shown so the roadmap is visible. */
 const COMING_SOON: Array<{ id: string; label: string; note: string }> = [
+  { id: "claude-ai", label: "Claude.ai", note: "connector" },
   { id: "vscode", label: "VS Code", note: "install deeplink" },
   { id: "chatgpt", label: "ChatGPT", note: "connector" },
 ];
@@ -164,10 +165,12 @@ export function renderT2Page(
     description: s.description,
   }));
   // Windsurf and Claude Desktop are not part of this flow (the file-config
-  // path stays in T1); claude.ai on the web is — nothing to install, the
-  // user pastes connector URLs into the site.
-  const CLIENTS = [
-    ...clients.filter((c) => c.id !== "windsurf" && c.id !== "claude-desktop").map((c) => ({
+  // path stays in T1). claude.ai on the web is parked until AIsa is in the
+  // Connector Directory — the hand-off page below is ready, the card is not
+  // offered; see mcp.md T20.
+  const CLIENTS = clients
+    .filter((c) => c.id !== "windsurf" && c.id !== "claude-desktop")
+    .map((c) => ({
       id: c.id,
       label: c.label,
       kind: c.kind,
@@ -175,17 +178,7 @@ export function renderT2Page(
       detail: c.detail,
       installable: !c.detected && Boolean(INSTALLERS[c.id]) && canInstall,
       command: INSTALLERS[c.id]?.command ?? "",
-    })),
-    {
-      id: "claude-ai",
-      label: "Claude.ai",
-      kind: "web" as const,
-      detected: true,
-      detail: "On the web — AIsa becomes a Connector you add in claude.ai, no install",
-      installable: false,
-      command: "",
-    },
-  ];
+    }));
   const MODEL_FOR = Object.fromEntries(clients.map((c) => [c.id, defaultModelsFor(c.id).model]));
 
   // ── step 1: welcome ──
@@ -237,7 +230,7 @@ this machine except the sign-in you approve.</p>`;
     installable.map((c) => clientCard(c, usable.length === 0 && c === installable[0])).join("");
   // Fixed order: Claude Desktop, ChatGPT, Cursor, VS Code — by how likely a
   // reader is to care, not by which list they come from.
-  const chipOrder = ["chatgpt", "cursor", "vscode"];
+  const chipOrder = ["claude-ai", "chatgpt", "cursor", "vscode"];
   const chips = [
     ...rest.map((c) => ({ id: c.id, html: `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>not found</i></span>` })),
     ...COMING_SOON.map((c) => ({ id: c.id, html: `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>${c.note} · soon</i></span>` })),
