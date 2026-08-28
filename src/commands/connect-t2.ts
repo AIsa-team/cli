@@ -199,14 +199,14 @@ can reach the best models <b>and</b> the real world. Setting it up takes about a
 nothing here is irreversible.</p>
 <div class="feat">
   <div class="ftile"><div class="fico">${I.sparkles}</div>
-    <h3>100+ models, one key, lower prices</h3>
+    <h3>All the well-known LLM models, one key, lower prices</h3>
     <p>Claude, GPT, Gemini, DeepSeek, Kimi, GLM, Qwen, Grok — all behind one endpoint,
     well below going direct. Switch between them with a single setting, no re-configuring.</p>
     <div class="strip">${logoStrip}</div></div>
   <div class="ftile"><div class="fico">${I.finance}</div>
-    <h3>${totalTools} live tools your agent can act on</h3>
+    <h3>Rich, advanced tools your agent can act on</h3>
     <p>Market analysis and expansion research, finance data, social media signals, B2B
-    prospecting — ${servers.length} MCP servers of licensed, production data, not scraped guesses.</p></div>
+    prospecting — live MCP servers of licensed, production data, not scraped guesses.</p></div>
   <div class="ftile"><div class="fico">${I.terminal}</div>
     <h3>Agent skills, ready to run</h3>
     <p>A public catalogue of skills that teach your agent how to use each capability well —
@@ -215,9 +215,7 @@ nothing here is irreversible.</p>
     <h3>MCP the friendly way</h3>
     <p>One sign-in in your browser, zero keys to paste, every entry written through your
     agent's own official command. Remove it all just as easily.</p></div>
-</div>
-<p class="fine">Served by the local <code>aisa connect</code> process on 127.0.0.1 — nothing leaves
-this machine except the sign-in you approve.</p>`;
+</div>`;
 
   // ── step 2: your agent ──
   const usable = CLIENTS.filter((c) => c.detected);
