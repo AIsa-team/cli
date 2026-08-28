@@ -96,7 +96,7 @@ export function resolveTemplate(flag: string | undefined): ConnectTemplate {
 const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
 /** How long the success page stays served before the process exits. Copy
  *  buttons are client-side, so the page keeps working after exit. */
-const LINGER_AFTER_DONE_MS = 60 * 60 * 1000;
+const LINGER_AFTER_DONE_MS = 30 * 60 * 1000;
 /** How long to wait for the T2 page to finish playing its checklist before
  *  the success tab opens anyway (the tab may have been closed). */
 const PAGE_SEEN_TIMEOUT_MS = 90 * 1000;
