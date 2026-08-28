@@ -1711,6 +1711,24 @@ function launchAgentTerminal(
   );
 }
 
+/** Open Cursor on a folder: the bundled `cursor` command on macOS (the
+ *  app may not be on PATH), `cursor` elsewhere. */
+function launchCursor(dir: string): boolean {
+  const candidates =
+    process.platform === "darwin"
+      ? ["cursor", "/Applications/Cursor.app/Contents/Resources/app/bin/cursor"]
+      : ["cursor", "/usr/bin/cursor", "/usr/share/cursor/bin/cursor"];
+  for (const c of candidates) {
+    const r = spawnSync(c, [dir], { timeout: 30_000, encoding: "utf8" });
+    if (r.status === 0) return true;
+  }
+  if (process.platform === "darwin") {
+    const r = spawnSync("open", ["-a", "Cursor", dir], { timeout: 30_000, encoding: "utf8" });
+    return r.status === 0;
+  }
+  return false;
+}
+
 function openBrowser(url: string): void {
   const cmd =
     process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
@@ -1839,9 +1857,9 @@ export async function connectAction(options: {
       // Whitelist only — the client name selects a fixed binary, and no part
       // of the request ever reaches a shell.
       const backup = state.llmMode === "backup";
-      if (chosenClients[0] === "vscode") {
-        // Not a terminal agent: open VS Code itself on this folder.
-        const launched = launchVSCode(process.cwd());
+      if (chosenClients[0] === "vscode" || chosenClients[0] === "cursor") {
+        // Not terminal agents: open the editor itself on this folder.
+        const launched = chosenClients[0] === "vscode" ? launchVSCode(process.cwd()) : launchCursor(process.cwd());
         res.writeHead(launched ? 200 : 500, { "content-type": "application/json" }).end(JSON.stringify({ ok: launched }));
         return;
       }

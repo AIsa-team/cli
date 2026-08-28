@@ -226,7 +226,7 @@ this machine except the sign-in you approve.</p>`;
   const clientCard = (c: (typeof CLIENTS)[number], checked: boolean) => `
 <label class="tile agent${checked ? " on" : ""}" data-cid="${c.id}">
   <input type="radio" class="dot" name="client" value="${c.id}"${checked ? " checked" : ""}${c.installable ? ' data-install="1"' : ""}>
-  <span class="tlogo">${BRAND_LOGOS[c.id] ?? CLIENT_LOGOS[c.id] ?? I.terminal}</span>
+  <span class="tlogo${c.id === "cursor" ? " mono" : ""}">${BRAND_LOGOS[c.id] ?? CLIENT_LOGOS[c.id] ?? I.terminal}</span>
   <span class="tbody"><span class="thead"><span class="tname">${c.label}</span></span>
     <span class="tbrief" data-brief>${
       c.detected ? c.detail : `Install <b>and</b> connect it — <code>${c.command}</code>`
@@ -409,6 +409,7 @@ each step reports as it finishes, and your results open on the last step.</p>
   var ICON_COPY = ${JSON.stringify(I.copy)};
   var ICON_CHECK = ${JSON.stringify(I.check)};
   var VSCODE_LOGO = ${JSON.stringify(BRAND_LOGOS.vscode ?? "")};
+  var CURSOR_LOGO = ${JSON.stringify(BRAND_LOGOS.cursor ?? "")};
   var MODEL_COUNT = ${VSCODE_MODELS.length};
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
@@ -747,8 +748,13 @@ each step reports as it finishes, and your results open on the last step.</p>
       }
     }
     if (id === "cursor" && s.deeplinks && s.deeplinks.length) {
-      fileNote = "<h2>Finish in Cursor — one click per server</h2><div class='webcard'>" +
-        "<p class='fine' style='margin:0 0 .6rem'>Each button opens Cursor with the entry ready; press <b>Install</b> there. Afterwards <b>Cursor Settings → MCP</b> lists them as <code>aisa-…</code>.</p>" +
+      fileNote = "<div class='vsccard'><div class='vschead'><span class='blogo lg mono'>" + CURSOR_LOGO + "</span><div><b>Cursor is ready</b>" +
+        "<div class='fine' style='margin:0'>" + s.deeplinks.length + " install link" + (s.deeplinks.length > 1 ? "s" : "") + " below — one click each, confirmed inside Cursor.</div></div>" +
+        "<div class='termside'><button type='button' class='cta sm' id='launch'>Open Cursor →</button><span class='fine' id='launchnote'></span></div></div>" +
+        "<div class='vscgrid'>" +
+        "<div class='vscitem'><span class='srv'>Tools</span>Each button opens Cursor with the entry ready; press <b>Install</b> there. Afterwards <b>Cursor Settings → MCP</b> lists them as <code>aisa-…</code>, and Agent mode can use them.</div>" +
+        "<div class='vscitem'><span class='srv'>Models</span>Cursor keeps its own models for Tab and inline edits. For chat and Agent you can point it at AIsa by hand: <b>Settings → Models → Override OpenAI Base URL</b> = <code>https://api.aisa.one/v1</code> with your AIsa key.</div>" +
+        "</div>" +
         s.deeplinks.map(function (d) {
           return "<div class='weburl'><div><span class='srv'>" + d.name + "</span><code>" + (BY_SLUG[d.slug] ? BY_SLUG[d.slug].endpoint : "") + "</code></div>" +
             "<a class='cta sm' href='" + d.url + "'>Add to Cursor →</a></div>";
@@ -800,8 +806,8 @@ each step reports as it finishes, and your results open on the last step.</p>
     });
     var lb = $("#launch"); if (lb) lb.addEventListener("click", function () {
       lb.disabled = true;
-      fetch("/launch?token=" + TOKEN, { method: "POST" }).then(function (r) { if (!r.ok) throw 0; lb.textContent = id === "vscode" ? "✓ VS Code opened" : "✓ Opened in Terminal"; })
-        .catch(function () { lb.style.display = "none"; $("#launchnote").innerHTML = id === "vscode" ? "Could not start VS Code — open it from your Applications folder." : "Could not open a terminal — just run <code>" + bin + "</code> in any terminal."; });
+      fetch("/launch?token=" + TOKEN, { method: "POST" }).then(function (r) { if (!r.ok) throw 0; lb.textContent = id === "vscode" ? "✓ VS Code opened" : id === "cursor" ? "✓ Cursor opened" : "✓ Opened in Terminal"; })
+        .catch(function () { lb.style.display = "none"; $("#launchnote").innerHTML = id === "vscode" || id === "cursor" ? "Could not start " + name + " — open it from your Applications folder." : "Could not open a terminal — just run <code>" + bin + "</code> in any terminal."; });
     });
   }
 
@@ -929,6 +935,8 @@ function shellT2(title: string, body: string): string {
   .blogo { display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; }
   .blogo svg { width: 100%; height: 100%; }
   .blogo.lg { width: 36px; height: 36px; }
+  /* Single-colour marks drawn for light backgrounds (Cursor) flip in dark mode. */
+  @media (prefers-color-scheme: dark) { .mono svg { filter: invert(1); } }
   /* tiles (agents, model choice) */
   .two { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 2rem; margin-top: 1.6rem; align-items: start; }
   @media (max-width: 960px) { .two { grid-template-columns: 1fr; } }
@@ -1103,6 +1111,7 @@ function shellT2(title: string, body: string): string {
   .vschead { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; }
   .vschead > div:nth-child(2) { flex: 1; min-width: 14rem; font-size: 1.05rem; }
   .vscgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .9rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--line); }
+  .vsccard .weburl:first-of-type { margin-top: .6rem; }
   .vscitem { font-size: .95rem; color: var(--muted); } .vscitem b, .vscitem code { color: var(--ink); }
   .vscitem .srv { display: block; color: var(--red); font-weight: 600; font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; margin-bottom: .25rem; }
   .examples { display: grid; gap: .8rem; }
