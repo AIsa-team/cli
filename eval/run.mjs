@@ -16,9 +16,9 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, existsSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, existsSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname, resolve } from "node:path";
+import { delimiter, join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { grade, loadLatestPlan, microsToCredits } from "./grade.mjs";
 
@@ -32,11 +32,34 @@ const cliEntry = join(repoRoot, "dist", "index.js");
  * CLI 的密钥解析是 env 优先于 ~/.aisa/key 文件，所以这里用一个毒化的
  * AISA_API_KEY 覆盖：任何真实 API 调用都会 401，机械性保证评测零消费。
  */
+function shellQuote(value) {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+/**
+ * npm exposes package bins as executable commands. The repository checkout is
+ * not globally installed, so materialise the same `aisa` command inside each
+ * isolated eval directory instead of teaching the agent a build-file path.
+ */
+function evalCommandDir(planDir) {
+  const binDir = join(planDir, "bin");
+  mkdirSync(binDir, { recursive: true });
+  const launcher = join(binDir, "aisa");
+  writeFileSync(
+    launcher,
+    `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(cliEntry)} "$@"\n`,
+    { mode: 0o755 }
+  );
+  return binDir;
+}
+
 function sandboxEnv(planDir) {
+  const commandDir = evalCommandDir(planDir);
   return {
     ...process.env,
     AISA_PLAN_DIR: planDir,
     AISA_API_KEY: "aisa-eval-offline-do-not-use",
+    PATH: [commandDir, process.env.PATH ?? ""].join(delimiter),
   };
 }
 
@@ -71,20 +94,20 @@ function loadAgent(name) {
   return JSON.parse(readFileSync(path, "utf-8"));
 }
 
-/** scripted 模式：回放场景自带的参考命令序列，{plan} 由第一步 create --json 捕获 */
+/** scripted 模式：回放场景自带的 `aisa` 参考命令序列，{plan} 由第一步 create --json 捕获 */
 function runScripted(scenario, planDir) {
   let planId = null;
   const transcript = [];
   for (const step of scenario.scripted_reference) {
     const argv = step.argv.map((a) => (planId ? a.replaceAll("{plan}", planId) : a));
-    const result = spawnSync("node", [cliEntry, ...argv], {
+    const result = spawnSync("aisa", argv, {
       cwd: repoRoot,
       env: sandboxEnv(planDir),
       encoding: "utf-8",
       timeout: 60_000,
     });
     const exit = result.status ?? -1;
-    transcript.push({ argv, exit, stdout: result.stdout, stderr: result.stderr });
+    transcript.push({ argv: ["aisa", ...argv], exit, stdout: result.stdout, stderr: result.stderr });
     const expected = step.expect_exit ?? 0;
     if (exit !== expected) {
       return { ok: false, transcript, error: `step "aisa ${argv.join(" ")}" exited ${exit}, expected ${expected}` };

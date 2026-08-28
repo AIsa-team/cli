@@ -41,7 +41,7 @@ the contract, so "did the agent succeed" is a schema check, not an opinion.
 ## Usage
 
 ```bash
-npm run build            # the harness drives dist/index.js
+npm run build            # the harness exposes the package as `aisa` in each eval sandbox
 
 # Validate the harness itself (no LLM): replay each scenario's
 # known-good command sequence.

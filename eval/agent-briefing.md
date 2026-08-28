@@ -5,7 +5,7 @@ from the current directory (the CLI repo root).
 
 Rules:
 
-- Invoke the CLI as: `node dist/index.js plan <subcommand> ...`
+- Invoke the CLI as: `aisa plan <subcommand> ...`
 - Plans are stored under the directory in the `AISA_PLAN_DIR` environment
   variable (already set). Do not change it.
 - Use only `plan` subcommands: `create`, `discover`, `add`, `item-replace`,
@@ -14,8 +14,8 @@ Rules:
 - Exit codes: 0 = ok, 2 = quote over budget, 3 = validation failed or quote
   blocked (missing scope, missing spend cap, etc.), 1 = other errors.
 - Discover capabilities and their scope fields with:
-  `node dist/index.js plan discover <query>` and validate with
-  `node dist/index.js plan check <plan_id>`.
+  `aisa plan discover <query>` and validate with
+  `aisa plan check <plan_id>`.
 - Do not run `npm`, do not edit any files, do not use the network. Gateway
   commands like `aisa run` will fail auth in this sandbox — only `plan`
   subcommands work.
