@@ -206,7 +206,8 @@ nothing here is irreversible.</p>
   <div class="ftile"><div class="fico">${I.finance}</div>
     <h3>Rich, advanced tools your agent can act on</h3>
     <p>Market analysis and expansion research, finance data, social media signals, B2B
-    prospecting — live MCP servers of licensed, production data, not scraped guesses.</p></div>
+    prospecting — a wide network of officially licensed commercial APIs, integrated and
+    refined by AIsa into MCP tools your agent can use out of the box.</p></div>
   <div class="ftile"><div class="fico">${I.terminal}</div>
     <h3>Agent skills, ready to run</h3>
     <p>A public catalogue of skills that teach your agent how to use each capability well —
