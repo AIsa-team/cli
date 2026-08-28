@@ -24,7 +24,7 @@ import {
 } from "./llm-config.js";
 import { writeClaudeAisaSettings, installWrappers } from "./wrappers.js";
 import { mintCliKey } from "./oauth-login.js";
-import { vscodeDetected, vscodeUserDir, writeVSCodeLLM, writeVSCodeMCP, VSCODE_MODELS } from "./vscode.js";
+import { vscodeDetected, vscodeUserDir, writeVSCodeLLM, writeVSCodeMCP, installVSCodeExtension, VSCODE_MODELS } from "./vscode.js";
 import { formatMicrosUSD } from "./account.js";
 import { apiRequest } from "../api.js";
 import {
@@ -683,9 +683,18 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       if (r.ok) ok("llm-backup", `aisa provider added — pick aisa/${DEFAULT_MODELS.model} in opencode`);
       else fail("llm-backup", r.reason);
     } else if (target === "vscode") {
-      const r = writeVSCodeLLM();
-      if (r.ok) ok("llm-backup", `${VSCODE_MODELS.length} models under "AIsa" in the chat model picker — paste your key once there`);
-      else fail("llm-backup", r.reason);
+      // Preferred: the AIsa extension provisions key and models through VS
+      // Code's own command. Fallback: write the models file and let the
+      // user paste the key once (the results page explains how).
+      setStep(state, "llm-backup", { state: "running", detail: "installing the AIsa extension so VS Code stores your key itself" });
+      const ext = installVSCodeExtension();
+      if (ext.ok) {
+        ok("llm-backup", `${VSCODE_MODELS.length} models under "AIsa" in the chat model picker — key provisioned by the AIsa extension`);
+      } else {
+        const r = writeVSCodeLLM();
+        if (r.ok) ok("llm-backup", `${VSCODE_MODELS.length} models under "AIsa" in the chat model picker — paste your key once there (extension: ${ext.reason})`);
+        else fail("llm-backup", r.reason);
+      }
     } else {
       setStep(state, "llm-backup", { state: "skip", detail: "not available for this client" });
     }

@@ -84,7 +84,7 @@ const AGENT_NOTES: Record<string, string> = {
   opencode:
     "Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.",
   vscode:
-    "Both of VS Code's AI surfaces are files in its user profile, so nothing is done by hand: the AIsa servers go into <code>mcp.json</code> (VS Code signs in to them itself if no key is stored), and the models go into <code>chatLanguageModels.json</code> as a <b>Custom Endpoint</b> group named AIsa. Copilot's own models stay; AIsa's appear beside them in the chat model picker. Inline completions keep using Copilot.",
+    "Nothing is done by hand. The AIsa servers go into VS Code's <code>mcp.json</code> (with your key, or VS Code signs in to them itself), and a small <b>AIsa extension</b> is installed that asks VS Code to store your key and add the models as a <b>Custom Endpoint</b> group named AIsa — beside Copilot's own, which stay. Inline completions keep using Copilot.",
   cursor:
     "One click per server: each becomes an <b>Add to Cursor</b> link on the last step. Cursor opens, shows you the exact entry, and writes it into its own MCP settings when you confirm. Models stay as they are — Cursor picks its own.",
   "claude-ai":
@@ -123,7 +123,7 @@ const BACKUP_COPY: Record<string, string> = {
   codex:
     "Adds an <b>aisa profile</b> inside Codex's own config and a <b><code>codex-aisa</code></b> command. Your default Codex is <b>untouched</b>.<br>You can use the newly added <b><code>codex-aisa</code></b> (or <code>codex --profile aisa</code>) whenever you want AIsa's models; it applies to that session only.",
   vscode:
-    "Adds a <b>Custom Endpoint</b> group named <b>AIsa</b> to VS Code's chat models — Claude, GPT, DeepSeek, Kimi, GLM, Qwen — beside Copilot's own. Your Copilot setup is <b>untouched</b>.<br>You paste your AIsa key <b>once</b> in VS Code's Manage Models (it stores keys itself); then pick any AIsa model from the chat model picker. Inline completions stay on Copilot.",
+    "Adds a <b>Custom Endpoint</b> group named <b>AIsa</b> to VS Code's chat models — Claude, GPT, DeepSeek, Kimi, GLM, Qwen — beside Copilot's own. Your Copilot setup is <b>untouched</b>.<br>A small <b>AIsa extension</b> is installed so VS Code stores your key itself — nothing to paste. Then pick any AIsa model from the chat model picker; inline completions stay on Copilot.",
   opencode:
     "Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b>.<br>You can pick the newly added <code>aisa/…</code> models from opencode's model list whenever you want them.",
 };
@@ -725,7 +725,12 @@ each step reports as it finishes, and your results open on the last step.</p>
     var fileNote = "";
     if (id === "vscode") {
       fileNote = "<p class='fine'><b>Reload VS Code</b> (Cmd/Ctrl+Shift+P → Reload Window). The servers appear under <b>Extensions → MCP Servers</b>.</p>";
-      if (sel.llmMode === "backup") {
+      var llmStep = steps.filter(function (x) { return x.id === "llm-backup"; })[0];
+      var needsPaste = llmStep && /paste/.test(llmStep.detail || "");
+      if (sel.llmMode === "backup" && !needsPaste) {
+        fileNote += "<p class='fine'>The <b>AIsa</b> extension stored your key in VS Code for you — open Chat, click the model name at the bottom-right of the input and pick any AIsa model.</p>";
+      }
+      if (sel.llmMode === "backup" && needsPaste) {
         fileNote += "<h2>One paste in VS Code — your key</h2><div class='webcard'>" +
           "<p class='fine' style='margin:0 0 .6rem'>VS Code keeps model keys in its own encrypted store, which only its UI can write — so this is the one step it does not let us do for you.</p>" +
           "<ol class='websteps'><li>Open Chat (<code>Ctrl+Cmd+I</code>), click the <b>model name</b> at the bottom-right of the input, then <b>Manage Models…</b></li>" +

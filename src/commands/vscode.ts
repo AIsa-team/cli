@@ -1,6 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { ensureDir } from "../utils/file.js";
 import { LLM_BASE_URL } from "../constants.js";
 import type { LiveServer } from "./mcp.js";
@@ -108,6 +110,42 @@ export function removeVSCodeLLM(): ConfigResult {
   );
   writeFileSync(path, JSON.stringify(next, null, 2) + "\n", "utf-8");
   return { ok: true, path };
+}
+
+/** The `code` command: on PATH when the user enabled it, otherwise inside
+ *  the app bundle on macOS or the usual Linux locations. */
+export function vscodeBinary(): string | undefined {
+  const candidates =
+    process.platform === "darwin"
+      ? ["code", "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
+         join(homedir(), "Applications/Visual Studio Code.app/Contents/Resources/app/bin/code")]
+      : ["code", "/usr/bin/code", "/usr/share/code/bin/code", "/snap/bin/code"];
+  for (const c of candidates) {
+    const r = spawnSync(c, ["--version"], { timeout: 15_000, encoding: "utf8" });
+    if (r.status === 0) return c;
+  }
+  return undefined;
+}
+
+/** The packaged AIsa extension shipped with the CLI. */
+export function vscodeExtensionPath(): string {
+  return fileURLToPath(new URL("../../vscode-extension/aisa-vscode.vsix", import.meta.url));
+}
+
+/**
+ * The fully automatic route for the key: install the AIsa extension, which
+ * asks VS Code itself to store the key from ~/.aisa/key and add the model
+ * group (see vscode-extension/extension.js). Works on a running VS Code —
+ * new extensions activate without a reload.
+ */
+export function installVSCodeExtension(): { ok: true; bin: string } | { ok: false; reason: string } {
+  const bin = vscodeBinary();
+  if (!bin) return { ok: false, reason: "the code command was not found" };
+  const vsix = vscodeExtensionPath();
+  if (!existsSync(vsix)) return { ok: false, reason: `extension package missing at ${vsix}` };
+  const r = spawnSync(bin, ["--install-extension", vsix, "--force"], { timeout: 120_000, encoding: "utf8" });
+  if (r.status !== 0) return { ok: false, reason: (r.stderr || r.stdout || `exit ${r.status}`).trim().split("\n")[0] };
+  return { ok: true, bin };
 }
 
 export function writeVSCodeMCP(chosen: LiveServer[], apiKey: string | undefined): ConfigResult & { written?: number } {
