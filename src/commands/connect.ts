@@ -2169,7 +2169,7 @@ export async function connectAction(options: {
           });
           log.encore(
             "aisa connect",
-            "run this any time — add servers, switch models, connect another agent"
+            "run this any time — configure servers, switch models, connect another agent"
           );
           setTimeout(() => {
             srv.close();
@@ -2186,7 +2186,7 @@ export async function connectAction(options: {
           });
           log.encore(
             "aisa connect",
-            "run this any time — add servers, switch models, connect another agent"
+            "run this any time — configure servers, switch models, connect another agent"
           );
           // Dry run: no success tab is opened, but the page (and T2's done
           // step) stays reachable for a minute so a rehearsal can be read.
