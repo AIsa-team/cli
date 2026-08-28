@@ -88,6 +88,8 @@ const AGENT_NOTES: Record<string, string> = {
     "Nothing is done by hand. The AIsa servers go into VS Code's <code>mcp.json</code> (with your key, or VS Code signs in to them itself), and a small <b>AIsa extension</b> is installed that asks VS Code to store your key and add the models as a <b>Custom Endpoint</b> group named AIsa — beside Copilot's own, which stay. Inline completions keep using Copilot.",
   cursor:
     "One click per server: each becomes an <b>Add to Cursor</b> link on the last step. Cursor opens, shows you the exact entry, and writes it into its own MCP settings when you confirm. Models stay as they are — Cursor picks its own.",
+  "claude-desktop":
+    "Claude Desktop's config file only takes MCP servers over stdio, so each AIsa server is written in as a small <code>mcp-remote</code> bridge carrying your key (plus the free <code>aisa-docs</code> server). The bridges live and die with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the servers appear under its tools menu.",
   "claude-ai":
     "Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own.",
   windsurf: "The AIsa servers are written into Windsurf's <code>mcp_config.json</code>.",
@@ -101,6 +103,8 @@ const HAVE_NOTES: Record<string, string> = {
     "Nothing of yours is replaced. Your <code>codex</code> keeps its login and config; the next step lets you add AIsa <b>beside</b> it as an <code>aisa</code> profile and a <b><code>codex-aisa</code></b> command, or switch — your call.",
   opencode:
     "Nothing of yours is replaced. Your default model stays; the next step can add AIsa as an extra <code>aisa/…</code> provider you pick from the model list, or switch — your call.",
+  "claude-desktop":
+    "Nothing of yours is replaced. Anything already in <code>claude_desktop_config.json</code> stays; AIsa's entries are added beside it under <code>aisa-*</code> names and removing them is deleting those entries.",
   "claude-ai":
     "Nothing of yours is touched — the connectors live in your claude.ai account, beside any you already have, and can be removed there in one click.",
   vscode:
@@ -111,6 +115,8 @@ const HAVE_NOTES: Record<string, string> = {
 
 /** Why the Models step has nothing to offer a file-configured client. */
 const FILE_MODEL_NOTE: Record<string, string> = {
+  "claude-desktop":
+    "<b>Claude Desktop runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents on the same AIsa account; Claude Desktop gets the MCP tools.",
   "claude-ai":
     "<b>claude.ai runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents (Claude Code, Codex, opencode) on the same AIsa account; claude.ai gets the MCP connectors.",
   cursor:
@@ -171,12 +177,11 @@ export function renderT2Page(
     toolCount: s.toolCount,
     description: s.description,
   }));
-  // Windsurf and Claude Desktop are not part of this flow (the file-config
-  // path stays in T1). claude.ai on the web is parked until AIsa is in the
-  // Connector Directory — the hand-off page below is ready, the card is not
-  // offered; see mcp.md T20.
+  // Windsurf is not part of this flow (its file path stays in T1). claude.ai
+  // on the web is parked until AIsa is in the Connector Directory — the
+  // hand-off page below is ready, the card is not offered; see mcp.md T20.
   const CLIENTS = clients
-    .filter((c) => c.id !== "windsurf" && c.id !== "claude-desktop")
+    .filter((c) => c.id !== "windsurf")
     .map((c) => ({
       id: c.id,
       label: c.label,
@@ -221,7 +226,7 @@ nothing here is irreversible.</p>
   // ── step 2: your agent ──
   // Fixed card order, whatever is or is not installed: Claude Code, Codex,
   // opencode, then the editors and web targets.
-  const AGENT_ORDER = ["claude-code", "codex", "opencode", "vscode", "cursor", "claude-ai"];
+  const AGENT_ORDER = ["claude-code", "codex", "opencode", "vscode", "cursor", "claude-desktop", "claude-ai"];
   const agentRank = (id: string) => { const i = AGENT_ORDER.indexOf(id); return i === -1 ? 99 : i; };
   const shown = CLIENTS.filter((c) => c.detected || c.installable).sort((a, b) => agentRank(a.id) - agentRank(b.id));
   const firstPick = shown.find((c) => c.detected) ?? shown[0];
@@ -229,7 +234,7 @@ nothing here is irreversible.</p>
   const clientCard = (c: (typeof CLIENTS)[number], checked: boolean) => `
 <label class="tile agent${checked ? " on" : ""}" data-cid="${c.id}">
   <input type="radio" class="dot" name="client" value="${c.id}"${checked ? " checked" : ""}${c.installable ? ' data-install="1"' : ""}>
-  <span class="tlogo${c.id === "cursor" ? " mono" : ""}">${BRAND_LOGOS[c.id] ?? CLIENT_LOGOS[c.id] ?? I.terminal}</span>
+  <span class="tlogo${c.id === "cursor" ? " mono" : ""}">${BRAND_LOGOS[c.id] ?? (c.id === "claude-desktop" ? BRAND_LOGOS["claude-ai"] : undefined) ?? CLIENT_LOGOS[c.id] ?? I.terminal}</span>
   <span class="tbody"><span class="thead"><span class="tname">${c.label}</span></span>
     <span class="tbrief" data-brief>${
       c.detected ? c.detail : `Install <b>and</b> connect it — <code>${c.command}</code>`
@@ -238,7 +243,7 @@ nothing here is irreversible.</p>
   const agentCards = shown.map((c) => clientCard(c, c === firstPick)).join("");
   // Fixed order: Claude Desktop, ChatGPT, Cursor, VS Code — by how likely a
   // reader is to care, not by which list they come from.
-  const chipOrder = ["claude-ai", "chatgpt", "cursor", "vscode"];
+  const chipOrder = ["claude-desktop", "claude-ai", "chatgpt", "cursor", "vscode"];
   // (vscode only lands here when it has never been run on this machine)
   const chips = [
     ...rest.map((c) => ({ id: c.id, html: `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>not found</i></span>` })),
@@ -411,6 +416,7 @@ each step reports as it finishes, and your results open on the last step.</p>
   var ICON_CHECK = ${JSON.stringify(I.check)};
   var VSCODE_LOGO = ${JSON.stringify(BRAND_LOGOS.vscode ?? "")};
   var CURSOR_LOGO = ${JSON.stringify(BRAND_LOGOS.cursor ?? "")};
+  var CLAUDE_DT_LOGO = ${JSON.stringify(BRAND_LOGOS["claude-ai"] ?? "")};
   var MODEL_COUNT = ${VSCODE_MODELS.length};
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
@@ -728,6 +734,15 @@ each step reports as it finishes, and your results open on the last step.</p>
       (gift ? "<div class='giftnote'><b>AIsa has given you $1 to get started.</b> That covers your first few calls. Top up now so your agent never stops mid-task.</div>" : low ? "<div class='lownote'>Running a little low — a small top-up keeps your first calls flowing.</div>" : (bal === null || bal === undefined ? "<div class='lownote'>Could not read it just now — <code>aisa balance</code> will.</div>" : "")) +
       "<a class='cta sm' href='https://console.aisa.one/billing?source=aisa_cli' target='_blank' rel='noopener'>Top up now →</a></div></div>";
     var fileNote = "";
+    if (id === "claude-desktop") {
+      fileNote = "<div class='vsccard'><div class='vschead'><span class='blogo lg'>" + CLAUDE_DT_LOGO + "</span><div><b>Claude Desktop is ready</b>" +
+        "<div class='fine' style='margin:0'>" + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " (plus aisa-docs) are in its config — one restart loads them.</div></div>" +
+        "<div class='termside'><button type='button' class='cta sm' id='launch'>Restart Claude Desktop →</button><span class='fine' id='launchnote'></span></div></div>" +
+        "<div class='vscgrid'>" +
+        "<div class='vscitem'><span class='srv'>Tools</span>After the restart, open the <b>tools menu</b> (🔧) in a chat — the <code>aisa-…</code> servers are there. Each runs as a small bridge that lives and dies with the app; no background service.</div>" +
+        "<div class='vscitem'><span class='srv'>Across devices</span>Prefer one setup on every device? Add the same server URLs as <b>custom Connectors</b> under Settings → Connectors — they sync with claude.ai through your account.</div>" +
+        "</div></div>";
+    }
     if (id === "vscode") {
       var llmStep = steps.filter(function (x) { return x.id === "llm-backup"; })[0];
       var needsPaste = llmStep && /paste/.test(llmStep.detail || "");
@@ -790,7 +805,7 @@ each step reports as it finishes, and your results open on the last step.</p>
     var rest = mcpFailed ? failBlock + recap + balCard
       : "<p class='lede'>You are connected to <b>AIsa</b> — one account for all the well-known models and the live data behind them." + (more > 0 ? " " + more + " more MCP server" + (more > 1 ? "s are" : " is") + " one <code>npx @aisa-one/cli connect</code> away." : "") + " See your account dashboard at <a class='lnk' href='https://console.aisa.one' target='_blank' rel='noopener'>console.aisa.one</a>.</p>" +
         failBlock + recap + balCard + fileNote + launch +
-        "<h2>Try it now — paste one of these into " + name + (id === "claude-ai" || id === "cursor" ? " once the servers are added" : "") + "</h2><div class='examples'>" + (examples || "<p class='fine'>Ask your agent to use any of the aisa-* MCP tools.</p>") + "</div>" +
+        "<h2>Try it now — paste one of these into " + name + (id === "claude-ai" || id === "cursor" ? " once the servers are added" : id === "claude-desktop" ? " after the restart" : "") + "</h2><div class='examples'>" + (examples || "<p class='fine'>Ask your agent to use any of the aisa-* MCP tools.</p>") + "</div>" +
         backupNote +
         "<p class='rerun'>Change the default any time — just run <b><code>aisa connect</code></b> again.</p>";
     $("#doneBody").innerHTML = head + rest;
@@ -807,8 +822,8 @@ each step reports as it finishes, and your results open on the last step.</p>
     });
     var lb = $("#launch"); if (lb) lb.addEventListener("click", function () {
       lb.disabled = true;
-      fetch("/launch?token=" + TOKEN, { method: "POST" }).then(function (r) { if (!r.ok) throw 0; lb.textContent = id === "vscode" ? "✓ VS Code opened" : id === "cursor" ? "✓ Cursor opened" : "✓ Opened in Terminal"; })
-        .catch(function () { lb.style.display = "none"; $("#launchnote").innerHTML = id === "vscode" || id === "cursor" ? "Could not start " + name + " — open it from your Applications folder." : "Could not open a terminal — just run <code>" + bin + "</code> in any terminal."; });
+      fetch("/launch?token=" + TOKEN, { method: "POST" }).then(function (r) { if (!r.ok) throw 0; lb.textContent = id === "vscode" ? "✓ VS Code opened" : id === "cursor" ? "✓ Cursor opened" : id === "claude-desktop" ? "✓ Restarting…" : "✓ Opened in Terminal"; })
+        .catch(function () { lb.style.display = "none"; $("#launchnote").innerHTML = id === "vscode" || id === "cursor" || id === "claude-desktop" ? "Could not start " + name + " — open it from your Applications folder." : "Could not open a terminal — just run <code>" + bin + "</code> in any terminal."; });
     });
   }
 

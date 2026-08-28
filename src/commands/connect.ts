@@ -1711,6 +1711,18 @@ function launchAgentTerminal(
   );
 }
 
+/** Quit and reopen Claude Desktop so it loads the fresh MCP config. The
+ *  quit is polite (AppleScript / SIGTERM to the app, never -9); a Claude
+ *  Desktop that was not running simply starts. */
+function restartClaudeDesktop(): boolean {
+  if (process.platform === "darwin") {
+    spawnSync("osascript", ["-e", 'tell application "Claude" to quit'], { timeout: 15_000 });
+    const r = spawnSync("open", ["-a", "Claude"], { timeout: 30_000 });
+    return r.status === 0;
+  }
+  return false;
+}
+
 /** Open Cursor on a folder: the bundled `cursor` command on macOS (the
  *  app may not be on PATH), `cursor` elsewhere. */
 function launchCursor(dir: string): boolean {
@@ -1857,9 +1869,12 @@ export async function connectAction(options: {
       // Whitelist only — the client name selects a fixed binary, and no part
       // of the request ever reaches a shell.
       const backup = state.llmMode === "backup";
-      if (chosenClients[0] === "vscode" || chosenClients[0] === "cursor") {
-        // Not terminal agents: open the editor itself on this folder.
-        const launched = chosenClients[0] === "vscode" ? launchVSCode(process.cwd()) : launchCursor(process.cwd());
+      if (chosenClients[0] === "vscode" || chosenClients[0] === "cursor" || chosenClients[0] === "claude-desktop") {
+        // Not terminal agents: open (or for Claude Desktop, restart) the app.
+        const launched =
+          chosenClients[0] === "vscode" ? launchVSCode(process.cwd())
+          : chosenClients[0] === "cursor" ? launchCursor(process.cwd())
+          : restartClaudeDesktop();
         res.writeHead(launched ? 200 : 500, { "content-type": "application/json" }).end(JSON.stringify({ ok: launched }));
         return;
       }
