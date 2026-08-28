@@ -219,8 +219,12 @@ nothing here is irreversible.</p>
 </div>`;
 
   // ── step 2: your agent ──
-  const usable = CLIENTS.filter((c) => c.detected);
-  const installable = CLIENTS.filter((c) => c.installable);
+  // Fixed card order, whatever is or is not installed: Claude Code, Codex,
+  // opencode, then the editors and web targets.
+  const AGENT_ORDER = ["claude-code", "codex", "opencode", "vscode", "cursor", "claude-ai"];
+  const agentRank = (id: string) => { const i = AGENT_ORDER.indexOf(id); return i === -1 ? 99 : i; };
+  const shown = CLIENTS.filter((c) => c.detected || c.installable).sort((a, b) => agentRank(a.id) - agentRank(b.id));
+  const firstPick = shown.find((c) => c.detected) ?? shown[0];
   const rest = CLIENTS.filter((c) => !c.detected && !c.installable);
   const clientCard = (c: (typeof CLIENTS)[number], checked: boolean) => `
 <label class="tile agent${checked ? " on" : ""}" data-cid="${c.id}">
@@ -231,9 +235,7 @@ nothing here is irreversible.</p>
       c.detected ? c.detail : `Install <b>and</b> connect it — <code>${c.command}</code>`
     }</span></span>
   ${c.kind === "web" ? `<span class="badge web end">web · no install</span>` : c.detected ? `<span class="badge ok end">✓ detected</span>` : `<span class="badge todo end" data-badge>not installed</span>`}</label>`;
-  const agentCards =
-    usable.map((c, i) => clientCard(c, i === 0)).join("") +
-    installable.map((c) => clientCard(c, usable.length === 0 && c === installable[0])).join("");
+  const agentCards = shown.map((c) => clientCard(c, c === firstPick)).join("");
   // Fixed order: Claude Desktop, ChatGPT, Cursor, VS Code — by how likely a
   // reader is to care, not by which list they come from.
   const chipOrder = ["claude-ai", "chatgpt", "cursor", "vscode"];
