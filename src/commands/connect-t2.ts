@@ -769,7 +769,7 @@ each step reports as it finishes, and your results open on the last step.</p>
             "<button type='button' data-copy=\\"" + x.endpoint + "\\">" + ICON_COPY + " Copy URL</button></div>";
         }).join("") + "</div>";
     }
-    var backupNote = backup && id === "vscode" ? "" : backup ? "<p class='fine'><b>Your usual setup is untouched.</b> " + (id === "opencode" ? "Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa." : "Run <code>" + bin + "</code> whenever you want AIsa's models; delete that one file to remove it.") + "</p>" : "";
+    var backupNote = backup && id === "vscode" ? "" : backup ? "<p class='rerun'><b>Your usual setup is untouched.</b> " + (id === "opencode" ? "Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa." : "Run <code>" + bin + "</code> whenever you want AIsa's models; delete that one file to remove it.") + "</p>" : "";
     var model = MODEL_FOR[id] || "";
     var preview = id === "opencode"
       ? "<pre class='termlogo oc'>" + ART.opencode + "</pre><div class='termline'>Welcome to <b>opencode</b></div><div class='termline dim'>model: <b>" + PROVIDER_ID + "/" + model + "</b> · via AIsa</div><div class='termline dim'>config: ~/.config/opencode/opencode.json</div>"
@@ -787,9 +787,9 @@ each step reports as it finishes, and your results open on the last step.</p>
     var more = SERVERS.length - chosen.length;
     var rest = mcpFailed ? failBlock + recap + balCard
       : "<p class='lede'>You are connected to <b>AIsa</b> — one account for all the well-known models and the live data behind them." + (more > 0 ? " " + more + " more MCP server" + (more > 1 ? "s are" : " is") + " one <code>npx @aisa-one/cli connect</code> away." : "") + " See your account dashboard at <a class='lnk' href='https://console.aisa.one' target='_blank' rel='noopener'>console.aisa.one</a>.</p>" +
-        failBlock + recap + balCard + fileNote + backupNote + launch +
+        failBlock + recap + balCard + fileNote + launch +
         "<h2>Try it now — paste one of these into " + name + (id === "claude-ai" || id === "cursor" ? " once the servers are added" : "") + "</h2><div class='examples'>" + (examples || "<p class='fine'>Ask your agent to use any of the aisa-* MCP tools.</p>") + "</div>" +
-        "<p class='fine'>These first prompts mention <b>AIsa</b> once so the demo lands on your new tools; after that plain language is enough.</p>" +
+        backupNote +
         "<p class='rerun'>Change the default any time — just run <b><code>aisa connect</code></b> again.</p>";
     $("#doneBody").innerHTML = head + rest;
     $$("[data-copy]").forEach(function (b) { b.addEventListener("click", function () {
@@ -982,7 +982,8 @@ function shellT2(title: string, body: string): string {
     border-radius: 10px; padding: 1rem 1.1rem; color: var(--muted); font-size: .95rem; margin: 1rem 0; }
   .callout svg { flex: none; color: var(--red); margin-top: .15rem; }
   .callout b { color: var(--ink); }
-  .rerun { margin: .2rem 0 .4rem; font-size: 1.02rem; color: var(--muted); }
+  .rerun { margin: 1rem 0 0; font-size: 1.02rem; color: var(--muted); }
+  .rerun + .rerun { margin-top: .35rem; }
   .rerun code { font-size: 1.05em; color: var(--ink); }
   .modelwarn { margin-top: 1rem; border: 2px solid var(--warn); border-radius: 10px;
     background: color-mix(in srgb, var(--warn) 12%, var(--card)); padding: .9rem 1rem; }
