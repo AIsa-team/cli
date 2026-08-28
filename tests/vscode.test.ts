@@ -30,17 +30,28 @@ describe("VS Code writers", () => {
     mkdirSync(dir, { recursive: true });
     const theirs = { vendor: "openai", name: "Mine", apiKey: "x", models: [] };
     writeFileSync(join(dir, "chatLanguageModels.json"), JSON.stringify([theirs]));
-    expect(writeVSCodeLLM("k1").ok).toBe(true);
-    expect(writeVSCodeLLM("k2").ok).toBe(true);
+    expect(writeVSCodeLLM().ok).toBe(true);
+    expect(writeVSCodeLLM().ok).toBe(true);
     const groups = JSON.parse(readFileSync(join(dir, "chatLanguageModels.json"), "utf-8"));
     expect(groups).toHaveLength(2);
     expect(groups[0]).toEqual(theirs);
     expect(groups[1].vendor).toBe("customendpoint");
-    expect(groups[1].apiKey).toBe("k2");
+    expect(groups[1].apiKey).toBeUndefined();
     expect(groups[1].models).toHaveLength(VSCODE_MODELS.length);
     expect(groups[1].models[0].url).toBe("https://api.aisa.one/v1");
     expect(removeVSCodeLLM().ok).toBe(true);
     expect(JSON.parse(readFileSync(join(dir, "chatLanguageModels.json"), "utf-8"))).toEqual([theirs]);
+  });
+
+  it("keeps the key reference VS Code stored for our group", () => {
+    const dir = vscodeUserDir();
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "chatLanguageModels.json"), JSON.stringify([{ vendor: "customendpoint", name: "AIsa", apiKey: "${input:chat.lm.secret.abc}", models: [] }]));
+    expect(writeVSCodeLLM().ok).toBe(true);
+    const groups = JSON.parse(readFileSync(join(dir, "chatLanguageModels.json"), "utf-8"));
+    expect(groups).toHaveLength(1);
+    expect(groups[0].apiKey).toBe("${input:chat.lm.secret.abc}");
+    expect(groups[0].models).toHaveLength(VSCODE_MODELS.length);
   });
 
   it("writes http MCP entries with the bearer, keeping other servers", () => {

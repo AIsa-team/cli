@@ -683,8 +683,8 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       if (r.ok) ok("llm-backup", `aisa provider added — pick aisa/${DEFAULT_MODELS.model} in opencode`);
       else fail("llm-backup", r.reason);
     } else if (target === "vscode") {
-      const r = writeVSCodeLLM(key);
-      if (r.ok) ok("llm-backup", `${VSCODE_MODELS.length} models in the chat model picker, under "AIsa"`);
+      const r = writeVSCodeLLM();
+      if (r.ok) ok("llm-backup", `${VSCODE_MODELS.length} models under "AIsa" in the chat model picker — paste your key once there`);
       else fail("llm-backup", r.reason);
     } else {
       setStep(state, "llm-backup", { state: "skip", detail: "not available for this client" });
@@ -1800,6 +1800,17 @@ export async function connectAction(options: {
           ? renderT2Page(servers, clients, token, Boolean(key), supported(), "done")
           : renderDone(chosenServers, chosenClients, state.steps, servers, state.balanceMicros ?? null, state.llmMode)
       );
+      return;
+    }
+    if (req.method === "GET" && url.pathname === "/key") {
+      // For the one client that cannot take the key from a file (VS Code):
+      // the results page copies it to the clipboard for pasting into the
+      // app's own key prompt. Token-gated, loopback only, like everything.
+      if (!tokenOk) {
+        res.writeHead(403).end();
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ key: key ?? null }));
       return;
     }
     if (req.method === "POST" && url.pathname === "/seen") {

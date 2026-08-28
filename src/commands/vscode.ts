@@ -12,11 +12,18 @@ import type { ConfigResult } from "./llm-config.js";
  *
  * - Models: `chatLanguageModels.json` (VS Code ≥ 1.117, the "Custom
  *   Endpoint" provider). Top level is an array of provider groups; ours is
- *   one group `{vendor: "customendpoint", name: "AIsa", apiKey, apiType,
- *   models}`. Copilot's own models are untouched — the group sits beside
- *   them in the model picker, so this is always an "add", never a switch.
- *   Inline completions stay on Copilot; the provider only covers chat and
- *   agent mode.
+ *   one group `{vendor: "customendpoint", name: "AIsa", apiType, models}`.
+ *   Copilot's own models are untouched — the group sits beside them in the
+ *   model picker, so this is always an "add", never a switch. Inline
+ *   completions stay on Copilot; the provider only covers chat and agent.
+ *
+ *   The API key is deliberately NOT written. `apiKey` is a `secret: true`
+ *   property: at run time VS Code treats the value as a reference into its
+ *   own secret storage (`${input:chat.lm.secret.<id>}`), so a literal key
+ *   in the file is never sent (verified on 1.134 — the gateway saw an empty
+ *   bearer and answered 401). The key is entered once in VS Code's Manage
+ *   Models UI, which stores it; there is no command or URI to do that from
+ *   outside, and writing its encrypted store is off the table.
  * - MCP: `mcp.json` in the same directory, `{servers: {name: {type: "http",
  *   url, headers}}}`. With a key the entry carries the bearer; without one
  *   VS Code runs the server's OAuth itself on first use.
@@ -55,7 +62,7 @@ function readJson(path: string): unknown {
   return JSON.parse(readFileSync(path, "utf-8"));
 }
 
-export function writeVSCodeLLM(apiKey: string, models = VSCODE_MODELS): ConfigResult {
+export function writeVSCodeLLM(models = VSCODE_MODELS): ConfigResult {
   const dir = vscodeUserDir();
   const path = join(dir, "chatLanguageModels.json");
   let groups: unknown;
@@ -68,7 +75,6 @@ export function writeVSCodeLLM(apiKey: string, models = VSCODE_MODELS): ConfigRe
   const ours = {
     vendor: "customendpoint",
     name: VSCODE_GROUP_NAME,
-    apiKey,
     apiType: "chat-completions",
     models: models.map((m) => ({
       id: m.id,
@@ -83,8 +89,11 @@ export function writeVSCodeLLM(apiKey: string, models = VSCODE_MODELS): ConfigRe
   const isOurs = (g: unknown) =>
     typeof g === "object" && g !== null && (g as { vendor?: string }).vendor === "customendpoint" &&
     (g as { name?: string }).name === VSCODE_GROUP_NAME;
+  // A key reference VS Code already stored for our group survives the
+  // rewrite — the user should paste it once, not once per run.
+  const prior = groups.find(isOurs) as { apiKey?: unknown } | undefined;
   const next = groups.filter((g) => !isOurs(g));
-  next.push(ours);
+  next.push(typeof prior?.apiKey === "string" && prior.apiKey.startsWith("${input:") ? { ...ours, apiKey: prior.apiKey } : ours);
   ensureDir(dir);
   writeFileSync(path, JSON.stringify(next, null, 2) + "\n", "utf-8");
   return { ok: true, path };

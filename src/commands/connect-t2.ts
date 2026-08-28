@@ -123,7 +123,7 @@ const BACKUP_COPY: Record<string, string> = {
   codex:
     "Adds an <b>aisa profile</b> inside Codex's own config and a <b><code>codex-aisa</code></b> command. Your default Codex is <b>untouched</b>.<br>You can use the newly added <b><code>codex-aisa</code></b> (or <code>codex --profile aisa</code>) whenever you want AIsa's models; it applies to that session only.",
   vscode:
-    "Adds a <b>Custom Endpoint</b> group named <b>AIsa</b> to VS Code's chat models — Claude, GPT, DeepSeek, Kimi, GLM, Qwen — beside Copilot's own. Your Copilot setup is <b>untouched</b>.<br>Pick any AIsa model from the chat model picker whenever you want it; inline completions stay on Copilot.",
+    "Adds a <b>Custom Endpoint</b> group named <b>AIsa</b> to VS Code's chat models — Claude, GPT, DeepSeek, Kimi, GLM, Qwen — beside Copilot's own. Your Copilot setup is <b>untouched</b>.<br>You paste your AIsa key <b>once</b> in VS Code's Manage Models (it stores keys itself); then pick any AIsa model from the chat model picker. Inline completions stay on Copilot.",
   opencode:
     "Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b>.<br>You can pick the newly added <code>aisa/…</code> models from opencode's model list whenever you want them.",
 };
@@ -724,8 +724,15 @@ each step reports as it finishes, and your results open on the last step.</p>
       "<a class='cta sm' href='https://console.aisa.one/billing?source=aisa_cli' target='_blank' rel='noopener'>Top up now →</a></div></div>";
     var fileNote = "";
     if (id === "vscode") {
-      fileNote = "<p class='fine'><b>Reload VS Code</b> (Cmd/Ctrl+Shift+P → Reload Window). The servers appear under <b>Extensions → MCP Servers</b>" +
-        (sel.llmMode === "backup" ? ", and the chat model picker gains an <b>AIsa</b> group" : "") + ".</p>";
+      fileNote = "<p class='fine'><b>Reload VS Code</b> (Cmd/Ctrl+Shift+P → Reload Window). The servers appear under <b>Extensions → MCP Servers</b>.</p>";
+      if (sel.llmMode === "backup") {
+        fileNote += "<h2>One paste in VS Code — your key</h2><div class='webcard'>" +
+          "<p class='fine' style='margin:0 0 .6rem'>VS Code keeps model keys in its own encrypted store, which only its UI can write — so this is the one step it does not let us do for you.</p>" +
+          "<ol class='websteps'><li>Open Chat (<code>Ctrl+Cmd+I</code>), click the <b>model name</b> at the bottom-right of the input, then <b>Manage Models…</b></li>" +
+          "<li>Pick <b>AIsa</b> and paste your key when asked (it is stored securely by VS Code)</li>" +
+          "<li>Back in the picker, choose any AIsa model — Claude, GPT, DeepSeek, Kimi, GLM, Qwen</li></ol>" +
+          "<button type='button' class='cta sm' id='copykey'>Copy your AIsa key</button> <span class='fine' id='copykeynote'></span></div>";
+      }
     }
     if (id === "cursor" && s.deeplinks && s.deeplinks.length) {
       fileNote = "<h2>Finish in Cursor — one click per server</h2><div class='webcard'>" +
@@ -772,6 +779,13 @@ each step reports as it finishes, and your results open on the last step.</p>
       navigator.clipboard.writeText(b.getAttribute("data-copy")).then(function () {
         b.textContent = "Copied ✓"; setTimeout(function () { b.innerHTML = ICON_COPY + " Copy"; }, 1600); });
     }); });
+    var ck = $("#copykey"); if (ck) ck.addEventListener("click", function () {
+      fetch("/key?token=" + TOKEN).then(function (r) { return r.json(); }).then(function (d) {
+        if (!d.key) throw 0;
+        return navigator.clipboard.writeText(d.key);
+      }).then(function () { ck.textContent = "Copied ✓"; setTimeout(function () { ck.textContent = "Copy your AIsa key"; }, 1600); })
+        .catch(function () { $("#copykeynote").innerHTML = "No key stored here — run <code>aisa login</code>, then copy it from <code>~/.aisa/key</code>."; });
+    });
     var lb = $("#launch"); if (lb) lb.addEventListener("click", function () {
       lb.disabled = true;
       fetch("/launch?token=" + TOKEN, { method: "POST" }).then(function (r) { if (!r.ok) throw 0; lb.textContent = "✓ Opened in Terminal"; })
