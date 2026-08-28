@@ -11,10 +11,10 @@ import {
   flatEndpoints,
   toRunPath,
   runSlugOf,
-  formatPrice,
   type CatalogEndpoint,
   type CatalogDetail,
 } from "../catalog.js";
+import { presentCatalogPrice } from "../pricing.js";
 
 const DEFAULT_ENDPOINT_LIMIT = 40;
 
@@ -39,10 +39,9 @@ function shortDate(iso?: string): string {
   return Number.isNaN(d.getTime()) ? "—" : d.toISOString().slice(0, 10);
 }
 
-/** Catalog 的 0 是未核实标价，不能拼进 "from … per request"。 */
-function priceClause(usd: number | undefined, whenPriced: (label: string) => string): string {
-  if (usd === 0) return "pricing: dynamic (not listed in catalog)";
-  return whenPriced(formatPrice(usd));
+function priceClause(providerId: string, usd: number | undefined, whenFixed: (label: string) => string): string {
+  const price = presentCatalogPrice(providerId, usd);
+  return price.kind === "fixed" ? whenFixed(price.label) : `pricing: ${price.label}`;
 }
 
 export async function apiListAction(options: {
@@ -90,7 +89,7 @@ export async function apiListAction(options: {
       p.id,
       categoryOf(p.id),
       String(p.endpoint_count),
-      formatPrice(p.pricing?.normal),
+      presentCatalogPrice(p.id, p.pricing?.normal).label,
       shortDate(p.updated_at),
     ];
     if (options.health) row.push(statusBadge(healthById.get(p.id)?.status));
@@ -132,9 +131,10 @@ function printEndpointDetail(detail: CatalogDetail, endpoint: CatalogEndpoint): 
   console.log(`  Provider: ${detail.id}`);
   console.log(
     `  Price:    ${
-      endpoint.pricing?.normal === 0
-        ? "dynamic (not listed in catalog)"
-        : `${formatPrice(endpoint.pricing?.normal)} per request`
+      (() => {
+        const price = presentCatalogPrice(detail.id, endpoint.pricing?.normal);
+        return price.kind === "fixed" ? `${price.label} per request` : price.label;
+      })()
     }`
   );
 
@@ -212,7 +212,7 @@ export async function apiShowAction(
 
   console.log(`\n  ${chalk.cyan.bold(detail.id)} ${chalk.gray(`(${categoryOf(detail.id)})`)}`);
   console.log(
-    `  ${detail.endpoint_count} endpoints · ${priceClause(detail.pricing?.normal, (label) => `from ${label} per request`)}`
+    `  ${detail.endpoint_count} endpoints · ${priceClause(detail.id, detail.pricing?.normal, (label) => `from ${label} per request`)}`
   );
   console.log(`  Updated ${shortDate(detail.updated_at)}`);
   if (health) {
@@ -317,12 +317,15 @@ export async function apiSearchAction(
     console.log(
       formatJson({
         providers: providerHits.map((p) => p.id),
-        endpoints: scored.slice(0, limit).map((r) => ({
-          provider: r.provider,
-          path: r.endpoint.path,
-          name: r.endpoint.name,
-          price: r.endpoint.pricing?.normal,
-        })),
+        endpoints: scored.slice(0, limit).map((r) => {
+          const price = presentCatalogPrice(r.provider, r.endpoint.pricing?.normal);
+          return {
+            provider: r.provider,
+            path: r.endpoint.path,
+            name: r.endpoint.name,
+            price: { catalog_usd: price.catalogUsd ?? null, kind: price.kind, label: price.label },
+          };
+        }),
       })
     );
     return;
@@ -340,7 +343,7 @@ export async function apiSearchAction(
     console.log(chalk.bold(`\n  Matching APIs\n`));
     for (const p of providerHits) {
       console.log(
-        `  ${chalk.cyan.bold(p.id)} ${chalk.gray(`${p.endpoint_count} endpoints · ${priceClause(p.pricing?.normal, (label) => `from ${label}`)}`)}`
+        `  ${chalk.cyan.bold(p.id)} ${chalk.gray(`${p.endpoint_count} endpoints · ${priceClause(p.id, p.pricing?.normal, (label) => `from ${label}`)}`)}`
       );
     }
   }
@@ -349,10 +352,10 @@ export async function apiSearchAction(
     console.log(
       chalk.bold(`\n  Matching endpoints${scored.length > limit ? ` (${limit} of ${scored.length})` : ""}\n`)
     );
-    for (const { endpoint } of scored.slice(0, limit)) {
+    for (const { provider, endpoint } of scored.slice(0, limit)) {
       const runPath = toRunPath(endpoint.path);
       const [slug, ...rest] = runPath.split("/");
-      console.log(`  ${chalk.cyan(runPath)} ${chalk.gray(formatPrice(endpoint.pricing?.normal))}`);
+      console.log(`  ${chalk.cyan(runPath)} ${chalk.gray(presentCatalogPrice(provider, endpoint.pricing?.normal).label)}`);
       if (endpoint.name) console.log(`    ${chalk.gray(truncate(endpoint.name, 78))}`);
       console.log(chalk.gray(`    aisa run ${slug} /${rest.join("/")}`));
       console.log();
@@ -427,9 +430,12 @@ export async function apiCodeAction(
   // Look the endpoint up when possible for validation and pricing, but never
   // let a cold cache or an offline machine block code generation.
   let endpoint: CatalogEndpoint | undefined;
+  let endpointProvider: string | undefined;
   try {
     const { endpoints } = await getAllEndpoints({ refresh: options.refresh });
-    endpoint = endpoints.find((e) => toRunPath(e.endpoint.path) === runPath)?.endpoint;
+    const found = endpoints.find((e) => toRunPath(e.endpoint.path) === runPath);
+    endpoint = found?.endpoint;
+    endpointProvider = found?.provider;
     if (!endpoint) {
       hint(`No catalog entry for "${runPath}" — generating anyway`);
       hint(`Search: aisa api search ${cleanPath.split("/")[0]}`);
@@ -440,10 +446,10 @@ export async function apiCodeAction(
 
   // The catalog hardcodes GET server-side, so it is a hint rather than a fact.
   const method = (options.method || "GET").toUpperCase();
-  const price = endpoint?.pricing?.normal;
+  const price = endpoint && endpointProvider ? presentCatalogPrice(endpointProvider, endpoint.pricing?.normal) : undefined;
   const note = [
     endpoint?.name || runPath,
-    price != null ? priceClause(price, (label) => `${label} per request`) : undefined,
+    price ? (price.kind === "fixed" ? `${price.label} per request` : `pricing: ${price.label}`) : undefined,
     "method is advisory — pass --method to override",
   ]
     .filter(Boolean)
