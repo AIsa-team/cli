@@ -1,6 +1,5 @@
-import { execFile, execFileSync, spawnSync } from "node:child_process";
 import { accessSync, constants, existsSync } from "node:fs";
-import { promisify } from "node:util";
+import { runShell, runSync, QUICK_TIMEOUT_MS } from "../utils/exec.js";
 
 /**
  * Installing a coding agent on the user's behalf.
@@ -20,7 +19,7 @@ import { promisify } from "node:util";
  * says so rather than half-working.
  */
 
-const execFileP = promisify(execFile);
+
 
 export interface Installer {
   id: string;
@@ -136,11 +135,8 @@ async function headOk(url: string): Promise<boolean> {
 
 function npmConfiguredRegistry(): string | null {
   try {
-    const r = execFileSync("npm", ["config", "get", "registry"], {
-      encoding: "utf8",
-      timeout: 10_000,
-    }).trim();
-    return r || null;
+    const r = runSync("npm", ["config", "get", "registry"], { timeout: QUICK_TIMEOUT_MS });
+    return r.status === 0 ? r.stdout.trim() || null : null;
   } catch {
     return null;
   }
@@ -157,7 +153,7 @@ type Probe = { ok: true } | { ok: false; onPath: boolean; reason: string };
  * The timeout is generous: macOS Gatekeeper can stall a binary's first run.
  */
 function probeBinary(binary: string): Probe {
-  const res = spawnSync(binary, ["--version"], { timeout: 20_000, encoding: "utf8" });
+  const res = runSync(binary, ["--version"]);
   if (res.status === 0) return { ok: true };
   if ((res.error as NodeJS.ErrnoException | undefined)?.code === "ENOENT") {
     return { ok: false, onPath: false, reason: "not on PATH" };
@@ -181,10 +177,8 @@ export function isInstalled(binary: string): boolean {
  */
 export function npmPrefixWritable(): boolean {
   try {
-    const prefix = execFileSync("npm", ["config", "get", "prefix"], {
-      encoding: "utf8",
-      timeout: 10_000,
-    }).trim();
+    const r = runSync("npm", ["config", "get", "prefix"], { timeout: QUICK_TIMEOUT_MS });
+    const prefix = r.status === 0 ? r.stdout.trim() : "";
     if (!prefix || !existsSync(prefix)) return false;
     accessSync(prefix, constants.W_OK);
     return true;
@@ -252,11 +246,16 @@ export async function installAgent(id: string): Promise<InstallOutcome> {
     };
   }
 
-  try {
-    // Shell, because the vendor installer is a pipeline. The command is
-    // printed by the caller before this runs; nothing is installed silently.
-    await execFileP("/bin/sh", ["-c", command], { timeout: 300_000 });
-  } catch (e) {
+  // Shell, because the vendor installer is a pipeline. The command is
+  // printed by the caller before this runs; nothing is installed silently.
+  const first = await runShell(command);
+  // The installer may have succeeded even when the command reported an error
+  // (a killed pipe, a noisy postinstall): believe the binary, not the exit
+  // code, before spending a retry.
+  if (!first.ok && probeBinary(installer.binary).ok) {
+    return { ok: true, alreadyInstalled: false };
+  }
+  if (!first.ok) {
     // A failed install gets exactly one more chance. Curl channel: retry over
     // npm (same vendor package, different transport). npm channel: a clean
     // uninstall + reinstall — npm's optional-dependency bug can fail the
@@ -274,17 +273,16 @@ export async function installAgent(id: string): Promise<InstallOutcome> {
         ok: false,
         reason: "needs-manual",
         command,
-        detail: (e as Error).message.split("\n")[0],
+        detail: first.detail,
       };
     }
-    try {
-      await execFileP("/bin/sh", ["-c", fallback], { timeout: 300_000 });
-    } catch (e2) {
+    const second = await runShell(fallback);
+    if (!second.ok && !probeBinary(installer.binary).ok) {
       return {
         ok: false,
         reason: "needs-manual",
         command: npmCommand ?? command,
-        detail: (e2 as Error).message.split("\n")[0],
+        detail: second.detail,
       };
     }
   }
@@ -295,11 +293,7 @@ export async function installAgent(id: string): Promise<InstallOutcome> {
     // leaves exactly this (package installed, platform binary missing, exit 0
     // all the way). The reliable remedy is a clean uninstall + reinstall, so
     // a broken npm install gets exactly one.
-    await execFileP(
-      "/bin/sh",
-      ["-c", `npm uninstall -g ${installer.npmPackage}; ${npmCommand ?? command}`],
-      { timeout: 300_000 }
-    ).catch(() => {});
+    await runShell(`npm uninstall -g ${installer.npmPackage}; ${npmCommand ?? command}`);
     probe = probeBinary(installer.binary);
   }
   if (!probe.ok) {

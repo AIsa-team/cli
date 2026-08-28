@@ -1,10 +1,9 @@
-import { execFile, spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname } from "node:path";
-import { promisify } from "node:util";
+import { dirname, join } from "node:path";
 import chalk from "chalk";
 import { success, error, info, hint } from "../utils/display.js";
 import { expandHome } from "../utils/file.js";
@@ -27,6 +26,9 @@ import { mintCliKey } from "./oauth-login.js";
 import { vscodeDetected, vscodeUserDir, writeVSCodeLLM, writeVSCodeMCP, installVSCodeExtension, launchVSCode, VSCODE_MODELS } from "./vscode.js";
 import { formatMicrosUSD } from "./account.js";
 import { apiRequest } from "../api.js";
+import { run, runSync, QUICK_TIMEOUT_MS } from "../utils/exec.js";
+import { readFileSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
 import {
   RED, RED_CTA, INK, PAPER, I, LOGO, CATEGORY_ICON, EXAMPLES, FILE_CLIENT_LABELS, CLIENT_LOGOS,
   type ClientInfo, type ApplyResult, type StepState, type Step, type AuthState, type RunState,
@@ -86,13 +88,13 @@ export function resolveTemplate(flag: string | undefined): ConnectTemplate {
  * real description of what the capability gives the agent.
  */
 
-const execFileP = promisify(execFile);
+
 
 /** How long the page may sit untouched before we give up and exit. */
 const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
 /** How long the success page stays served before the process exits. Copy
  *  buttons are client-side, so the page keeps working after exit. */
-const LINGER_AFTER_DONE_MS = 30 * 60 * 1000;
+const LINGER_AFTER_DONE_MS = 60 * 60 * 1000;
 /** How long to wait for the T2 page to finish playing its checklist before
  *  the success tab opens anyway (the tab may have been closed). */
 const PAGE_SEEN_TIMEOUT_MS = 90 * 1000;
@@ -104,7 +106,7 @@ export function detectClients(): ClientInfo[] {
   // Claude Code: presence means the `claude` binary answers on PATH. Its MCP
   // entries live in user scope managed by the binary itself, not in a config
   // file we own — hence kind "cli".
-  const probe = spawnSync("claude", ["--version"], { timeout: 5_000, encoding: "utf8" });
+  const probe = runSync("claude", ["--version"], { timeout: 5_000 });
   const claudeVersion = probe.status === 0 ? probe.stdout.trim() : "";
   clients.push({
     id: "claude-code",
@@ -117,7 +119,7 @@ export function detectClients(): ClientInfo[] {
   // Codex keeps its MCP servers in ~/.codex/config.toml, so like Claude Code
   // it is detected by asking the binary rather than by looking for a file we
   // own.
-  const codex = spawnSync("codex", ["--version"], { timeout: 5_000, encoding: "utf8" });
+  const codex = runSync("codex", ["--version"], { timeout: 5_000 });
   clients.push({
     id: "codex",
     label: "Codex",
@@ -129,7 +131,7 @@ export function detectClients(): ClientInfo[] {
   // opencode: `opencode mcp add` (1.18+) writes the MCP entries; models go
   // into its one JSON config. Detection stays the same discipline: actually
   // run the binary.
-  const oc = spawnSync("opencode", ["--version"], { timeout: 5_000, encoding: "utf8" });
+  const oc = runSync("opencode", ["--version"], { timeout: 5_000 });
   clients.push({
     id: "opencode",
     label: "opencode",
@@ -172,12 +174,12 @@ export function detectClients(): ClientInfo[] {
  * ignored. The result is idempotent either way.
  */
 async function claudeCodeAdd(name: string, endpoint: string, key: string | undefined): Promise<void> {
-  await execFileP("claude", ["mcp", "remove", "-s", "user", name], { timeout: 15_000 }).catch(
+  await run("claude", ["mcp", "remove", "-s", "user", name], { timeout: 15_000 }).catch(
     () => {}
   );
   const args = ["mcp", "add", "-s", "user", "--transport", "http", name, endpoint];
   if (key) args.push("--header", `Authorization: Bearer ${key}`);
-  await execFileP("claude", args, { timeout: 15_000 });
+  await run("claude", args, { timeout: 15_000 });
 }
 
 /**
@@ -297,7 +299,7 @@ async function applySelection(
         const name = `aisa-${s.slug}`;
         // Remove first: codex mcp add refuses an existing name, and removing
         // one that is absent is a no-op we do not care about either way.
-        await execFileP("codex", ["mcp", "remove", name], { timeout: 15_000 }).catch(() => {});
+        await run("codex", ["mcp", "remove", name], { timeout: 15_000 }).catch(() => {});
         if (!(await codexAdd(name, s.endpoint, key))) continue;
         // The add stored only the env-var NAME; swap it for the literal
         // header so the entry works in every terminal, exported or not.
@@ -329,7 +331,7 @@ async function applySelection(
         const args = ["mcp", "add", `aisa-${s.slug}`, "--url", s.endpoint];
         if (key) args.push("--header", `Authorization=Bearer ${key}`);
         try {
-          await execFileP("opencode", args, { timeout: 30_000 });
+          await run("opencode", args, { timeout: 30_000 });
           added++;
         } catch {
           /* counted below */
@@ -1678,17 +1680,14 @@ function launchAgentTerminal(
     // a one-time automation permission prompt; Terminal.app starts a fresh
     // shell, so the cd is explicit.
     const dir = process.cwd().replace(/'/g, "'\\''");
-    return new Promise((resolve) =>
-      execFile(
-        "osascript",
-        [
-          "-e",
-          `tell application "Terminal" to do script "cd '${dir}' && ${binary}"`,
-          "-e",
-          'tell application "Terminal" to activate',
-        ],
-        (err) => resolve(!err)
-      )
+    return run("osascript", [
+      "-e",
+      `tell application "Terminal" to do script "cd '${dir}' && ${binary}"`,
+      "-e",
+      'tell application "Terminal" to activate',
+    ], { timeout: 30_000 }).then(
+      () => true,
+      () => false
     );
   }
   // Linux: only meaningful in a graphical session, and there is no single
@@ -1704,9 +1703,7 @@ function launchAgentTerminal(
   ];
   return candidates.reduce<Promise<boolean>>(
     (chain, [cmd, args]) =>
-      chain.then(
-        (ok) => ok || new Promise((resolve) => execFile(cmd, args, (err) => resolve(!err)))
-      ),
+      chain.then((ok) => ok || run(cmd, args, { timeout: 30_000 }).then(() => true, () => false)),
     Promise.resolve(false)
   );
 }
@@ -1716,8 +1713,8 @@ function launchAgentTerminal(
  *  Desktop that was not running simply starts. */
 function restartClaudeDesktop(): boolean {
   if (process.platform === "darwin") {
-    spawnSync("osascript", ["-e", 'tell application "Claude" to quit'], { timeout: 15_000 });
-    const r = spawnSync("open", ["-a", "Claude"], { timeout: 30_000 });
+    runSync("osascript", ["-e", 'tell application "Claude" to quit'], { timeout: 15_000 });
+    const r = runSync("open", ["-a", "Claude"], { timeout: 30_000 });
     return r.status === 0;
   }
   return false;
@@ -1731,11 +1728,11 @@ function launchCursor(dir: string): boolean {
       ? ["cursor", "/Applications/Cursor.app/Contents/Resources/app/bin/cursor"]
       : ["cursor", "/usr/bin/cursor", "/usr/share/cursor/bin/cursor"];
   for (const c of candidates) {
-    const r = spawnSync(c, [dir], { timeout: 30_000, encoding: "utf8" });
+    const r = runSync(c, [dir], { timeout: 30_000 });
     if (r.status === 0) return true;
   }
   if (process.platform === "darwin") {
-    const r = spawnSync("open", ["-a", "Cursor", dir], { timeout: 30_000, encoding: "utf8" });
+    const r = runSync("open", ["-a", "Cursor", dir], { timeout: 30_000 });
     return r.status === 0;
   }
   return false;
@@ -1744,7 +1741,55 @@ function launchCursor(dir: string): boolean {
 function openBrowser(url: string): void {
   const cmd =
     process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-  execFile(cmd, [url], () => {});
+  void run(cmd, [url], { timeout: 30_000 }).catch(() => {});
+}
+
+/**
+ * Where a live run leaves its address, so a second `aisa connect` can offer
+ * the first one's page instead of starting a rival server. Ephemeral by
+ * design: it lives in the temp directory, carries the pid, and a stale file
+ * (crashed run, killed terminal) is detected and replaced rather than
+ * trusted — the price of a wrong guess is one dead link, so the check is
+ * "is that pid still a connect process", not just "does the file exist".
+ */
+function runLockPath(): string {
+  return join(tmpdir(), `aisa-connect-${process.getuid?.() ?? 0}.json`);
+}
+
+interface RunLock {
+  pid: number;
+  url: string;
+  started: number;
+}
+
+function readRunLock(): RunLock | null {
+  try {
+    const lock = JSON.parse(readFileSync(runLockPath(), "utf-8")) as RunLock;
+    if (!lock?.pid || !lock.url) return null;
+    // Signal 0 only asks "may I signal it"; it never touches the process.
+    process.kill(lock.pid, 0);
+    return lock;
+  } catch {
+    return null;
+  }
+}
+
+function writeRunLock(url: string): void {
+  try {
+    mkdirSync(tmpdir(), { recursive: true });
+    writeFileSync(runLockPath(), JSON.stringify({ pid: process.pid, url, started: Date.now() }), "utf-8");
+  } catch {
+    /* a lock we cannot write is a feature we simply do not get */
+  }
+}
+
+function clearRunLock(): void {
+  try {
+    const lock = JSON.parse(readFileSync(runLockPath(), "utf-8")) as RunLock;
+    if (lock.pid === process.pid) unlinkSync(runLockPath());
+  } catch {
+    /* nothing to clear */
+  }
 }
 
 export async function connectAction(options: {
@@ -1752,8 +1797,23 @@ export async function connectAction(options: {
   port?: string;
   dryRun?: boolean;
   template?: string;
+  force?: boolean;
 }): Promise<void> {
   const template = resolveTemplate(options.template);
+
+  // One run at a time. A second one would serve a second page against the
+  // same machine — two plans writing the same config files — so point the
+  // user at the page that is already open instead. --force overrides for the
+  // rare case where the first run is wedged.
+  const live = options.force ? null : readRunLock();
+  if (live) {
+    const mins = Math.max(1, Math.round((Date.now() - live.started) / 60_000));
+    info(`A connect run from ${mins} minute${mins === 1 ? "" : "s"} ago is still open (pid ${live.pid}).`);
+    console.log(`  ${chalk.cyan(live.url)}`);
+    hint("Reopening that page — it keeps your progress. To start over instead: aisa connect --force");
+    if (options.open !== false) openBrowser(live.url);
+    return;
+  }
   let servers: LiveServer[];
   try {
     servers = await fetchLiveServers();
@@ -2017,6 +2077,16 @@ export async function connectAction(options: {
   const addr = srv.address();
   port = typeof addr === "object" && addr ? addr.port : 0;
   const pageUrl = `http://127.0.0.1:${port}/?token=${token}`;
+  // Publish the address for a second invocation, and take it back on every
+  // way out: normal exit, Ctrl-C, or an unhandled crash.
+  writeRunLock(pageUrl);
+  process.once("exit", clearRunLock);
+  for (const sig of ["SIGINT", "SIGTERM"] as const) {
+    process.once(sig, () => {
+      clearRunLock();
+      process.exit(130);
+    });
+  }
 
   info(
     `${servers.length} live servers · detected: ${detected.map((c) => c.label).join(", ")}`

@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { runSync, QUICK_TIMEOUT_MS } from "../utils/exec.js";
 import { accessSync, chmodSync, constants, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -52,10 +52,8 @@ export function writeClaudeAisaSettings(apiKey: string, models: ModelChoice): st
 export function wrapperBinDir(): { dir: string; onPath: boolean } {
   let dir: string | undefined;
   try {
-    const prefix = execFileSync("npm", ["config", "get", "prefix"], {
-      encoding: "utf8",
-      timeout: 10_000,
-    }).trim();
+    const r = runSync("npm", ["config", "get", "prefix"], { timeout: QUICK_TIMEOUT_MS });
+    const prefix = r.status === 0 ? r.stdout.trim() : "";
     if (prefix && existsSync(join(prefix, "bin"))) {
       accessSync(join(prefix, "bin"), constants.W_OK);
       dir = join(prefix, "bin");

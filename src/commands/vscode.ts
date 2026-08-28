@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { spawnSync } from "node:child_process";
+import { runSync, DEFAULT_TIMEOUT_MS } from "../utils/exec.js";
 import { fileURLToPath } from "node:url";
 import { ensureDir } from "../utils/file.js";
 import { LLM_BASE_URL } from "../constants.js";
@@ -121,7 +121,7 @@ export function vscodeBinary(): string | undefined {
          join(homedir(), "Applications/Visual Studio Code.app/Contents/Resources/app/bin/code")]
       : ["code", "/usr/bin/code", "/usr/share/code/bin/code", "/snap/bin/code"];
   for (const c of candidates) {
-    const r = spawnSync(c, ["--version"], { timeout: 15_000, encoding: "utf8" });
+    const r = runSync(c, ["--version"]);
     if (r.status === 0) return c;
   }
   return undefined;
@@ -143,7 +143,7 @@ export function installVSCodeExtension(): { ok: true; bin: string } | { ok: fals
   if (!bin) return { ok: false, reason: "the code command was not found" };
   const vsix = vscodeExtensionPath();
   if (!existsSync(vsix)) return { ok: false, reason: `extension package missing at ${vsix}` };
-  const r = spawnSync(bin, ["--install-extension", vsix, "--force"], { timeout: 120_000, encoding: "utf8" });
+  const r = runSync(bin, ["--install-extension", vsix, "--force"], { timeout: DEFAULT_TIMEOUT_MS });
   if (r.status !== 0) return { ok: false, reason: (r.stderr || r.stdout || `exit ${r.status}`).trim().split("\n")[0] };
   return { ok: true, bin };
 }
@@ -153,7 +153,7 @@ export function installVSCodeExtension(): { ok: true; bin: string } | { ok: fals
 export function launchVSCode(dir: string): boolean {
   const bin = vscodeBinary();
   if (!bin) return false;
-  const r = spawnSync(bin, [dir], { timeout: 30_000, encoding: "utf8" });
+  const r = runSync(bin, [dir], { timeout: 30_000 });
   return r.status === 0;
 }
 

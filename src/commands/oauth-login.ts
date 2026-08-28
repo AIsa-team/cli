@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { run } from "../utils/exec.js";
 import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { createInterface } from "node:readline";
@@ -108,7 +108,7 @@ function waitForPaste(expectedState: string): Promise<string> {
 function openBrowser(url: string): void {
   const cmd =
     process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-  execFile(cmd, [url], () => {});
+  void run(cmd, [url], { timeout: 30_000 }).catch(() => {});
 }
 
 /**

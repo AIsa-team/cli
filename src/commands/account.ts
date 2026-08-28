@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { run } from "../utils/exec.js";
 import chalk from "chalk";
 import { requireApiKey } from "../config.js";
 import { apiRequest } from "../api.js";
@@ -81,7 +81,7 @@ export function topupAction(amount: string | undefined, options: { open?: boolea
   if (options.open === false) return;
   const cmd =
     process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-  execFile(cmd, [url], () => {});
+  void run(cmd, [url], { timeout: 30_000 }).catch(() => {});
   hint("Credit lands in your account as soon as the payment completes");
 }
 
