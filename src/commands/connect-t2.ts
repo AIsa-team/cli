@@ -84,7 +84,8 @@ const AGENT_NOTES: Record<string, string> = {
     "Servers are added with <code>codex mcp add</code>, Codex's own command. Models go in an <code>aisa</code> provider inside <code>~/.codex/config.toml</code> — only keys we wrote are ever touched.",
   opencode:
     "Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.",
-  cursor: "The AIsa servers are written into <code>~/.cursor/mcp.json</code>. Models stay as they are — Cursor picks its own.",
+  cursor:
+    "One click per server: each becomes an <b>Add to Cursor</b> link on the last step. Cursor opens, shows you the exact entry, and writes it into its own MCP settings when you confirm. Models stay as they are — Cursor picks its own.",
   "claude-ai":
     "Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own.",
   windsurf: "The AIsa servers are written into Windsurf's <code>mcp_config.json</code>.",
@@ -101,7 +102,7 @@ const HAVE_NOTES: Record<string, string> = {
   "claude-ai":
     "Nothing of yours is touched — the connectors live in your claude.ai account, beside any you already have, and can be removed there in one click.",
   cursor:
-    "Nothing of yours is replaced. Existing entries in <code>~/.cursor/mcp.json</code> stay; AIsa's are added beside them under <code>aisa-*</code> names.",
+    "Nothing of yours is replaced. Cursor adds each AIsa server beside your existing MCP entries under <code>aisa-*</code> names, and you approve every one inside Cursor first.",
 };
 
 /** Why the Models step has nothing to offer a file-configured client. */
@@ -550,7 +551,7 @@ each step reports as it finishes, and your results open on the last step.</p>
     rows.push(["Install the AIsa CLI", NEEDS_CLI ? "npm install -g @aisa-one/cli — the aisa command for balance, top-up and key rotation" : "the aisa command is already on this machine"]);
     if (!${keyed}) rows.push(["Sign in to AIsa", "one browser approval — it issues your key"]);
     var n = pickedServers().length;
-    rows.push([clientKind() === "web" ? "Prepare " + n + " connector URL" + (n === 1 ? "" : "s") : "Add " + n + " MCP server" + (n === 1 ? "" : "s"), clientKind() === "web" ? "for you to add in claude.ai" : "to " + LABEL[id]]);
+    rows.push([clientKind() === "web" ? "Prepare " + n + " connector URL" + (n === 1 ? "" : "s") : id === "cursor" ? "Prepare " + n + " Cursor install link" + (n === 1 ? "" : "s") : "Add " + n + " MCP server" + (n === 1 ? "" : "s"), clientKind() === "web" ? "for you to add in claude.ai" : id === "cursor" ? "one click each, confirmed inside Cursor" : "to " + LABEL[id]]);
     var m = llmMode();
     if (m === "switch") rows.push(["Point its models at AIsa", MODEL_FOR[id] + " by default; reversible"]);
     if (m === "backup") rows.push([id === "claude-code" ? "Install the claude-aisa command" : id === "codex" ? "Add the aisa profile and codex-aisa" : "Add AIsa as a backup provider", "your current setup stays untouched"]);
@@ -693,6 +694,8 @@ each step reports as it finishes, and your results open on the last step.</p>
         ? "<h1><em>Congratulations!</em> " + installed.join(" & ") + " is installed and armed with " + tools + " powerful tools<span class='h1check'>" + ICON_CHECK + "</span></h1><p class='lede'><b>" + installed.join(" & ") + "</b> is on this machine, signed in to AIsa" + (llmOk ? ", running on <b>" + MODEL_FOR[id] + "</b> through AIsa," : ",") + " with " + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " wired in — a complete setup, nothing else to configure.</p>"
         : "<h1><em>Congratulations!</em> Your agent just got " + tools + " powerful new tool" + (tools > 1 ? "s" : "") + ".<span class='h1check'>" + ICON_CHECK + "</span></h1><p class='lede'>" + (id === "claude-ai"
           ? chosen.length + " connector URL" + (chosen.length > 1 ? "s are" : " is") + " ready for <b>Claude.ai</b> — add them below, it takes about a minute."
+          : id === "cursor" && s.deeplinks && s.deeplinks.length
+          ? chosen.length + " install link" + (chosen.length > 1 ? "s are" : " is") + " ready for <b>Cursor</b> — one click each, below."
           : chosen.length + " AIsa MCP server" + (chosen.length > 1 ? "s are" : " is") + " now installed and signed in for <b>" + name + "</b> — nothing else to configure.") + "</p>");
 
     var failBlock = failed.length ? "<div class='authnote warn'><div><b>" + failed.length + " step" + (failed.length > 1 ? "s" : "") + " did not complete:</b><ul>" +
@@ -710,8 +713,16 @@ each step reports as it finishes, and your results open on the last step.</p>
       (gift ? "<div class='giftnote'><b>AIsa has given you $1 to get started.</b> That covers your first few calls. Top up now so your agent never stops mid-task.</div>" : low ? "<div class='lownote'>Running a little low — a small top-up keeps your first calls flowing.</div>" : (bal === null || bal === undefined ? "<div class='lownote'>Could not read it just now — <code>aisa balance</code> will.</div>" : "")) +
       "<a class='cta sm' href='https://console.aisa.one/billing?source=aisa_cli' target='_blank' rel='noopener'>Top up now →</a></div></div>";
     var fileNote = "";
+    if (id === "cursor" && s.deeplinks && s.deeplinks.length) {
+      fileNote = "<h2>Finish in Cursor — one click per server</h2><div class='webcard'>" +
+        "<p class='fine' style='margin:0 0 .6rem'>Each button opens Cursor with the entry ready; press <b>Install</b> there. Afterwards <b>Cursor Settings → MCP</b> lists them as <code>aisa-…</code>.</p>" +
+        s.deeplinks.map(function (d) {
+          return "<div class='weburl'><div><span class='srv'>" + d.name + "</span><code>" + (BY_SLUG[d.slug] ? BY_SLUG[d.slug].endpoint : "") + "</code></div>" +
+            "<a class='cta sm' href='" + d.url + "'>Add to Cursor →</a></div>";
+        }).join("") + "</div>";
+    }
     if (id === "claude-ai") {
-      fileNote = "<h2>Finish in claude.ai — about a minute</h2><div class='webcard'>" +
+      fileNote += "<h2>Finish in claude.ai — about a minute</h2><div class='webcard'>" +
         "<ol class='websteps'><li>Open <a class='lnk' href='https://claude.ai/settings/connectors' target='_blank' rel='noopener'>claude.ai → Settings → Connectors</a></li>" +
         "<li>Click <b>Add custom connector</b>, paste a name and URL from below, then <b>Add</b></li>" +
         "<li>Press <b>Connect</b> and approve the AIsa sign-in — once per connector</li></ol>" +
@@ -739,7 +750,7 @@ each step reports as it finishes, and your results open on the last step.</p>
     var rest = mcpFailed ? failBlock + recap + balCard
       : "<p class='lede'>You are connected to <b>AIsa</b> — one account for all the well-known models and the live data behind them." + (more > 0 ? " " + more + " more MCP server" + (more > 1 ? "s are" : " is") + " one <code>npx @aisa-one/cli connect</code> away." : "") + " See your account dashboard at <a class='lnk' href='https://console.aisa.one' target='_blank' rel='noopener'>console.aisa.one</a>.</p>" +
         failBlock + recap + balCard + fileNote + backupNote + launch +
-        "<h2>Try it now — paste one of these into " + name + (id === "claude-ai" ? " once the connectors are added" : "") + "</h2><div class='examples'>" + (examples || "<p class='fine'>Ask your agent to use any of the aisa-* MCP tools.</p>") + "</div>" +
+        "<h2>Try it now — paste one of these into " + name + (id === "claude-ai" || id === "cursor" ? " once the servers are added" : "") + "</h2><div class='examples'>" + (examples || "<p class='fine'>Ask your agent to use any of the aisa-* MCP tools.</p>") + "</div>" +
         "<p class='fine'>These first prompts mention <b>AIsa</b> once so the demo lands on your new tools; after that plain language is enough.</p>" +
         "<p class='rerun'>Change the default any time — just run <b><code>aisa connect</code></b> again.</p>";
     $("#doneBody").innerHTML = head + rest;

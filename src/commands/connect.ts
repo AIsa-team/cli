@@ -9,7 +9,7 @@ import { success, error, info, hint } from "../utils/display.js";
 import { expandHome } from "../utils/file.js";
 import { MCP_CONFIGS, MCP_DEFAULT_SLUGS, AISA_PROVIDER_ID } from "../constants.js";
 import { getApiKey } from "../config.js";
-import { fetchLiveServers, writeClientConfig, stripped, type LiveServer } from "./mcp.js";
+import { fetchLiveServers, writeClientConfig, buildEntry, stripped, type LiveServer } from "./mcp.js";
 import { INSTALLERS, installAgent, isInstalled, supported } from "./install.js";
 import {
   writeCodexLLM,
@@ -224,15 +224,40 @@ function claudeCodeLogin(name: string): Promise<boolean> {
 }
 
 
+/**
+ * Cursor's install deeplink: `cursor://anysphere.cursor-deeplink/mcp/install`
+ * with the server name and its config (the same shape Cursor keeps in
+ * mcp.json) base64-encoded. Cursor opens a confirmation showing the config,
+ * then writes the entry itself — the one-click path Cursor documents.
+ */
+export function cursorDeeplink(name: string, endpoint: string, key: string | undefined): string {
+  const config = Buffer.from(JSON.stringify(buildEntry("url", endpoint, key)), "utf8").toString("base64");
+  return `cursor://anysphere.cursor-deeplink/mcp/install?name=${encodeURIComponent(name)}&config=${encodeURIComponent(config)}`;
+}
+
 async function applySelection(
   clientIds: string[],
   chosen: LiveServer[],
   key: string | undefined,
-  dryRun: boolean
+  dryRun: boolean,
+  state?: RunState
 ): Promise<ApplyResult[]> {
   const results: ApplyResult[] = [];
   for (const id of clientIds) {
-    if (id === "claude-code") {
+    if (id === "cursor" && state?.deeplinks) {
+      // T2: hand Cursor its own deeplinks instead of writing mcp.json — the
+      // user confirms each inside Cursor, which then owns the entry.
+      state.deeplinks = chosen.map((s) => ({
+        slug: s.slug,
+        name: `aisa-${s.slug}`,
+        url: cursorDeeplink(`aisa-${s.slug}`, s.endpoint, key),
+      }));
+      results.push({
+        client: id,
+        ok: true,
+        message: `${chosen.length} install link${chosen.length === 1 ? "" : "s"} ready — open them in Cursor`,
+      });
+    } else if (id === "claude-code") {
       if (dryRun) {
         results.push({ client: id, ok: true, message: `would run claude mcp add for ${chosen.length} servers` });
         continue;
@@ -367,6 +392,8 @@ interface PlanInput {
   keyed: boolean;
   dryRun: boolean;
   llmMode: LlmMode;
+  /** Cursor via install deeplinks rather than a config-file write (T2). */
+  deeplink?: boolean;
 }
 
 /**
@@ -416,11 +443,14 @@ function buildPlan(input: PlanInput): Step[] {
     });
   }
   const web = input.clients[0] === "claude-ai";
+  const cursorLinks = input.clients[0] === "cursor" && input.deeplink;
   steps.push({
     id: "mcp",
     label: web
       ? `Prepare ${input.servers.length} connector URL${input.servers.length === 1 ? "" : "s"}`
-      : `Add ${input.servers.length} MCP server${input.servers.length === 1 ? "" : "s"}`,
+      : cursorLinks
+        ? `Prepare ${input.servers.length} Cursor install link${input.servers.length === 1 ? "" : "s"}`
+        : `Add ${input.servers.length} MCP server${input.servers.length === 1 ? "" : "s"}`,
     state: "pending",
     detail: input.clients.join(", "),
   });
@@ -586,7 +616,7 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       : "writing client configuration",
   });
   if (willAuthorize) await pause(BEFORE_HANDOFF_MS);
-  const results = await applySelection(input.clients, input.servers, key, input.dryRun);
+  const results = await applySelection(input.clients, input.servers, key, input.dryRun, state);
   state.results = results;
   for (const r of results) {
     console.log(`  ${r.ok ? chalk.green("✓") : chalk.red("✗")} ${r.client}: ${r.message}`);
@@ -1820,6 +1850,9 @@ export async function connectAction(options: {
 
       // The whole plan, in order, before any of it runs — the page renders it
       // greyed out so a long install reads as progress rather than a hang.
+      // T2 connects Cursor through its install deeplinks; an empty array here
+      // is the signal applySelection fills in.
+      if (template === "t2" && chosenClients[0] === "cursor") state.deeplinks = [];
       state.steps = buildPlan({
         install: [...wantInstall],
         clients: chosenClients,
@@ -1827,6 +1860,7 @@ export async function connectAction(options: {
         keyed: Boolean(key),
         dryRun: Boolean(options.dryRun),
         llmMode,
+        deeplink: template === "t2" && chosenClients[0] === "cursor",
       });
       res.writeHead(200, { "content-type": "application/json" }).end(
         JSON.stringify({ started: true, steps: state.steps })

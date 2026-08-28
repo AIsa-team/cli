@@ -166,6 +166,10 @@ export interface RunState {
   llmMode?: LlmMode;
   /** What the run was started with; set at /apply, read by the done tab. */
   selection?: Selection;
+  /** Cursor install deeplinks, one per chosen server (T2 only). The config
+   *  inside carries the bearer header when a key exists — the page is
+   *  local and token-gated, and Cursor shows the config before adding it. */
+  deeplinks?: Array<{ slug: string; name: string; url: string }>;
 }
 
 /** What to do about models: switch the agent over, add AIsa as a backup
