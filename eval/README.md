@@ -51,6 +51,9 @@ npm run eval             # = node eval/run.mjs (scripted agent)
 # check readiness with: pi auth check)
 node eval/run.mjs --agent pi-deepseek
 
+# Run only the natural-language user-request suite.
+node eval/run.mjs --agent pi-deepseek --suite natural
+
 # Options
 node eval/run.mjs --scenario s1_traffic_quote   # one scenario
 node eval/run.mjs --keep                        # keep temp plan dirs + transcripts
@@ -69,6 +72,10 @@ Exit code is 0 only if every scenario passes.
 | `s2_budget_negotiation` | reacting to exit code 2 by shrinking scope until the quote is ready |
 | `s3_unverified_pricing_cap` | unverified pricing requires an explicit `--max-credits` spend cap |
 | `s4_jordan_capability_fit` | capability fit: compile one complete canonical scope (domain/country/month/granularity/metric) instead of blind API trial; exactly one item, max 1 credit |
+
+Natural-language scenarios have `"suite": "natural"`: their `goal` is a
+plain user request while all CLI, capability, scope, and pricing assertions
+remain hidden in `expect`.
 | `s4_jordan_capability_fit` | capability-fit-before-cost: derive the one complete US/monthly scope before any paid Similarweb call |
 
 ## Adding a scenario

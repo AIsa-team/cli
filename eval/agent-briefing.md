@@ -1,7 +1,9 @@
 # Agent briefing
 
-You are being evaluated on completing a task with the `aisa plan` CLI. Work
-from the current directory (the CLI repo root).
+You are helping a user turn a natural-language research request into a safe
+resource plan with the `aisa plan` CLI. Work from the current directory (the
+CLI repo root). The user message below is the user's request, not an API or
+CLI instruction: discover the appropriate capability instead of assuming one.
 
 Rules:
 
@@ -19,5 +21,5 @@ Rules:
 - Do not run `npm`, do not edit any files, do not use the network. Gateway
   commands like `aisa run` will fail auth in this sandbox — only `plan`
   subcommands work.
-- The task is done when the plan's latest quote matches the GOAL below.
+- The task is done when the plan's latest quote satisfies the user request below.
   The grader inspects the plan file on disk, not your words.

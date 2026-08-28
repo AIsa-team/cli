@@ -64,11 +64,12 @@ function sandboxEnv(planDir) {
 }
 
 function parseArgs(argv) {
-  const args = { agent: "scripted", scenario: null, keep: false, report: null, model: null };
+  const args = { agent: "scripted", scenario: null, suite: null, keep: false, report: null, model: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--agent") args.agent = argv[++i];
     else if (a === "--scenario") args.scenario = argv[++i];
+    else if (a === "--suite") args.suite = argv[++i];
     else if (a === "--keep") args.keep = true;
     else if (a === "--report") args.report = argv[++i];
     else if (a === "--model") args.model = argv[++i];
@@ -80,13 +81,13 @@ function parseArgs(argv) {
   return args;
 }
 
-function loadScenarios(filterId) {
+function loadScenarios(filterId, suite) {
   const dir = join(evalDir, "scenarios");
   const scenarios = readdirSync(dir)
     .filter((f) => f.endsWith(".json"))
     .map((f) => JSON.parse(readFileSync(join(dir, f), "utf-8")))
     .sort((a, b) => a.id.localeCompare(b.id));
-  return filterId ? scenarios.filter((s) => s.id === filterId) : scenarios;
+  return scenarios.filter((scenario) => (!filterId || scenario.id === filterId) && (!suite || scenario.suite === suite));
 }
 
 function loadAgent(name) {
@@ -126,7 +127,7 @@ function runScripted(scenario, planDir) {
 /** command 模式：外部 agent 一次性拿到 briefing + 目标，自己驱动 CLI */
 function runCommand(agent, scenario, planDir, modelOverride) {
   const briefing = readFileSync(join(evalDir, "agent-briefing.md"), "utf-8");
-  const prompt = `${briefing}\n\n## GOAL\n\n${scenario.goal}\n`;
+  const prompt = `${briefing}\n\n## USER MESSAGE\n\n${scenario.goal}\n`;
   const model = modelOverride ?? agent.model;
   const argv = agent.argv_template.map((a) =>
     a.replaceAll("{prompt}", prompt).replaceAll("{model}", model).replaceAll("{provider}", agent.provider ?? "")
@@ -151,7 +152,7 @@ function main() {
     console.error("dist/index.js not found — run `npm run build` first");
     process.exit(1);
   }
-  const scenarios = loadScenarios(args.scenario);
+  const scenarios = loadScenarios(args.scenario, args.suite);
   if (scenarios.length === 0) {
     console.error(`no scenario matched "${args.scenario}"`);
     process.exit(1);
