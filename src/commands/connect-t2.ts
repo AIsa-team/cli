@@ -20,6 +20,7 @@ import {
 } from "./connect-shared.js";
 import { AISA_PROVIDER_ID } from "../constants.js";
 import { isInstalled } from "./install.js";
+import { VSCODE_MODELS } from "./vscode.js";
 
 /**
  * T2 — the guided six-step connect flow.
@@ -407,6 +408,8 @@ each step reports as it finishes, and your results open on the last step.</p>
   var BY_SLUG = {}; SERVERS.forEach(function (s) { BY_SLUG[s.slug] = s; });
   var ICON_COPY = ${JSON.stringify(I.copy)};
   var ICON_CHECK = ${JSON.stringify(I.check)};
+  var VSCODE_LOGO = ${JSON.stringify(BRAND_LOGOS.vscode ?? "")};
+  var MODEL_COUNT = ${VSCODE_MODELS.length};
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -724,12 +727,16 @@ each step reports as it finishes, and your results open on the last step.</p>
       "<a class='cta sm' href='https://console.aisa.one/billing?source=aisa_cli' target='_blank' rel='noopener'>Top up now →</a></div></div>";
     var fileNote = "";
     if (id === "vscode") {
-      fileNote = "<p class='fine'><b>Reload VS Code</b> (Cmd/Ctrl+Shift+P → Reload Window). The servers appear under <b>Extensions → MCP Servers</b>.</p>";
       var llmStep = steps.filter(function (x) { return x.id === "llm-backup"; })[0];
       var needsPaste = llmStep && /paste/.test(llmStep.detail || "");
-      if (sel.llmMode === "backup" && !needsPaste) {
-        fileNote += "<p class='fine'>The <b>AIsa</b> extension stored your key in VS Code for you — open Chat, click the model name at the bottom-right of the input and pick any AIsa model.</p>";
-      }
+      var modelsOn = sel.llmMode === "backup" && !needsPaste;
+      fileNote = "<div class='vsccard'><div class='vschead'><span class='blogo lg'>" + VSCODE_LOGO + "</span><div><b>VS Code is ready</b>" +
+        "<div class='fine' style='margin:0'>" + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + (modelsOn ? " and " + MODEL_COUNT + " AIsa models" : "") + " are in place — no reload needed.</div></div>" +
+        "<div class='termside'><button type='button' class='cta sm' id='launch'>Open VS Code →</button><span class='fine' id='launchnote'></span></div></div>" +
+        "<div class='vscgrid'>" +
+        (modelsOn ? "<div class='vscitem'><span class='srv'>Models</span>Open <b>Chat</b> (<code>Ctrl+Cmd+I</code>), click the model name at the bottom-right of the input — the <b>AIsa</b> group lists Claude, GPT, DeepSeek, Kimi, GLM and Qwen. The AIsa extension already stored your key.</div>" : "") +
+        "<div class='vscitem'><span class='srv'>Tools</span>Switch Chat to <b>Agent</b> mode and tick the <code>aisa-…</code> servers in the tools picker (🔧). They are listed under <b>Extensions → MCP Servers</b>; if one is missing, run <b>Reload Window</b> once.</div>" +
+        "</div></div>";
       if (sel.llmMode === "backup" && needsPaste) {
         fileNote += "<h2>One paste in VS Code — your key</h2><div class='webcard'>" +
           "<p class='fine' style='margin:0 0 .6rem'>VS Code keeps model keys in its own encrypted store, which only its UI can write — so this is the one step it does not let us do for you.</p>" +
@@ -793,8 +800,8 @@ each step reports as it finishes, and your results open on the last step.</p>
     });
     var lb = $("#launch"); if (lb) lb.addEventListener("click", function () {
       lb.disabled = true;
-      fetch("/launch?token=" + TOKEN, { method: "POST" }).then(function (r) { if (!r.ok) throw 0; lb.textContent = "✓ Opened in Terminal"; })
-        .catch(function () { lb.style.display = "none"; $("#launchnote").innerHTML = "Could not open a terminal — just run <code>" + bin + "</code> in any terminal."; });
+      fetch("/launch?token=" + TOKEN, { method: "POST" }).then(function (r) { if (!r.ok) throw 0; lb.textContent = id === "vscode" ? "✓ VS Code opened" : "✓ Opened in Terminal"; })
+        .catch(function () { lb.style.display = "none"; $("#launchnote").innerHTML = id === "vscode" ? "Could not start VS Code — open it from your Applications folder." : "Could not open a terminal — just run <code>" + bin + "</code> in any terminal."; });
     });
   }
 
@@ -1092,6 +1099,12 @@ function shellT2(title: string, body: string): string {
   .termside { display: flex; flex-direction: column; align-items: flex-end; gap: .5rem; flex: none; }
   a.lnk { color: var(--red); text-decoration: none; font-weight: 600; }
   a.lnk:hover { text-decoration: underline; }
+  .vsccard { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 1.1rem 1.3rem; margin: 0 0 1.4rem; }
+  .vschead { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; }
+  .vschead > div:nth-child(2) { flex: 1; min-width: 14rem; font-size: 1.05rem; }
+  .vscgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .9rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--line); }
+  .vscitem { font-size: .95rem; color: var(--muted); } .vscitem b, .vscitem code { color: var(--ink); }
+  .vscitem .srv { display: block; color: var(--red); font-weight: 600; font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; margin-bottom: .25rem; }
   .examples { display: grid; gap: .8rem; }
   .example { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; display: flex; gap: .9rem; align-items: flex-start; }
   .example .srv { color: var(--red); font-weight: 600; font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; display: block; margin-bottom: .25rem; }

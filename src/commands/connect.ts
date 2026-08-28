@@ -24,7 +24,7 @@ import {
 } from "./llm-config.js";
 import { writeClaudeAisaSettings, installWrappers } from "./wrappers.js";
 import { mintCliKey } from "./oauth-login.js";
-import { vscodeDetected, vscodeUserDir, writeVSCodeLLM, writeVSCodeMCP, installVSCodeExtension, VSCODE_MODELS } from "./vscode.js";
+import { vscodeDetected, vscodeUserDir, writeVSCodeLLM, writeVSCodeMCP, installVSCodeExtension, launchVSCode, VSCODE_MODELS } from "./vscode.js";
 import { formatMicrosUSD } from "./account.js";
 import { apiRequest } from "../api.js";
 import {
@@ -1839,6 +1839,12 @@ export async function connectAction(options: {
       // Whitelist only — the client name selects a fixed binary, and no part
       // of the request ever reaches a shell.
       const backup = state.llmMode === "backup";
+      if (chosenClients[0] === "vscode") {
+        // Not a terminal agent: open VS Code itself on this folder.
+        const launched = launchVSCode(process.cwd());
+        res.writeHead(launched ? 200 : 500, { "content-type": "application/json" }).end(JSON.stringify({ ok: launched }));
+        return;
+      }
       const bin =
         chosenClients[0] === "codex" ? (backup ? "codex-aisa" : "codex")
         : chosenClients[0] === "claude-code" ? (backup ? "claude-aisa" : "claude")

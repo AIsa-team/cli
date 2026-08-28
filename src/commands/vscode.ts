@@ -148,6 +148,15 @@ export function installVSCodeExtension(): { ok: true; bin: string } | { ok: fals
   return { ok: true, bin };
 }
 
+/** Open VS Code on a folder (the one connect was launched in). Resolves to
+ *  whether the command could be started; VS Code itself detaches. */
+export function launchVSCode(dir: string): boolean {
+  const bin = vscodeBinary();
+  if (!bin) return false;
+  const r = spawnSync(bin, [dir], { timeout: 30_000, encoding: "utf8" });
+  return r.status === 0;
+}
+
 export function writeVSCodeMCP(chosen: LiveServer[], apiKey: string | undefined): ConfigResult & { written?: number } {
   const dir = vscodeUserDir();
   const path = join(dir, "mcp.json");
