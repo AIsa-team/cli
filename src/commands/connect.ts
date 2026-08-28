@@ -27,6 +27,8 @@ import { vscodeDetected, vscodeUserDir, writeVSCodeLLM, writeVSCodeMCP, installV
 import { formatMicrosUSD } from "./account.js";
 import { apiRequest } from "../api.js";
 import { run, runSync, QUICK_TIMEOUT_MS } from "../utils/exec.js";
+import { Journal } from "../utils/journal.js";
+import { VERSION } from "../constants.js";
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import {
@@ -527,16 +529,17 @@ interface RunInput {
  * Nothing here throws: one broken step must not cost the user the rest of the
  * run, so every failure is recorded on its own row and the plan continues.
  */
-async function runPlan(state: RunState, input: RunInput): Promise<number> {
+async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<number> {
   let failures = 0;
+  const label = (id: string) => state.steps.find((s) => s.id === id)?.label ?? id;
   const fail = (id: string, detail: string) => {
     failures++;
     setStep(state, id, { state: "fail", detail });
-    console.log(`  ${chalk.red("✗")} ${id}: ${detail}`);
+    log.line("fail", label(id), detail);
   };
   const ok = (id: string, detail: string) => {
     setStep(state, id, { state: "ok", detail });
-    console.log(`  ${chalk.green("✓")} ${id}: ${detail}`);
+    log.line("ok", label(id), detail);
   };
 
   // ── install ──
@@ -547,7 +550,7 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       state: "running",
       detail: `about to run ${INSTALLERS[id]?.command}`,
     });
-    info(`Installing ${label}…`);
+    log.line("step", `Installing ${label}`, INSTALLERS[id]?.command);
     await pause(BEFORE_HANDOFF_MS);
     setStep(state, stepId, {
       state: "running",
@@ -568,8 +571,9 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
         detail: `${outcome.detail} — run: ${outcome.command}`,
       });
       failures++;
-      error(`${label}: ${outcome.detail}`);
-      hint(`Run this yourself, then re-run connect: ${outcome.command}`);
+      log.line("fail", `Install ${label}`, outcome.detail);
+      log.note("run this yourself, then re-run connect:");
+      log.command(outcome.command);
     }
   }
 
@@ -598,7 +602,7 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       state: "running",
       detail: "your browser will open — approve the sign-in there…",
     });
-    info("Signing you in to AIsa…");
+    log.line("step", "Signing you in to AIsa", "one browser approval, then a durable key");
     await pause(BEFORE_HANDOFF_MS);
     setStep(state, "signin", {
       state: "running",
@@ -619,7 +623,7 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
         state: "fail",
         detail: `${(e as Error).message} — continuing without a key; retry later with 'aisa login'`,
       });
-      error(`Sign-in failed: ${(e as Error).message}`);
+      log.line("fail", "Sign in to AIsa", (e as Error).message);
       if (input.clients.includes("claude-code")) {
         // Claude Code separates add from login, so give the plan its
         // authorization rounds back, in front of the balance step.
@@ -646,9 +650,7 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
   if (willAuthorize) await pause(BEFORE_HANDOFF_MS);
   const results = await applySelection(input.clients, input.servers, key, input.dryRun, state);
   state.results = results;
-  for (const r of results) {
-    console.log(`  ${r.ok ? chalk.green("✓") : chalk.red("✗")} ${r.client}: ${r.message}`);
-  }
+  for (const r of results) log.line(r.ok ? "ok" : "fail", r.client, r.message);
   const mcpOk = results.length > 0 && results.every((r) => r.ok);
   if (mcpOk) {
     setStep(state, "mcp", { state: "ok", detail: results.map((r) => r.client).join(", ") });
@@ -723,9 +725,10 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
         detail:
           "waiting on a key — run 'aisa login --key <key>' with the one you just copied, then 'aisa connect' again",
       });
-      error("No API key yet, so the model provider was not written.");
-      hint(`Copy a key from ${CONSOLE_KEYS_URL}`);
-      hint("Then: aisa login --key <key>   and run connect again");
+      log.line("warn", "No API key yet", "the model provider was not written");
+      log.note(`copy a key from ${CONSOLE_KEYS_URL}, then:`);
+      log.command("aisa login --key <key>");
+      log.command("aisa connect");
     } else {
       const target = input.clients[0];
       const models = defaultModelsFor(target);
@@ -737,13 +740,16 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
             : writeClaudeCodeLLM(key, models);
       if (res.ok) {
         ok("llm", `${models.model} via ${res.path}`);
+        log.line("write", "Wrote model settings", res.path);
         if (target === "codex") {
           // A freshly installed Codex offers to sign in to OpenAI on first
           // run. Nothing here needs that account, and picking one of those
           // options sends the user down a path that ignores this config.
-          hint("Start it with 'codex' in a new terminal — skip any OpenAI sign-in prompt, it is not needed");
+          log.note("start it in a new terminal — skip any OpenAI sign-in prompt, it is not needed:");
+          log.command("codex");
         } else {
-          hint("Start it with 'claude' in a new terminal to pick up the new models");
+          log.note("start it in a new terminal to pick up the new models:");
+          log.command(target === "opencode" ? "opencode" : "claude");
         }
       } else fail("llm", res.reason);
     }
@@ -758,7 +764,7 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       }
     } else {
       state.phase = "authorizing";
-      info("Starting browser authorization for each server…");
+      log.line("step", "Authorizing each server in your browser");
       for (const step of authSteps) {
         const slug = step.id.slice("auth:".length);
         const name = `aisa-${slug}`;
@@ -800,7 +806,8 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
       state: "ok",
       detail: "no credit yet — add some with 'aisa topup' before your first call",
     });
-    hint("No credit yet — run 'aisa topup' to add some");
+    log.line("warn", "No credit yet", "your first call will fail without it");
+    log.command("aisa topup", "add credit");
   } else if (balance <= LOW_BALANCE_MICROS) {
     setStep(state, "balance", {
       state: "ok",
@@ -1792,6 +1799,75 @@ function clearRunLock(): void {
   }
 }
 
+/**
+ * The closing block of a run: what changed on this machine, which commands
+ * the user now has, and what to run next. It is the part someone reads
+ * after the browser tab is gone — and the part that teaches them to do this
+ * by hand next time, so it names files and commands rather than describing
+ * them.
+ */
+function summarise(
+  log: Journal,
+  r: {
+    clientId: string;
+    clientLabel: string;
+    servers: LiveServer[];
+    llmMode: LlmMode;
+    steps: Step[];
+    balance: number | null;
+  }
+): void {
+  const done = (id: string) => r.steps.some((s) => s.id === id && s.state === "ok");
+
+  log.section("What changed on this machine");
+  const mcpMsg = r.steps.find((s) => s.id === "mcp");
+  if (mcpMsg?.state === "ok") {
+    const where =
+      r.clientId === "claude-code" ? "Claude Code's user scope (claude mcp list)"
+      : r.clientId === "codex" ? "~/.codex/config.toml"
+      : r.clientId === "opencode" ? "~/.config/opencode/opencode.json"
+      : r.clientId === "vscode" ? "VS Code's mcp.json"
+      : r.clientId === "claude-desktop" ? "claude_desktop_config.json (as mcp-remote bridges)"
+      : r.clientId === "cursor" ? "install links you confirm inside Cursor"
+      : mcpMsg.detail ?? "";
+    log.line("write", `${r.servers.length} MCP server${r.servers.length > 1 ? "s" : ""} → ${where}`);
+    for (const srv of r.servers) log.record(`aisa-${srv.slug} → ${srv.endpoint}`);
+  }
+  if (done("llm")) {
+    log.line("write", "Model provider set to AIsa", r.steps.find((s) => s.id === "llm")?.detail);
+  }
+  if (done("llm-backup")) {
+    log.line("write", "AIsa added beside your setup", r.steps.find((s) => s.id === "llm-backup")?.detail);
+  }
+  if (done("install:aisa-cli")) log.line("write", "AIsa CLI available as `aisa`");
+  log.record(`credential: ~/.aisa/key (0600)`);
+
+  log.section("Commands you now have");
+  const wrapper =
+    r.llmMode === "backup" && r.clientId === "claude-code" ? "claude-aisa"
+    : r.llmMode === "backup" && r.clientId === "codex" ? "codex-aisa"
+    : null;
+  if (wrapper) {
+    log.line("cmd", `${wrapper}`, `your usual ${r.clientId === "codex" ? "codex" : "claude"} is untouched`);
+    log.command(wrapper, "same agent, AIsa models");
+  } else if (r.clientId === "claude-code" || r.clientId === "codex" || r.clientId === "opencode") {
+    log.command(r.clientId === "claude-code" ? "claude" : r.clientId, "start it in a new terminal");
+  }
+  log.command("aisa balance", "check your credit");
+  log.command("aisa topup", "add credit");
+  log.command("aisa connect", "run this again any time — add servers, change models, connect another agent");
+
+  log.section("Good to know");
+  if (r.clientId === "claude-desktop") log.line("info", "Restart Claude Desktop", "the servers load on start");
+  if (r.clientId === "vscode") log.line("info", "VS Code needs no reload", "the servers and models are already there");
+  if (r.clientId === "cursor") log.line("info", "Press Install in Cursor", "one confirmation per server");
+  log.line("info", "Nothing runs in the background", "this process exits when the results page expires");
+  if (r.balance !== null && r.balance <= LOW_BALANCE_MICROS) {
+    log.line("warn", `Balance is ${formatMicrosUSD(r.balance)}`, "top up so your agent never stops mid-task");
+  }
+  if (log.path) log.line("info", "This run was logged to", log.path.replace(homedir(), "~"));
+}
+
 export async function connectAction(options: {
   open?: boolean;
   port?: string;
@@ -1805,12 +1881,17 @@ export async function connectAction(options: {
   // same machine — two plans writing the same config files — so point the
   // user at the page that is already open instead. --force overrides for the
   // rare case where the first run is wedged.
+  const log = new Journal();
+  log.section(`AIsa connect · v${VERSION}`);
+  log.line("info", "Machine", `${process.platform} ${process.arch} · node ${process.versions.node}`);
+
   const live = options.force ? null : readRunLock();
   if (live) {
     const mins = Math.max(1, Math.round((Date.now() - live.started) / 60_000));
-    info(`A connect run from ${mins} minute${mins === 1 ? "" : "s"} ago is still open (pid ${live.pid}).`);
+    log.line("info", `A run from ${mins} minute${mins === 1 ? "" : "s"} ago is still open`, `pid ${live.pid}`);
     console.log(`  ${chalk.cyan(live.url)}`);
-    hint("Reopening that page — it keeps your progress. To start over instead: aisa connect --force");
+    log.note("reopening that page — it keeps your progress");
+    log.command("aisa connect --force", "start over instead");
     if (options.open !== false) openBrowser(live.url);
     return;
   }
@@ -1818,8 +1899,8 @@ export async function connectAction(options: {
   try {
     servers = await fetchLiveServers();
   } catch (e) {
-    error(`Could not read the MCP manifest: ${(e as Error).message}`);
-    hint("Check your network and try again.");
+    log.line("fail", "Could not read the MCP manifest", (e as Error).message);
+    log.note("check your network and try again");
     process.exitCode = 1;
     return;
   }
@@ -1833,8 +1914,9 @@ export async function connectAction(options: {
   }
   const detected = clients.filter((c) => c.detected);
   if (detected.length === 0) {
-    error("No supported client found (Claude Code, Cursor, Claude Desktop, Windsurf).");
-    hint("Install one, or use 'aisa mcp setup --agent <client>' to write a config anyway.");
+    log.line("fail", "No supported client found", "Claude Code, Codex, opencode, VS Code, Cursor, Claude Desktop");
+    log.note("install one, or write a config anyway:");
+    log.command("aisa mcp setup --agent <client>");
     process.exitCode = 1;
     return;
   }
@@ -2018,6 +2100,29 @@ export async function connectAction(options: {
       if (settled) return;
       settled = true;
       clearTimeout(idle);
+
+      // Replay the browser's choices in the terminal: the page is transient,
+      // the scrollback is not, and a reader who only has this should still
+      // know what was decided on their behalf.
+      log.section("What you chose");
+      const clientLabel = clients.find((c) => c.id === chosenClients[0])?.label ?? chosenClients[0];
+      log.line("choice", "Agent", wantInstall.size ? `${clientLabel} (install it first)` : clientLabel);
+      log.line(
+        "choice",
+        "Models",
+        llmMode === "switch"
+          ? `point ${clientLabel} at AIsa (${defaultModelsFor(chosenClients[0]).model})`
+          : llmMode === "backup"
+            ? "add AIsa beside your current setup, nothing replaced"
+            : "leave models as they are"
+      );
+      log.line(
+        "choice",
+        `Capabilities (${chosenServers.length})`,
+        chosenServers.map((s) => `aisa-${s.slug}`).join(", ")
+      );
+      log.section("Setting things up");
+
       const failures = await runPlan(state, {
         install: [...wantInstall],
         clients: chosenClients,
@@ -2025,33 +2130,41 @@ export async function connectAction(options: {
         key,
         dryRun: Boolean(options.dryRun),
         llmMode,
-      });
+      }, log);
       const results = state.results;
       {
         state.phase = failures > 0 ? "failed" : "done";
+        log.section(failures > 0 ? "Finished, with issues" : "🎉 All set");
         if (failures > 0) {
-          error(`${failures} step(s) did not complete — see the notes above.`);
+          log.line("warn", `${failures} step${failures > 1 ? "s" : ""} did not complete`, "details above");
         }
-        success(
+        log.line(
+          "ok",
           options.dryRun
-            ? "Dry run complete — nothing was written."
-            : `Connected ${chosenServers.length} server(s) for ${results.length} client(s)`
+            ? "Dry run complete — nothing was written"
+            : `${chosenServers.length} capabilit${chosenServers.length === 1 ? "y" : "ies"} connected to ${clientLabel}`
         );
+        summarise(log, {
+          clientId: chosenClients[0],
+          clientLabel,
+          servers: chosenServers,
+          llmMode,
+          steps: state.steps,
+          balance: state.balanceMicros ?? null,
+        });
         if (!options.dryRun) {
           // The success page opens as a fresh tab from this process (an OS
           // browser launch, so no popup blocker applies) — users who tabbed
           // away to the authorization rarely come back to the first tab.
           const doneUrl = `http://127.0.0.1:${port}/done?token=${token}`;
           state.doneUrl = doneUrl;
-          info("Opening a success page with try-it-now examples…");
+          log.line("info", "Opening your results page", "try-it-now prompts and your balance");
           if (template === "t2") await Promise.race([pageSeenP, pause(PAGE_SEEN_TIMEOUT_MS)]);
           await pause(BEFORE_HANDOFF_MS);
           openBrowser(doneUrl);
-          hint("A success page with try-it-now examples just opened in your browser");
-          hint("Verify anytime with /mcp inside Claude Code — entries should show Connected");
           const until = new Date(Date.now() + LINGER_AFTER_DONE_MS);
-          info(
-            `Keeping the results page alive until ${until.getHours()}:${String(until.getMinutes()).padStart(2, "0")} (Ctrl-C to finish now)…`
+          log.note(
+            `the page stays up until ${until.getHours()}:${String(until.getMinutes()).padStart(2, "0")} — Ctrl-C to finish now`
           );
           setTimeout(() => {
             srv.close();
@@ -2088,14 +2201,16 @@ export async function connectAction(options: {
     });
   }
 
-  info(
-    `${servers.length} live servers · detected: ${detected.map((c) => c.label).join(", ")}`
-  );
+  log.line("ok", "Found on this machine", detected.map((c) => c.label).join(", "));
+  const missing = clients.filter((c) => !c.detected).map((c) => c.label);
+  if (missing.length) log.record(`not found: ${missing.join(", ")}`);
+  log.line("info", `${servers.length} AIsa MCP servers are live`, "pick what you need in the page");
+  log.section("Open this page to choose");
   console.log(`  ${chalk.cyan(pageUrl)}`);
   if (options.open === false) {
-    hint("Open the URL above in your browser to continue (Ctrl-C to cancel)");
+    log.note("open the URL above in your browser to continue (Ctrl-C to cancel)");
   } else {
-    info("Opening your browser… (Ctrl-C to cancel)");
+    log.note("opening your browser… (Ctrl-C to cancel)");
     openBrowser(pageUrl);
   }
 }
