@@ -71,7 +71,6 @@ const PROVIDERS: Array<{ id: string; name: string; models: string }> = [
 /** Clients we do not connect yet but will, shown so the roadmap is visible. */
 const COMING_SOON: Array<{ id: string; label: string; note: string }> = [
   { id: "claude-ai", label: "Claude.ai", note: "connector" },
-  { id: "vscode", label: "VS Code", note: "install deeplink" },
   { id: "chatgpt", label: "ChatGPT", note: "connector" },
 ];
 
@@ -84,6 +83,8 @@ const AGENT_NOTES: Record<string, string> = {
     "Servers are added with <code>codex mcp add</code>, Codex's own command. Models go in an <code>aisa</code> provider inside <code>~/.codex/config.toml</code> — only keys we wrote are ever touched.",
   opencode:
     "Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.",
+  vscode:
+    "Both of VS Code's AI surfaces are files in its user profile, so nothing is done by hand: the AIsa servers go into <code>mcp.json</code> (VS Code signs in to them itself if no key is stored), and the models go into <code>chatLanguageModels.json</code> as a <b>Custom Endpoint</b> group named AIsa. Copilot's own models stay; AIsa's appear beside them in the chat model picker. Inline completions keep using Copilot.",
   cursor:
     "One click per server: each becomes an <b>Add to Cursor</b> link on the last step. Cursor opens, shows you the exact entry, and writes it into its own MCP settings when you confirm. Models stay as they are — Cursor picks its own.",
   "claude-ai":
@@ -101,6 +102,8 @@ const HAVE_NOTES: Record<string, string> = {
     "Nothing of yours is replaced. Your default model stays; the next step can add AIsa as an extra <code>aisa/…</code> provider you pick from the model list, or switch — your call.",
   "claude-ai":
     "Nothing of yours is touched — the connectors live in your claude.ai account, beside any you already have, and can be removed there in one click.",
+  vscode:
+    "Nothing of yours is replaced. Other MCP servers and model groups in those two files stay; only the <code>aisa-*</code> entries and the AIsa group are ours, and removing them is deleting those entries.",
   cursor:
     "Nothing of yours is replaced. Cursor adds each AIsa server beside your existing MCP entries under <code>aisa-*</code> names, and you approve every one inside Cursor first.",
 };
@@ -119,6 +122,8 @@ const BACKUP_COPY: Record<string, string> = {
     "Installs one small command, <b><code>claude-aisa</code></b>, next to your other tools. Your original <b><code>claude</code></b> keeps its login, models and settings <b>exactly as they are</b>.<br>You can use the newly added <b><code>claude-aisa</code></b> whenever you want AIsa's models at lower prices. Delete that one file to remove it.",
   codex:
     "Adds an <b>aisa profile</b> inside Codex's own config and a <b><code>codex-aisa</code></b> command. Your default Codex is <b>untouched</b>.<br>You can use the newly added <b><code>codex-aisa</code></b> (or <code>codex --profile aisa</code>) whenever you want AIsa's models; it applies to that session only.",
+  vscode:
+    "Adds a <b>Custom Endpoint</b> group named <b>AIsa</b> to VS Code's chat models — Claude, GPT, DeepSeek, Kimi, GLM, Qwen — beside Copilot's own. Your Copilot setup is <b>untouched</b>.<br>Pick any AIsa model from the chat model picker whenever you want it; inline completions stay on Copilot.",
   opencode:
     "Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b>.<br>You can pick the newly added <code>aisa/…</code> models from opencode's model list whenever you want them.",
 };
@@ -232,6 +237,7 @@ this machine except the sign-in you approve.</p>`;
   // Fixed order: Claude Desktop, ChatGPT, Cursor, VS Code — by how likely a
   // reader is to care, not by which list they come from.
   const chipOrder = ["claude-ai", "chatgpt", "cursor", "vscode"];
+  // (vscode only lands here when it has never been run on this machine)
   const chips = [
     ...rest.map((c) => ({ id: c.id, html: `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>not found</i></span>` })),
     ...COMING_SOON.map((c) => ({ id: c.id, html: `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>${c.note} · soon</i></span>` })),
@@ -281,7 +287,7 @@ accounts, no separate billing, no re-wiring when a better model ships next month
   <label class="tile on"><input type="radio" class="dot" name="lmodeDet" value="backup" checked>
     <span class="tbody"><span class="thead"><span class="tname">Add AIsa beside it</span><span class="badge rec">recommended</span></span>
     <span class="tbrief" id="mBackup"></span></span></label>
-  <label class="tile"><input type="radio" class="dot" name="lmodeDet" value="switch">
+  <label class="tile" id="mSwitch"><input type="radio" class="dot" name="lmodeDet" value="switch">
     <span class="tbody"><span class="thead"><span class="tname">Switch it to AIsa</span></span>
     <span class="tbrief">Points this agent's model traffic at AIsa (<b id="mModel2"></b>). Writes the
     agent's own provider settings and nothing else — reversible.</span></span></label>
@@ -441,7 +447,7 @@ each step reports as it finishes, and your results open on the last step.</p>
   function clientKind() { var id = clientId(); var c = CLIENTS.filter(function (x) { return x.id === id; })[0]; return c ? c.kind : "file"; }
   function llmMode() {
     if (!clientId()) return "skip";
-    if (clientKind() !== "cli") return "skip";
+    if (clientKind() !== "cli" && clientId() !== "vscode") return "skip";
     if (installing()) return ($('input[name="lmodeFresh"]:checked') || {}).value || "skip";
     return ($('input[name="lmodeDet"]:checked') || {}).value || "skip";
   }
@@ -466,11 +472,15 @@ each step reports as it finishes, and your results open on the last step.</p>
     var id = clientId(), fresh = installing(), kind = clientKind();
     $("#mClient").textContent = id ? LABEL[id] : "your agent";
     $("#mModel").textContent = MODEL_FOR[id] || ""; $("#mModel2").textContent = MODEL_FOR[id] || "";
+    var vsc = id === "vscode";
     $("#mFresh").style.display = kind === "cli" && fresh ? "" : "none";
-    $("#mDetected").style.display = kind === "cli" && !fresh ? "" : "none";
-    $("#mFile").style.display = kind !== "cli" ? "" : "none";
-    if (kind === "cli" && !fresh) $("#mBackup").innerHTML = BACKUP_COPY[id] || "";
-    if (kind !== "cli") $("#mFileText").innerHTML = FILE_MODEL_NOTE[id] || "This client picks its own models inside the app, so nothing is changed here — only the MCP servers are added.";
+    $("#mDetected").style.display = (kind === "cli" && !fresh) || vsc ? "" : "none";
+    $("#mFile").style.display = kind !== "cli" && !vsc ? "" : "none";
+    // VS Code has no "switch": Copilot's models cannot be replaced, only joined.
+    $("#mSwitch").style.display = vsc ? "none" : "";
+    if (vsc && $('input[name="lmodeDet"][value="switch"]').checked) $('input[name="lmodeDet"][value="backup"]').checked = true;
+    if ((kind === "cli" && !fresh) || vsc) $("#mBackup").innerHTML = BACKUP_COPY[id] || "";
+    if (kind !== "cli" && !vsc) $("#mFileText").innerHTML = FILE_MODEL_NOTE[id] || "This client picks its own models inside the app, so nothing is changed here — only the MCP servers are added.";
     $$(".choice .tile").forEach(function (t) { t.classList.toggle("on", t.querySelector("input").checked); });
     updateWarn();
   }
@@ -554,7 +564,7 @@ each step reports as it finishes, and your results open on the last step.</p>
     rows.push([clientKind() === "web" ? "Prepare " + n + " connector URL" + (n === 1 ? "" : "s") : id === "cursor" ? "Prepare " + n + " Cursor install link" + (n === 1 ? "" : "s") : "Add " + n + " MCP server" + (n === 1 ? "" : "s"), clientKind() === "web" ? "for you to add in claude.ai" : id === "cursor" ? "one click each, confirmed inside Cursor" : "to " + LABEL[id]]);
     var m = llmMode();
     if (m === "switch") rows.push(["Point its models at AIsa", MODEL_FOR[id] + " by default; reversible"]);
-    if (m === "backup") rows.push([id === "claude-code" ? "Install the claude-aisa command" : id === "codex" ? "Add the aisa profile and codex-aisa" : "Add AIsa as a backup provider", "your current setup stays untouched"]);
+    if (m === "backup") rows.push([id === "claude-code" ? "Install the claude-aisa command" : id === "codex" ? "Add the aisa profile and codex-aisa" : id === "vscode" ? "Add AIsa models to VS Code chat" : "Add AIsa as a backup provider", "your current setup stays untouched"]);
     rows.push(["Check your AIsa balance", "so an empty account is never a surprise"]);
     return rows.map(function (r) {
       return "<div class='step pending'><span class='mark'></span><span class='body'><span class='lbl'>" + r[0] +
@@ -713,6 +723,10 @@ each step reports as it finishes, and your results open on the last step.</p>
       (gift ? "<div class='giftnote'><b>AIsa has given you $1 to get started.</b> That covers your first few calls. Top up now so your agent never stops mid-task.</div>" : low ? "<div class='lownote'>Running a little low — a small top-up keeps your first calls flowing.</div>" : (bal === null || bal === undefined ? "<div class='lownote'>Could not read it just now — <code>aisa balance</code> will.</div>" : "")) +
       "<a class='cta sm' href='https://console.aisa.one/billing?source=aisa_cli' target='_blank' rel='noopener'>Top up now →</a></div></div>";
     var fileNote = "";
+    if (id === "vscode") {
+      fileNote = "<p class='fine'><b>Reload VS Code</b> (Cmd/Ctrl+Shift+P → Reload Window). The servers appear under <b>Extensions → MCP Servers</b>" +
+        (sel.llmMode === "backup" ? ", and the chat model picker gains an <b>AIsa</b> group" : "") + ".</p>";
+    }
     if (id === "cursor" && s.deeplinks && s.deeplinks.length) {
       fileNote = "<h2>Finish in Cursor — one click per server</h2><div class='webcard'>" +
         "<p class='fine' style='margin:0 0 .6rem'>Each button opens Cursor with the entry ready; press <b>Install</b> there. Afterwards <b>Cursor Settings → MCP</b> lists them as <code>aisa-…</code>.</p>" +
@@ -731,7 +745,7 @@ each step reports as it finishes, and your results open on the last step.</p>
             "<button type='button' data-copy=\\"" + x.endpoint + "\\">" + ICON_COPY + " Copy URL</button></div>";
         }).join("") + "</div>";
     }
-    var backupNote = backup ? "<p class='fine'><b>Your usual setup is untouched.</b> " + (id === "opencode" ? "Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa." : "Run <code>" + bin + "</code> whenever you want AIsa's models; delete that one file to remove it.") + "</p>" : "";
+    var backupNote = backup && id === "vscode" ? "" : backup ? "<p class='fine'><b>Your usual setup is untouched.</b> " + (id === "opencode" ? "Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa." : "Run <code>" + bin + "</code> whenever you want AIsa's models; delete that one file to remove it.") + "</p>" : "";
     var model = MODEL_FOR[id] || "";
     var preview = id === "opencode"
       ? "<pre class='termlogo oc'>" + ART.opencode + "</pre><div class='termline'>Welcome to <b>opencode</b></div><div class='termline dim'>model: <b>" + PROVIDER_ID + "/" + model + "</b> · via AIsa</div><div class='termline dim'>config: ~/.config/opencode/opencode.json</div>"

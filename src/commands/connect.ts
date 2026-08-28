@@ -2,6 +2,7 @@ import { execFile, spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname } from "node:path";
 import { promisify } from "node:util";
 import chalk from "chalk";
@@ -23,6 +24,7 @@ import {
 } from "./llm-config.js";
 import { writeClaudeAisaSettings, installWrappers } from "./wrappers.js";
 import { mintCliKey } from "./oauth-login.js";
+import { vscodeDetected, vscodeUserDir, writeVSCodeLLM, writeVSCodeMCP, VSCODE_MODELS } from "./vscode.js";
 import { formatMicrosUSD } from "./account.js";
 import { apiRequest } from "../api.js";
 import {
@@ -134,6 +136,17 @@ export function detectClients(): ClientInfo[] {
     kind: "cli",
     detected: oc.status === 0,
     detail: oc.status === 0 ? `opencode ${oc.stdout.trim()}` : "opencode not found on PATH",
+  });
+
+  // VS Code: its chat models and MCP servers are both files in the user
+  // profile directory, written without the UI. Detected when that
+  // directory exists, i.e. VS Code has run here at least once.
+  clients.push({
+    id: "vscode",
+    label: "VS Code",
+    kind: "file",
+    detected: vscodeDetected(),
+    detail: vscodeDetected() ? vscodeUserDir().replace(homedir(), "~") : "VS Code has not been run on this machine",
   });
 
   for (const [id, cfg] of Object.entries(MCP_CONFIGS)) {
@@ -333,6 +346,17 @@ async function applySelection(
             }
           : { client: id, ok: false, message: `only ${added} of ${chosen.length} servers were added` }
       );
+    } else if (id === "vscode") {
+      if (dryRun) {
+        results.push({ client: id, ok: true, message: `would write ${chosen.length} servers to VS Code's mcp.json` });
+        continue;
+      }
+      const r = writeVSCodeMCP(chosen, key);
+      results.push(
+        r.ok
+          ? { client: id, ok: true, message: `${r.written} servers → ${r.path.replace(homedir(), "~")}${key ? "" : " — VS Code signs in on first use"}` }
+          : { client: id, ok: false, message: r.reason }
+      );
     } else if (id === "claude-ai") {
       // Nothing on this machine to write: claude.ai takes remote MCP servers
       // as Connectors pasted in by the user, with its own OAuth. The page
@@ -470,7 +494,9 @@ function buildPlan(input: PlanInput): Step[] {
           ? "Install the claude-aisa command"
           : target === "codex"
             ? "Add the aisa profile and codex-aisa command"
-            : "Add AIsa as a backup provider",
+            : target === "vscode"
+              ? `Add ${VSCODE_MODELS.length} AIsa models to VS Code chat`
+              : "Add AIsa as a backup provider",
       state: "pending",
       detail: "your current models and settings stay untouched",
     });
@@ -655,6 +681,10 @@ async function runPlan(state: RunState, input: RunInput): Promise<number> {
     } else if (target === "opencode") {
       const r = writeOpencodeAisaBackup(key);
       if (r.ok) ok("llm-backup", `aisa provider added — pick aisa/${DEFAULT_MODELS.model} in opencode`);
+      else fail("llm-backup", r.reason);
+    } else if (target === "vscode") {
+      const r = writeVSCodeLLM(key);
+      if (r.ok) ok("llm-backup", `${VSCODE_MODELS.length} models in the chat model picker, under "AIsa"`);
       else fail("llm-backup", r.reason);
     } else {
       setStep(state, "llm-backup", { state: "skip", detail: "not available for this client" });
