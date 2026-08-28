@@ -98,6 +98,22 @@ export class Journal {
     );
   }
 
+  /**
+   * The last thing a run says. Everything above is what happened; this is
+   * the one command worth remembering, so it gets a rule above it, an arrow
+   * and the brightest ink on the screen — a reader who scrolled away and
+   * came back should land on it.
+   */
+  encore(cmd: string, why: string): void {
+    const rule = "─".repeat(Math.min(62, cmd.length + why.length + 8));
+    this.emit("", `\n${chalk.gray(rule)}`, `\n${rule}`);
+    this.emit(
+      "👉",
+      `👉 ${chalk.bold.cyan(cmd)}  ${chalk.bold(why)}`,
+      `👉 ${cmd}  ${why}`
+    );
+  }
+
   /** Log-only: detail worth having in a bug report, noise in a terminal. */
   record(text: string): void {
     this.write(`   · ${text}`);

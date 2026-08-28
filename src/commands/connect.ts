@@ -1855,7 +1855,6 @@ function summarise(
   }
   log.command("aisa balance", "check your credit");
   log.command("aisa topup", "add credit");
-  log.command("aisa connect", "run this again any time — add servers, change models, connect another agent");
 
   log.section("Good to know");
   if (r.clientId === "claude-desktop") log.line("info", "Restart Claude Desktop", "the servers load on start");
@@ -2144,14 +2143,6 @@ export async function connectAction(options: {
             ? "Dry run complete — nothing was written"
             : `${chosenServers.length} capabilit${chosenServers.length === 1 ? "y" : "ies"} connected to ${clientLabel}`
         );
-        summarise(log, {
-          clientId: chosenClients[0],
-          clientLabel,
-          servers: chosenServers,
-          llmMode,
-          steps: state.steps,
-          balance: state.balanceMicros ?? null,
-        });
         if (!options.dryRun) {
           // The success page opens as a fresh tab from this process (an OS
           // browser launch, so no popup blocker applies) — users who tabbed
@@ -2166,11 +2157,37 @@ export async function connectAction(options: {
           log.note(
             `the page stays up until ${until.getHours()}:${String(until.getMinutes()).padStart(2, "0")} — Ctrl-C to finish now`
           );
+          // Last, so it is the line still on screen: everything else is what
+          // happened, this is what to do next.
+          summarise(log, {
+            clientId: chosenClients[0],
+            clientLabel,
+            servers: chosenServers,
+            llmMode,
+            steps: state.steps,
+            balance: state.balanceMicros ?? null,
+          });
+          log.encore(
+            "aisa connect",
+            "run this any time — add servers, switch models, connect another agent"
+          );
           setTimeout(() => {
             srv.close();
             process.exit(failures > 0 ? 1 : 0);
           }, LINGER_AFTER_DONE_MS);
         } else {
+          summarise(log, {
+            clientId: chosenClients[0],
+            clientLabel,
+            servers: chosenServers,
+            llmMode,
+            steps: state.steps,
+            balance: state.balanceMicros ?? null,
+          });
+          log.encore(
+            "aisa connect",
+            "run this any time — add servers, switch models, connect another agent"
+          );
           // Dry run: no success tab is opened, but the page (and T2's done
           // step) stays reachable for a minute so a rehearsal can be read.
           setTimeout(() => {
