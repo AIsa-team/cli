@@ -99,19 +99,24 @@ export class Journal {
   }
 
   /**
-   * The last thing a run says. Everything above is what happened; this is
-   * the one command worth remembering, so it gets a rule above it, an arrow
-   * and the brightest ink on the screen — a reader who scrolled away and
-   * came back should land on it.
+   * The last thing a run says. Everything above is what happened; these are
+   * the commands worth remembering, so they get a rule above them, an arrow
+   * each and the brightest ink on the screen — a reader who scrolled away
+   * and came back should land on them. One entry is the common case; a
+   * fresh install or a new wrapper command earns a second line above the
+   * standing "run this again" one, most useful first.
    */
-  encore(cmd: string, why: string): void {
-    const rule = "─".repeat(Math.min(62, cmd.length + why.length + 8));
+  encore(items: Array<{ cmd: string; why: string }>): void {
+    const width = Math.min(70, Math.max(...items.map((i) => i.cmd.length + i.why.length + 8)));
+    const rule = "─".repeat(width);
     this.emit("", `\n${chalk.gray(rule)}`, `\n${rule}`);
-    this.emit(
-      "👉",
-      `👉 ${chalk.bold.cyan(cmd)}  ${chalk.bold(why)}`,
-      `👉 ${cmd}  ${why}`
-    );
+    for (const { cmd, why } of items) {
+      this.emit(
+        "👉",
+        `👉 ${chalk.bold.cyan(cmd)}  ${chalk.bold(why)}`,
+        `👉 ${cmd}  ${why}`
+      );
+    }
   }
 
   /** Log-only: detail worth having in a bug report, noise in a terminal. */

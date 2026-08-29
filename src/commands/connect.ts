@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import * as readline from "node:readline";
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { existsSync } from "node:fs";
@@ -1822,6 +1823,78 @@ async function oldRunSettled(url: string): Promise<boolean> {
   }
 }
 
+interface LaunchChoice {
+  cmd: string;
+  desc: string;
+}
+
+/**
+ * What "run it" means for this client: a backup pair (the wrapper first,
+ * since that is the one thing that changed; the original second, for
+ * comparison) or a single command. Empty for clients with no terminal
+ * command of their own (VS Code, Cursor, Claude Desktop, Claude.ai) — those
+ * get an Open/Restart button on the results page instead, not a shell to
+ * hand over.
+ */
+function launchChoices(clientId: string, llmMode: LlmMode): LaunchChoice[] {
+  if (!["claude-code", "codex", "opencode"].includes(clientId)) return [];
+  const original = clientId === "claude-code" ? "claude" : clientId;
+  if (llmMode === "backup" && (clientId === "claude-code" || clientId === "codex")) {
+    const wrapper = clientId === "claude-code" ? "claude-aisa" : "codex-aisa";
+    const model = defaultModelsFor(clientId).model;
+    return [
+      { cmd: wrapper, desc: `${model} via AIsa — your usual ${original} is untouched` },
+      { cmd: original, desc: "your original setup, unchanged" },
+    ];
+  }
+  const model = defaultModelsFor(clientId).model;
+  return [
+    { cmd: original, desc: llmMode === "switch" ? `now running on AIsa (${model})` : "your new tools are ready" },
+  ];
+}
+
+/**
+ * The last step of a run, when there is a real terminal command to hand
+ * over: let the user pick one and start it right here, rather than making
+ * them copy a line from the log and open a fresh terminal. Only offered
+ * when stdin/stdout are a real TTY — piped or non-interactive invocations
+ * (scripts, CI) fall straight through to the linger period, same as before
+ * this existed.
+ */
+async function offerLaunch(log: Journal, clientId: string, llmMode: LlmMode): Promise<void> {
+  const choices = launchChoices(clientId, llmMode);
+  if (choices.length === 0 || !process.stdin.isTTY || !process.stdout.isTTY) return;
+
+  console.log();
+  console.log(chalk.bold("What would you like to do now?"));
+  choices.forEach((c, i) => {
+    console.log(`  ${chalk.bold.cyan(String(i + 1))}) ${chalk.bold(c.cmd.padEnd(14))} ${chalk.gray(c.desc)}`);
+  });
+  const exitNum = choices.length + 1;
+  console.log(
+    `  ${chalk.bold.cyan(String(exitNum))}) ${chalk.bold("Exit".padEnd(14))} ` +
+      `${chalk.gray("leave this terminal — the results page keeps working")}`
+  );
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await new Promise<string>((resolve) => rl.question("  > ", resolve));
+  rl.close();
+
+  const picked = choices[Number.parseInt(answer.trim(), 10) - 1];
+  if (!picked) {
+    log.record(`asked what to run next — ${answer.trim() ? `"${answer.trim()}" was not an option` : "no choice"}, exiting`);
+    return;
+  }
+  log.record(`asked what to run next — chose ${picked.cmd}`);
+  console.log(chalk.gray(`\nStarting ${picked.cmd}… exit it normally to come back here.\n`));
+  await new Promise<void>((resolve) => {
+    const child = spawn(picked.cmd, [], { stdio: "inherit", cwd: process.cwd() });
+    child.once("exit", () => resolve());
+    child.once("error", () => resolve());
+  });
+  log.line("info", `Back from ${picked.cmd}`, "the results page below is still open");
+}
+
 /**
  * The closing block of a run: what changed on this machine, which commands
  * the user now has, and what to run next. It is the part someone reads
@@ -1866,18 +1939,10 @@ function summarise(
   log.record(`credential: ~/.aisa/key (0600)`);
 
   log.section("Commands you now have");
-  const wrapper =
-    r.llmMode === "backup" && r.clientId === "claude-code" ? "claude-aisa"
-    : r.llmMode === "backup" && r.clientId === "codex" ? "codex-aisa"
-    : null;
-  if (wrapper) {
-    log.line("cmd", `${wrapper}`, `your usual ${r.clientId === "codex" ? "codex" : "claude"} is untouched`);
-    log.command(wrapper, "same agent, AIsa models");
-  } else if (r.clientId === "claude-code" || r.clientId === "codex" || r.clientId === "opencode") {
-    log.command(r.clientId === "claude-code" ? "claude" : r.clientId, "start it in a new terminal");
-  }
+  for (const c of launchChoices(r.clientId, r.llmMode)) log.command(c.cmd, c.desc);
   log.command("aisa balance", "check your credit");
   log.command("aisa topup", "add credit");
+  log.command("aisa connect", "configure servers, switch models, connect another agent");
 
   log.section("Good to know");
   if (r.clientId === "claude-desktop") log.line("info", "Restart Claude Desktop", "the servers load on start");
@@ -2212,10 +2277,12 @@ export async function connectAction(options: {
             steps: state.steps,
             balance: state.balanceMicros ?? null,
           });
-          log.encore(
-            "aisa connect",
-            "run this any time — configure servers, switch models, connect another agent"
-          );
+          const primary = launchChoices(chosenClients[0], llmMode)[0];
+          log.encore([
+            ...(primary ? [{ cmd: primary.cmd, why: primary.desc }] : []),
+            { cmd: "aisa connect", why: "run this any time — configure servers, switch models, connect another agent" },
+          ]);
+          await offerLaunch(log, chosenClients[0], llmMode);
           setTimeout(() => {
             srv.close();
             process.exit(failures > 0 ? 1 : 0);
@@ -2232,12 +2299,13 @@ export async function connectAction(options: {
             steps: state.steps,
             balance: state.balanceMicros ?? null,
           });
-          log.encore(
-            "aisa connect",
-            "run this any time — configure servers, switch models, connect another agent"
-          );
-          // Dry run: no success tab is opened, but the page (and T2's done
-          // step) stays reachable for a minute so a rehearsal can be read.
+          log.encore([
+            { cmd: "aisa connect", why: "run this any time — configure servers, switch models, connect another agent" },
+          ]);
+          // Dry run: nothing was actually configured, so there is no real
+          // command to hand the terminal over to — no launch prompt here.
+          // The page (and T2's done step) stays reachable for a minute so a
+          // rehearsal can be read.
           setTimeout(() => {
             srv.close();
             process.exit(0);
