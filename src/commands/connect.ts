@@ -1800,6 +1800,29 @@ function clearRunLock(): void {
 }
 
 /**
+ * The lock only needs to keep a second run out while the first one is
+ * genuinely doing something — writing configs, waiting on a browser OAuth
+ * round. Once it settles into "done" or "failed" it is just a results page
+ * sitting there; nothing more will be written, so a fresh run is free to
+ * start. Ask the old server what phase it is in rather than trusting age:
+ * a two-minute-old run can already be done, a twenty-minute-old one can
+ * still be mid-authorization. Unreachable (or any other phase) counts as
+ * still active — the safe default when we cannot tell.
+ */
+async function oldRunSettled(url: string): Promise<boolean> {
+  try {
+    const u = new URL(url);
+    const token = u.searchParams.get("token") ?? "";
+    const res = await fetch(`${u.origin}/status?token=${token}`, { signal: AbortSignal.timeout(2_000) });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { phase?: string };
+    return data.phase === "done" || data.phase === "failed";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * The closing block of a run: what changed on this machine, which commands
  * the user now has, and what to run next. It is the part someone reads
  * after the browser tab is gone — and the part that teaches them to do this
@@ -1884,7 +1907,16 @@ export async function connectAction(options: {
   log.section(`AIsa connect · v${VERSION}`);
   log.line("info", "Machine", `${process.platform} ${process.arch} · node ${process.versions.node}`);
 
-  const live = options.force ? null : readRunLock();
+  let live = options.force ? null : readRunLock();
+  if (live && (await oldRunSettled(live.url))) {
+    // It finished; its results page is just lingering. Nothing more will be
+    // written there, so there is nothing to protect against — proceed as if
+    // no lock existed. This process's own writeRunLock (below) takes over
+    // the file once its server is up.
+    const mins = Math.max(1, Math.round((Date.now() - live.started) / 60_000));
+    log.line("info", `An earlier run finished ${mins} minute${mins === 1 ? "" : "s"} ago`, "starting a new one");
+    live = null;
+  }
   if (live) {
     const mins = Math.max(1, Math.round((Date.now() - live.started) / 60_000));
     log.line("info", `A run from ${mins} minute${mins === 1 ? "" : "s"} ago is still open`, `pid ${live.pid}`);
