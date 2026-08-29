@@ -26,8 +26,24 @@ function writeKeyFile(key: string): void {
   chmodSync(keyFile(), 0o600);
 }
 
+/**
+ * 0600, because this file holds credentials.
+ *
+ * conf defaults to 0o666 (0644 after a typical umask), so until 2026-08-24
+ * every install left the API key — and the Twitter session cookies, which are
+ * account access rather than something revocable — world-readable on shared
+ * machines. The key file next door was already 0600; this closes the gap on
+ * the store that mirrors it.
+ *
+ * The mirror itself stays: published CLIs up to 0.3.0 know nothing about
+ * ~/.aisa/key and read the key only from here, so dropping the write would
+ * silently log out anyone still running one alongside a newer copy.
+ */
+const CONFIG_FILE_MODE = 0o600;
+
 const config = new Conf({
   projectName: "aisa-cli",
+  configFileMode: CONFIG_FILE_MODE,
   schema: {
     apiKey: { type: "string", default: "" },
     defaultModel: { type: "string", default: "gpt-4.1-mini" },
@@ -37,6 +53,16 @@ const config = new Conf({
     twitterProxy: { type: "string", default: "" },
   },
 });
+
+// configFileMode only applies when conf writes. Every install that ran before
+// this change already has the file on disk at 0644, and a user who never logs
+// in again would keep it — so tighten what is already there, once, at startup.
+// Best-effort: a config we cannot chmod is still a config we can read.
+try {
+  chmodSync(config.path, CONFIG_FILE_MODE);
+} catch {
+  /* not ours to chmod, or gone — neither is worth failing a command over */
+}
 
 export function getApiKey(): string | undefined {
   const envKey = process.env[ENV_VAR_NAME];

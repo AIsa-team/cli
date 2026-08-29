@@ -18,10 +18,19 @@ vi.mock("node:os", async (orig) => {
 });
 
 // conf resolves its own storage path via env-paths at import time; point it
-// into the sandbox so tests never touch the real store.
+// into the sandbox so tests never touch the real store. The stub also records
+// the constructor options, so the file-mode contract can be asserted without
+// reaching for the real store's platform-specific path.
 let confStore: Record<string, unknown> = {};
+let confOptions: Record<string, unknown> = {};
+let confPath = "";
 vi.mock("conf", () => ({
   default: class {
+    path: string;
+    constructor(options: Record<string, unknown>) {
+      confOptions = options;
+      this.path = confPath;
+    }
     get(k: string) {
       return confStore[k] ?? "";
     }
@@ -82,5 +91,33 @@ describe("~/.aisa/key", () => {
     clearApiKey();
     expect(existsSync(keyPath())).toBe(false);
     expect(getApiKey()).toBeUndefined();
+  });
+});
+
+/**
+ * The legacy conf store mirrors the key so a published CLI up to 0.3.0 —
+ * which reads only from there — keeps working beside a newer copy. That
+ * mirror shipped world-readable (conf defaults to 0o666) until 2026-08-24,
+ * exposing both the API key and the Twitter session cookies on shared
+ * machines. Both halves of the fix are pinned here.
+ */
+describe("legacy conf store permissions", () => {
+  it("is constructed to write 0600, not conf's 0o666 default", () => {
+    expect(confOptions.configFileMode).toBe(0o600);
+  });
+
+  it("tightens a store that already exists at 0644", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "aisa-conf-"));
+    confPath = join(dir, "config.json");
+    writeFileSync(confPath, "{}", { mode: 0o644 });
+    expect(statSync(confPath).mode & 0o777).toBe(0o644);
+
+    // The chmod runs at module load, so re-import with the path in place.
+    vi.resetModules();
+    await import("../src/config.js");
+
+    expect(statSync(confPath).mode & 0o777).toBe(0o600);
+    rmSync(dir, { recursive: true, force: true });
+    confPath = "";
   });
 });
