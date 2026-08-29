@@ -29,6 +29,7 @@ import { formatMicrosUSD } from "./account.js";
 import { apiRequest } from "../api.js";
 import { run, runSync, QUICK_TIMEOUT_MS } from "../utils/exec.js";
 import { Journal } from "../utils/journal.js";
+import { checkForUpdate } from "../utils/update-check.js";
 import { VERSION } from "../constants.js";
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -1957,6 +1958,7 @@ function summarise(
     llmMode: LlmMode;
     steps: Step[];
     balance: number | null;
+    newerVersion?: string;
   }
 ): void {
   const done = (id: string) => r.steps.some((s) => s.id === id && s.state === "ok");
@@ -1998,6 +2000,9 @@ function summarise(
   if (r.balance !== null && r.balance <= LOW_BALANCE_MICROS) {
     log.line("warn", `Balance is ${formatMicrosUSD(r.balance)}`, "top up so your agent never stops mid-task");
   }
+  if (r.newerVersion) {
+    log.line("info", `A newer CLI is out: v${r.newerVersion}`, `you're on v${VERSION} — run \`aisa update\``);
+  }
   if (log.path) log.line("info", "This run was logged to", log.path.replace(homedir(), "~"));
 }
 
@@ -2017,6 +2022,10 @@ export async function connectAction(options: {
   const log = new Journal();
   log.section(`AIsa connect · v${VERSION}`);
   log.line("info", "Machine", `${process.platform} ${process.arch} · node ${process.versions.node}`);
+  // Fired now so it has the whole run — often minutes, while the user picks
+  // servers in the browser — to resolve. Cached and throttled (see
+  // update-check.ts), so this is a no-op network call on most invocations.
+  const updateCheckP = checkForUpdate().catch(() => undefined);
 
   let live = options.force ? null : readRunLock();
   if (live && (await oldRunSettled(live.url))) {
@@ -2274,6 +2283,9 @@ export async function connectAction(options: {
         llmMode,
       }, log);
       const results = state.results;
+      // Long since settled by now (fired at the top of connectAction) — this
+      // just reads the resolved value, it does not add a wait.
+      const newerVersion = await updateCheckP;
       {
         // The backend is genuinely done the moment runPlan resolves — but
         // T2's own page is still deliberately pacing through its checklist
@@ -2322,6 +2334,7 @@ export async function connectAction(options: {
             llmMode,
             steps: state.steps,
             balance: state.balanceMicros ?? null,
+            newerVersion,
           });
           const primary = launchChoices(chosenClients[0], llmMode)[0];
           log.encore([
@@ -2352,6 +2365,7 @@ export async function connectAction(options: {
             llmMode,
             steps: state.steps,
             balance: state.balanceMicros ?? null,
+            newerVersion,
           });
           log.encore([
             { cmd: "aisa connect", why: "run this any time — configure servers, switch models, connect another agent" },
