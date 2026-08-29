@@ -54,6 +54,8 @@ import { configSetAction, configGetAction, configListAction, configResetAction }
 import { cacheClearAction, cachePathAction } from "./commands/cacheCmd.js";
 // Completion
 import { completionAction, completeAction } from "./commands/completionCmd.js";
+// Manifest
+import { manifestAction } from "./commands/manifest.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function wrap(fn: (...args: any[]) => Promise<void>): (...args: any[]) => void {
@@ -677,6 +679,13 @@ cache
 
 // ── Shell completion ──
 
+// The whole tree as JSON. Agents get one shot at a top-level dump, and the
+// default help renders every subcommand as a bare `[options]`.
+program
+  .command("manifest")
+  .description("Print every command, argument and flag as JSON (for agents and scripts)")
+  .action(() => manifestAction(program));
+
 program
   .command("completion [shell]")
   .description("Print a shell completion script (bash, zsh, fish)")
@@ -689,6 +698,20 @@ program
   .allowUnknownOption()
   .allowExcessArguments()
   .action((words: string[] = []) => completeAction(program, words));
+
+// The one line that makes the manifest discoverable: an agent reads this page
+// first, and would otherwise never learn the flags exist.
+program.addHelpText(
+  "after",
+  `
+Examples:
+  $ aisa connect                      wire your coding agent to AIsa (start here)
+  $ aisa twitter search "ai" --raw    search X, full JSON out
+  $ aisa api show coingecko           list one API's endpoints
+  $ aisa run coingecko simple/price -q ids=bitcoin -q vs_currencies=usd
+
+Agents: \`aisa manifest\` prints every command, argument and flag as JSON.`
+);
 
 // ── Parse ──
 
