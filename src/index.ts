@@ -46,6 +46,8 @@ import {
 // MCP
 import { mcpSetupAction, mcpStatusAction } from "./commands/mcp.js";
 import { connectAction } from "./commands/connect.js";
+// Update
+import { updateAction } from "./commands/update.js";
 // Config
 import { configSetAction, configGetAction, configListAction, configResetAction } from "./commands/configCmd.js";
 // Cache
@@ -599,6 +601,11 @@ program
   .option("--template <id>", "Page template: t2 (guided steps, default) or t1 (classic two-page)")
   .option("--force", "Start a new run even if another one is still open")
   .action(wrap(connectAction));
+
+program
+  .command("update")
+  .description("Update the AIsa CLI to the latest published version")
+  .action(wrap(updateAction));
 
 const mcp = program.command("mcp").description("MCP server integration");
 
