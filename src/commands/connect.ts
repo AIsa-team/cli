@@ -1861,9 +1861,36 @@ function launchChoices(clientId: string, llmMode: LlmMode): LaunchChoice[] {
  * (scripts, CI) fall straight through to the linger period, same as before
  * this existed.
  */
-async function offerLaunch(log: Journal, clientId: string, llmMode: LlmMode): Promise<void> {
+/**
+ * True once the child has visibly been a real agent session rather than an
+ * instant failure — a clean exit, or simply having stuck around for a few
+ * seconds (covers Ctrl-C mid-conversation, which often exits non-zero).
+ * Getting this wrong the generous way (calling a real session "not real")
+ * is the harmless direction; the costly one is the reverse.
+ */
+function looksLikeARealSession(code: number | null, ranForMs: number): boolean {
+  return code !== null && (code === 0 || ranForMs > 2_000);
+}
+
+/**
+ * Offers the picker, and — this is the part that matters — closes the loop
+ * honestly when the user picks a real agent: their session took over this
+ * terminal and scrolled everything above it out of view (a chat is not an
+ * alternate screen buffer; it just prints), so whatever we said about
+ * "aisa connect any time" before handing over is gone from the visible
+ * screen by the time they are back. Repeating it here, then actually
+ * exiting instead of quietly sitting on the linger timer, is what makes
+ * this feel like a clean visit rather than a process the user forgot was
+ * still running. Returns whether that happened, so the caller can skip the
+ * linger and hand the terminal straight back.
+ */
+async function offerLaunch(
+  log: Journal,
+  clientId: string,
+  llmMode: LlmMode
+): Promise<boolean> {
   const choices = launchChoices(clientId, llmMode);
-  if (choices.length === 0 || !process.stdin.isTTY || !process.stdout.isTTY) return;
+  if (choices.length === 0 || !process.stdin.isTTY || !process.stdout.isTTY) return false;
 
   console.log();
   console.log(chalk.bold("What would you like to do now?"));
@@ -1883,16 +1910,35 @@ async function offerLaunch(log: Journal, clientId: string, llmMode: LlmMode): Pr
   const picked = choices[Number.parseInt(answer.trim(), 10) - 1];
   if (!picked) {
     log.record(`asked what to run next — ${answer.trim() ? `"${answer.trim()}" was not an option` : "no choice"}, exiting`);
-    return;
+    return false;
   }
   log.record(`asked what to run next — chose ${picked.cmd}`);
   console.log(chalk.gray(`\nStarting ${picked.cmd}… exit it normally to come back here.\n`));
-  await new Promise<void>((resolve) => {
+  const startedAt = Date.now();
+  const code = await new Promise<number | null>((resolve) => {
     const child = spawn(picked.cmd, [], { stdio: "inherit", cwd: process.cwd() });
-    child.once("exit", () => resolve());
-    child.once("error", () => resolve());
+    child.once("exit", (code) => resolve(code));
+    child.once("error", () => resolve(null));
   });
-  log.line("info", `Back from ${picked.cmd}`, "the results page below is still open");
+
+  if (!looksLikeARealSession(code, Date.now() - startedAt)) {
+    log.line(
+      "warn",
+      `${picked.cmd} exited right away`,
+      code === null ? "could not start it" : `exit code ${code}`
+    );
+    return false;
+  }
+
+  // A real session happened. Say so, then repeat the one thing worth
+  // repeating — everything printed before this got scrolled away by
+  // whatever just filled the screen.
+  console.log(chalk.bold.green(`\n🎉 That was ${picked.cmd}, running on AIsa. Nice.`));
+  log.encore([
+    { cmd: picked.cmd, why: picked.desc },
+    { cmd: "aisa connect", why: "run this any time — configure servers, switch models, connect another agent" },
+  ]);
+  return true;
 }
 
 /**
@@ -2282,11 +2328,19 @@ export async function connectAction(options: {
             ...(primary ? [{ cmd: primary.cmd, why: primary.desc }] : []),
             { cmd: "aisa connect", why: "run this any time — configure servers, switch models, connect another agent" },
           ]);
-          await offerLaunch(log, chosenClients[0], llmMode);
-          setTimeout(() => {
+          const usedAgent = await offerLaunch(log, chosenClients[0], llmMode);
+          if (usedAgent) {
+            // They were just inside a real agent session — that is the
+            // strongest possible "done" signal. Hand the terminal straight
+            // back instead of sitting on the linger timer.
             srv.close();
             process.exit(failures > 0 ? 1 : 0);
-          }, LINGER_AFTER_DONE_MS);
+          } else {
+            setTimeout(() => {
+              srv.close();
+              process.exit(failures > 0 ? 1 : 0);
+            }, LINGER_AFTER_DONE_MS);
+          }
         } else {
           // Dry run: nothing is animating and no tab is opening, so there is
           // nothing to wait for — the celebration can fire right away.
