@@ -50,6 +50,23 @@ describe("buildManifest", () => {
     expect(show?.options.map((o) => o.flags)).toEqual(["--all", "--limit <n>"]);
   });
 
+  it("does not call an optional flag required — Commander's `required` means the VALUE", () => {
+    const show = find(buildManifest(fixture()), "aisa api show");
+    const limit = show?.options.find((o) => o.flags === "--limit <n>");
+    // --limit is entirely optional, it just happens to take a value.
+    expect(limit?.mandatory).toBe(false);
+    expect(limit?.value).toBe("required");
+    expect(show?.options.find((o) => o.flags === "--all")?.value).toBe("none");
+  });
+
+  it("marks a genuinely mandatory option", () => {
+    const program = new Command();
+    program.name("aisa");
+    program.command("x").requiredOption("--key <k>", "needed");
+    const x = find(buildManifest(program), "aisa x");
+    expect(x?.options.find((o) => o.flags === "--key <k>")?.mandatory).toBe(true);
+  });
+
   it("carries defaults, which the flag name alone does not imply", () => {
     const show = find(buildManifest(fixture()), "aisa api show");
     expect(show?.options.find((o) => o.flags === "--limit <n>")?.default).toBe("20");

@@ -23,7 +23,10 @@ interface ManifestOption {
   flags: string;
   description: string;
   default?: unknown;
-  required: boolean;
+  /** Must this flag be passed at all. Nearly always false. */
+  mandatory: boolean;
+  /** "none" for a boolean switch, "required" for --f <v>, "optional" for --f [v]. */
+  value: "none" | "required" | "optional";
 }
 
 interface ManifestArgument {
@@ -42,12 +45,21 @@ interface ManifestCommand {
   subcommands: ManifestCommand[];
 }
 
+/**
+ * Commander's `Option.required` means "this flag's *value* is required", not
+ * "this flag is required" — `--limit <n>` sets it while being entirely
+ * optional. Reporting it as `required` told an agent that almost every flag
+ * had to be passed, which is worse than saying nothing: it turns a correct
+ * command into an over-specified one. `mandatory` is the field that means
+ * what it sounds like, and value-ness gets its own name.
+ */
 function describeOption(o: Option): ManifestOption {
   return {
     flags: o.flags,
     description: o.description,
     ...(o.defaultValue === undefined ? {} : { default: o.defaultValue }),
-    required: Boolean(o.required),
+    mandatory: Boolean(o.mandatory),
+    value: o.required ? "required" : o.optional ? "optional" : "none",
   };
 }
 
