@@ -2164,27 +2164,40 @@ export async function connectAction(options: {
       }, log);
       const results = state.results;
       {
+        // The backend is genuinely done the moment runPlan resolves — but
+        // T2's own page is still deliberately pacing through its checklist
+        // animation for a few more seconds, and its results tab has not
+        // opened yet. Declaring "All set" here, before that, reads as the
+        // terminal getting ahead of what the user is watching on screen. So
+        // state.phase (which the page's poll loop needs right away) is set
+        // immediately, but the celebration itself waits for the same moment
+        // the page does: after pageSeenP, right as the results tab opens.
         state.phase = failures > 0 ? "failed" : "done";
-        log.section(failures > 0 ? "Finished, with issues" : "🎉 All set");
-        if (failures > 0) {
-          log.line("warn", `${failures} step${failures > 1 ? "s" : ""} did not complete`, "details above");
-        }
-        log.line(
-          "ok",
-          options.dryRun
-            ? "Dry run complete — nothing was written"
-            : `${chosenServers.length} capabilit${chosenServers.length === 1 ? "y" : "ies"} connected to ${clientLabel}`
-        );
+
+        const celebrate = () => {
+          log.section(failures > 0 ? "Finished, with issues" : "🎉 All set");
+          if (failures > 0) {
+            log.line("warn", `${failures} step${failures > 1 ? "s" : ""} did not complete`, "details above");
+          }
+          log.line(
+            "ok",
+            options.dryRun
+              ? "Dry run complete — nothing was written"
+              : `${chosenServers.length} capabilit${chosenServers.length === 1 ? "y" : "ies"} connected to ${clientLabel}`
+          );
+        };
+
         if (!options.dryRun) {
           // The success page opens as a fresh tab from this process (an OS
           // browser launch, so no popup blocker applies) — users who tabbed
           // away to the authorization rarely come back to the first tab.
           const doneUrl = `http://127.0.0.1:${port}/done?token=${token}`;
           state.doneUrl = doneUrl;
-          log.line("info", "Opening your results page", "try-it-now prompts and your balance");
+          log.line("info", "Finishing up on the page…", "waiting for its checklist to settle");
           if (template === "t2") await Promise.race([pageSeenP, pause(PAGE_SEEN_TIMEOUT_MS)]);
           await pause(BEFORE_HANDOFF_MS);
           openBrowser(doneUrl);
+          celebrate();
           const until = new Date(Date.now() + LINGER_AFTER_DONE_MS);
           log.note(
             `the page stays up until ${until.getHours()}:${String(until.getMinutes()).padStart(2, "0")} — Ctrl-C to finish now`
@@ -2208,6 +2221,9 @@ export async function connectAction(options: {
             process.exit(failures > 0 ? 1 : 0);
           }, LINGER_AFTER_DONE_MS);
         } else {
+          // Dry run: nothing is animating and no tab is opening, so there is
+          // nothing to wait for — the celebration can fire right away.
+          celebrate();
           summarise(log, {
             clientId: chosenClients[0],
             clientLabel,
