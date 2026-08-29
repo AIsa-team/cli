@@ -44,8 +44,9 @@ describe("claude-aisa settings file", () => {
 });
 
 describe("codex backup profile", () => {
-  it("adds provider and [profiles.aisa] without touching the default", () => {
+  it("adds the provider to config.toml and layers aisa.config.toml, default untouched", () => {
     const cfgPath = join(home, ".codex", "config.toml");
+    const profilePath = join(home, ".codex", "aisa.config.toml");
     mkdirSync(join(home, ".codex"), { recursive: true });
     writeFileSync(cfgPath, TOML.stringify({ model_provider: "openai", model: "gpt-5" }), "utf-8");
     const res = writeCodexAisaProfile("sk-test");
@@ -54,10 +55,28 @@ describe("codex backup profile", () => {
     expect(cfg.model_provider).toBe("openai");
     expect(cfg.model).toBe("gpt-5");
     expect(cfg.model_providers[AISA_PROVIDER_ID].experimental_bearer_token).toBe("sk-test");
-    expect(cfg.profiles[AISA_PROVIDER_ID]).toEqual({
-      model_provider: AISA_PROVIDER_ID,
-      model: CODEX_DEFAULT_MODELS.model,
-    });
+    // Codex ≥0.149 layers `--profile aisa` from a standalone file — a
+    // `[profiles.aisa]` table in config.toml alongside it is a hard error.
+    expect(cfg.profiles).toBeUndefined();
+    const profile = TOML.parse(readFileSync(profilePath, "utf-8")) as Record<string, any>;
+    expect(profile).toEqual({ model_provider: AISA_PROVIDER_ID, model: CODEX_DEFAULT_MODELS.model });
+  });
+
+  it("removes a legacy [profiles.aisa] table left by an older version of this writer", () => {
+    const cfgPath = join(home, ".codex", "config.toml");
+    mkdirSync(join(home, ".codex"), { recursive: true });
+    writeFileSync(
+      cfgPath,
+      TOML.stringify({
+        model_provider: "openai",
+        profiles: { aisa: { model_provider: AISA_PROVIDER_ID, model: "old-model" }, other: { model: "x" } },
+      }),
+      "utf-8"
+    );
+    writeCodexAisaProfile("sk-test");
+    const cfg = TOML.parse(readFileSync(cfgPath, "utf-8")) as Record<string, any>;
+    expect(cfg.profiles.aisa).toBeUndefined();
+    expect(cfg.profiles.other).toEqual({ model: "x" }); // someone else's profile survives
   });
 });
 

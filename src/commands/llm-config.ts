@@ -118,6 +118,10 @@ export function removeClaudeCodeLLM(): ConfigResult {
 // ── Codex ───────────────────────────────────────────────────────────────────
 
 const codexConfigPath = () => expandHome("~/.codex/config.toml");
+/** Codex ≥0.149: `--profile <name>` layers this file on top of the base
+ *  config rather than reading a `[profiles.<name>]` table — see
+ *  writeCodexAisaProfile for the migration this replaced. */
+const codexAisaProfilePath = () => expandHome("~/.codex/aisa.config.toml");
 
 function readToml(path: string): Record<string, unknown> | null {
   if (!existsSync(path)) return {};
@@ -407,16 +411,28 @@ export function writeOpencodeMCP(
 // ── backup mode ─────────────────────────────────────────────────────────────
 //
 // "Add AIsa as a backup" for a user who already has working models: nothing
-// they rely on changes. Codex gets the provider plus a [profiles.aisa] entry
-// (its native mechanism — `codex --profile aisa` switches for one session,
-// the default stays theirs); opencode gets the provider only (its TUI lists
-// models across providers, switching is built in). Claude Code has no
-// coexistence mechanism in its config, so its backup lives entirely outside:
-// a settings file under ~/.aisa driven through --settings (see wrappers.ts).
+// they rely on changes. Codex gets the provider plus an aisa.config.toml
+// profile (its native mechanism — `codex --profile aisa` layers it in for
+// one session, the default stays theirs); opencode gets the provider only
+// (its TUI lists models across providers, switching is built in). Claude
+// Code has no coexistence mechanism in its config, so its backup lives
+// entirely outside: a settings file under ~/.aisa driven through --settings
+// (see wrappers.ts).
 
 /**
- * Codex backup: provider + catalog + [profiles.aisa], top-level defaults
- * untouched. `codex --profile aisa` (or the codex-aisa wrapper) activates it.
+ * Codex backup: provider + catalog in the base config, top-level defaults
+ * untouched, and a standalone aisa.config.toml that `codex --profile aisa`
+ * (or the codex-aisa wrapper) layers on top of it.
+ *
+ * That standalone file is Codex ≥0.149's replacement for the old
+ * `[profiles.aisa]` table — `--profile <name>` now means "layer
+ * `$CODEX_HOME/<name>.config.toml`", and Codex refuses to start at all if
+ * the legacy table for that name still exists in config.toml alongside it
+ * (hit live 2026-08-24, codex-cli 0.149.1: "cannot be used while
+ * config.toml contains legacy `profile = \"aisa\"` or `[profiles.aisa]`").
+ * A machine still carrying that table from an earlier version of this
+ * writer gets it removed here — a one-time, one-way migration; nothing a
+ * user typed into it themselves would collide with a section this narrow.
  */
 export function writeCodexAisaProfile(
   apiKey: string,
@@ -435,12 +451,17 @@ export function writeCodexAisaProfile(
     wire_api: "responses",
   };
   config.model_providers = providers;
-  const profiles = { ...((config.profiles as Record<string, unknown>) ?? {}) };
-  profiles[AISA_PROVIDER_ID] = { model_provider: AISA_PROVIDER_ID, model: models.model };
-  config.profiles = profiles;
   config.model_catalog_json = CODEX_MODELS_PATH;
+  if (config.profiles && typeof config.profiles === "object") {
+    const profiles = { ...(config.profiles as Record<string, unknown>) };
+    delete profiles[AISA_PROVIDER_ID];
+    if (Object.keys(profiles).length > 0) config.profiles = profiles;
+    else delete config.profiles;
+  }
   writeToml(path, config);
-  return { ok: true, path };
+
+  writeToml(codexAisaProfilePath(), { model_provider: AISA_PROVIDER_ID, model: models.model });
+  return { ok: true, path: codexAisaProfilePath() };
 }
 
 /**
