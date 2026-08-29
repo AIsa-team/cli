@@ -31,6 +31,10 @@ export async function webSearchAction(
   const reqOpts: Parameters<typeof apiRequest>[2] = {
     method: config.method,
     domain: true,
+    // Search is a read whichever verb the upstream chose for it: scholar and
+    // tavily take POST only because their parameters do not fit a query
+    // string. Nothing is created, so a dropped connection is worth retrying.
+    idempotent: true,
   };
 
   if (config.paramStyle === "query") {

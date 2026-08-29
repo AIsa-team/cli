@@ -1,4 +1,5 @@
 import { BASE_URL } from "./constants.js";
+import { httpFetch, INFO_TIMEOUT_MS } from "./utils/http.js";
 import { getConfig } from "./config.js";
 import type { ApiResponse, CostInfo } from "./types.js";
 
@@ -63,6 +64,16 @@ export interface RequestOptions {
   headers?: Record<string, string>;
   /** Use domain API base URL (/apis/v1) instead of LLM base (/v1) */
   domain?: boolean;
+  /**
+   * Safe to send more than once, so a transient failure can be retried.
+   * Must be set deliberately: this CLI POSTs for reads and for writes alike,
+   * and a retried write posts a second tweet or bills a second video job.
+   * See utils/http.ts for why `chat` stays out of this even though a
+   * completion reads rather than writes.
+   */
+  idempotent?: boolean;
+  /** Overrides the default 30s budget for a slow endpoint. */
+  timeoutMs?: number;
 }
 
 export async function apiRequest<T = unknown>(
@@ -87,10 +98,12 @@ export async function apiRequest<T = unknown>(
     ...extraHeaders,
   };
 
-  const res = await fetch(url, {
+  const res = await httpFetch(url, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    idempotent: options.idempotent ?? method === "GET",
+    timeoutMs: options.timeoutMs,
   });
 
   if (!res.ok) {
@@ -131,10 +144,12 @@ export async function apiRequestRaw(
     ...extraHeaders,
   };
 
-  return fetch(url, {
+  return httpFetch(url, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    idempotent: options.idempotent ?? method === "GET",
+    timeoutMs: options.timeoutMs,
   });
 }
 
@@ -162,7 +177,13 @@ export async function publicRequest<T = unknown>(
   const headers: Record<string, string> = { "x-aisa-source": "cli" };
   if (options.etag) headers["If-None-Match"] = options.etag;
 
-  const res = await fetch(`${resolveBases().info}/${path.replace(/^\/+/, "")}`, { headers });
+  // Catalog and pricing are unauthenticated GETs against a cache — retrying
+  // one is free, and failing one degrades every discovery command.
+  const res = await httpFetch(`${resolveBases().info}/${path.replace(/^\/+/, "")}`, {
+    headers,
+    idempotent: true,
+    timeoutMs: INFO_TIMEOUT_MS,
+  });
 
   if (res.status === 304) return { status: 304 };
   if (!res.ok) return { status: res.status };

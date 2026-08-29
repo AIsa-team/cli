@@ -3,6 +3,7 @@ import chalk from "chalk";
 import { requireApiKey, getConfig, setConfig } from "../config.js";
 import { apiRequest, resolveBases } from "../api.js";
 import { error, success, formatJson } from "../utils/display.js";
+import { httpFetch } from "../utils/http.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -681,13 +682,17 @@ export async function twitterUploadMediaAction(
 
   const url = `${resolveBases().domain}/twitter/upload_media_v2`;
 
-  const res = await fetch(url, {
+  // Not idempotent, and not retried: a second upload would return a second
+  // media id and silently charge for it. The timeout is generous because the
+  // body is a file.
+  const res = await httpFetch(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,
       "x-aisa-source": "cli",
     },
     body: formData,
+    timeoutMs: 120_000,
   });
 
   if (!res.ok) {

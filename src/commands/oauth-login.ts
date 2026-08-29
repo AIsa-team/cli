@@ -5,6 +5,7 @@ import { createInterface } from "node:readline";
 import { error, hint, info, success } from "../utils/display.js";
 import { setApiKey } from "../config.js";
 import { maskKey } from "../config.js";
+import { httpFetch } from "../utils/http.js";
 
 /**
  * `aisa login` without a key: sign in once in a browser, come back with the
@@ -39,7 +40,7 @@ interface TokenResponse {
 }
 
 async function registerClient(redirectUri: string): Promise<string> {
-  const res = await fetch(`${AUTH_SERVER}/oauth/register`, {
+  const res = await httpFetch(`${AUTH_SERVER}/oauth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -154,7 +155,7 @@ export async function mintCliKey(options: { open?: boolean } = {}): Promise<stri
     code = await waitForPaste(state);
   }
 
-  const tokenRes = await fetch(`${AUTH_SERVER}/oauth/token`, {
+  const tokenRes = await httpFetch(`${AUTH_SERVER}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -173,7 +174,7 @@ export async function mintCliKey(options: { open?: boolean } = {}): Promise<stri
 
   // The token is a day-long credential; the key is the durable one. Trade up
   // and keep only the key.
-  const mintRes = await fetch(MINT_URL, {
+  const mintRes = await httpFetch(MINT_URL, {
     method: "POST",
     headers: { Authorization: `Bearer ${tokens.access_token}` },
     signal: AbortSignal.timeout(20_000),

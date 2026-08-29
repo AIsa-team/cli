@@ -1,5 +1,6 @@
 import { readCache, writeCache, touchCache } from "./cache.js";
 import { pool } from "./utils/pool.js";
+import { httpFetch, INFO_TIMEOUT_MS } from "./utils/http.js";
 
 /**
  * GitHub-backed skill registry.
@@ -105,8 +106,10 @@ async function loadSkillIndex(refresh?: boolean): Promise<SkillIndex> {
 
   let res: Response;
   try {
-    res = await fetch(`${GH_API}/git/trees/main?recursive=1`, {
+    res = await httpFetch(`${GH_API}/git/trees/main?recursive=1`, {
       headers: ghHeaders(refresh ? undefined : cached?.etag),
+      idempotent: true,
+      timeoutMs: INFO_TIMEOUT_MS,
     });
   } catch (err) {
     if (cached) return cached.data; // offline: stale beats nothing
@@ -187,7 +190,10 @@ function skillMdBlob(slug: string, index: SkillIndex): SkillBlob | undefined {
 }
 
 export async function fetchSkillMarkdown(slug: string): Promise<string> {
-  const res = await fetch(`${GH_RAW}/${slug}/SKILL.md`);
+  const res = await httpFetch(`${GH_RAW}/${slug}/SKILL.md`, {
+    idempotent: true,
+    timeoutMs: INFO_TIMEOUT_MS,
+  });
   if (!res.ok) throw new Error(`Cannot read ${slug}/SKILL.md: ${res.status}`);
   return res.text();
 }
@@ -251,7 +257,10 @@ export async function fetchSkillFiles(slug: string, index: SkillIndex): Promise<
 
   const results = await pool(
     blobs.map((blob) => async (): Promise<SkillFile> => {
-      const res = await fetch(`${GH_RAW}/${blob.path}`);
+      const res = await httpFetch(`${GH_RAW}/${blob.path}`, {
+        idempotent: true,
+        timeoutMs: INFO_TIMEOUT_MS,
+      });
       if (!res.ok) throw new Error(`${blob.path}: ${res.status}`);
       return {
         path: blob.path.slice(prefix.length),

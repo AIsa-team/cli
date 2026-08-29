@@ -3,6 +3,7 @@ import ora from "ora";
 import chalk from "chalk";
 import { requireApiKey } from "../config.js";
 import { apiRequest } from "../api.js";
+import { httpFetch } from "../utils/http.js";
 import { error, formatJson, hint, success } from "../utils/display.js";
 import {
   DEFAULT_VIDEO_MODEL,
@@ -102,7 +103,9 @@ function printTask(task: VideoTask, fallbackId?: string): void {
 }
 
 async function downloadVideo(url: string, outputPath: string): Promise<void> {
-  const res = await fetch(url);
+  // Fetching a finished asset: safe to retry, but give it room — these are
+  // whole video files, not JSON.
+  const res = await httpFetch(url, { idempotent: true, timeoutMs: 300_000 });
   if (!res.ok) throw new Error(`Download failed: ${res.status}`);
   const buffer = Buffer.from(await res.arrayBuffer());
   await writeFile(outputPath, buffer);

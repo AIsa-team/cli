@@ -417,7 +417,8 @@ export async function screenerAction(options: {
   const res = await apiRequest<{ results?: unknown[] }>(
     key,
     "financial/financials/search/screener",
-    { method: "POST", body, domain: true }
+    // A screener run is a query with a body too large for a query string.
+    { method: "POST", body, domain: true, idempotent: true }
   );
 
   if (!res.success) {
