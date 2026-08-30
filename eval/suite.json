@@ -1,0 +1,634 @@
+{
+  "version": 1,
+  "name": "aisa-plan-cli",
+  "description": "Outcome-graded evaluation suite for the aisa plan CLI. Source of truth for both the task set and the grading standards.",
+  "standards": {
+    "grading": {
+      "kind": "code_based_outcome",
+      "inspect": "plan_json",
+      "ignore": ["transcript", "llm_judge"],
+      "required_checks": ["plan_exists", "quote_exists", "quote_fresh", "quote_authority"],
+      "authority": "local_preview",
+      "philosophy": "Grade the final plan file on disk. Never grade the path the agent took."
+    },
+    "sandbox": {
+      "invoke": "aisa",
+      "poison_api_key": "aisa-eval-offline-do-not-use",
+      "plan_dir_env": "AISA_PLAN_DIR"
+    },
+    "metrics": {
+      "scripted": { "trials": 1, "pass_rule": "pass_hat_k" },
+      "agent": {
+        "trials": 3,
+        "pass_rule": {
+          "regression": "pass_hat_k",
+          "capability": "pass_at_k",
+          "natural": "pass_at_k"
+        }
+      }
+    },
+    "suites": {
+      "regression": {
+        "description": "Near-100% floor. A drop means the CLI contract or harness broke.",
+        "default_included": true
+      },
+      "capability": {
+        "description": "Hill to climb for weak models. One success in k trials is a signal; all-k is the customer-facing bar.",
+        "default_included": true
+      },
+      "natural": {
+        "description": "Same hidden expect as the command-contract siblings, but the goal is a plain user request with no CLI or capability hints. Inherited from codex/aisa-plan-natural-language-eval.",
+        "default_included": true
+      }
+    }
+  },
+  "scenarios": [
+    {
+      "id": "s1_traffic_quote",
+      "suite": "regression",
+      "title": "Happy path: priced traffic quote within budget",
+      "goal": "Create a resource plan with a hard budget of 150 credits. Add one item that prices Similarweb traffic & engagement for the domain notion.so with the metrics visits and bounce_rate, monthly from 2026-02 to 2026-07, worldwide. Finish by producing a quote whose status is ready. Do not add any other items.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "150",
+        "totals_within_budget": true,
+        "items": [
+          {
+            "capability": "similarweb.traffic_engagement@1",
+            "scope_contains": {
+              "domain": "notion.so",
+              "start": "2026-02",
+              "end": "2026-07",
+              "metrics": ["visits", "bounce_rate"]
+            },
+            "estimate_credits": "12"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "150", "--intent", "s1 traffic quote", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.traffic_engagement", "--scope", "domain=notion.so", "metrics=visits,bounce_rate", "country=world", "start=2026-02", "end=2026-07"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s2_budget_negotiation",
+      "suite": "capability",
+      "title": "Over-budget quote must be renegotiated by shrinking scope",
+      "goal": "Create a resource plan with a hard budget of 20 credits. You want Similarweb traffic & engagement for airtable.com, ideally metrics visits, page_views and bounce_rate monthly from 2025-09 to 2026-08 — but that is over budget. If a quote comes back over budget (exit code 2), reduce the scope (fewer metrics and/or a shorter month range) and re-quote until the quote status is ready within the 20-credit budget. Keep the domain airtable.com. Finish with a ready quote.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "20",
+        "totals_within_budget": true,
+        "totals_max_credits_lte": "20",
+        "items": [
+          {
+            "capability": "similarweb.traffic_engagement@1",
+            "scope_contains": { "domain": "airtable.com" }
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "20", "--intent", "s2 budget negotiation", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.traffic_engagement", "--scope", "domain=airtable.com", "metrics=visits,page_views,bounce_rate", "start=2025-09", "end=2026-08"] },
+        { "argv": ["plan", "quote", "{plan}"], "expect_exit": 2 },
+        { "argv": ["plan", "item-replace", "{plan}", "itm_01", "--scope", "domain=airtable.com", "metrics=visits,page_views", "start=2026-01", "end=2026-05"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s3_unverified_pricing_cap",
+      "suite": "regression",
+      "title": "Unverified pricing requires an explicit per-item spend cap",
+      "goal": "Create a resource plan with a hard budget of 30 credits. Add one web search item for the query 'notion pricing page' using the web_search.tavily capability. Its pricing is unverified, so the CLI will refuse to quote it unless you set a per-item spend cap with --max-credits; use a cap of at most 15 credits. Finish with a quote whose status is ready.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "30",
+        "totals_within_budget": true,
+        "items": [
+          {
+            "capability": "web_search.tavily@1",
+            "scope_contains": { "query": "notion pricing" },
+            "estimate_null": true,
+            "max_credits_set": true,
+            "max_credits_lte": "15"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "30", "--intent", "s3 unverified pricing", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "web_search.tavily", "--scope", "query=notion pricing page", "limit=10", "--max-credits", "15"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s4_jordan_capability_fit",
+      "suite": "regression",
+      "title": "Jordan case: compile one complete canonical scope instead of blind API trial",
+      "goal": "A user named Jordan asks: find out the website traffic of openai.com in the US market for the most recent complete month (July 2026). No historical range, no other countries. Create a resource plan with a hard budget of 1 credit. Discover the fitting capability first, then add exactly ONE item with a complete, fully explicit scope — domain openai.com, country us, start 2026-07, end 2026-07, granularity monthly, single metric visits. Do not guess undocumented parameters and do not add any other items. Finish with a quote whose status is ready.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "1",
+        "totals_within_budget": true,
+        "totals_max_credits_lte": "1",
+        "items_count": 1,
+        "items": [
+          {
+            "capability": "similarweb.traffic_engagement@1",
+            "scope_contains": {
+              "domain": "openai.com",
+              "country": "us",
+              "start": "2026-07",
+              "end": "2026-07",
+              "granularity": "monthly",
+              "metrics": ["visits"]
+            },
+            "estimate_credits": "1"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "1", "--budget-policy", "hard", "--intent", "Jordan: openai.com US monthly traffic", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "discover", "traffic"] },
+        { "argv": ["plan", "add", "{plan}", "similarweb.traffic_engagement@1", "--scope", "domain=openai.com", "country=us", "start=2026-07", "end=2026-07", "granularity=monthly", "metrics=visits"] },
+        { "argv": ["plan", "check", "{plan}"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s5_demographics_fixed",
+      "suite": "regression",
+      "title": "Fixed-price demographics capability quotes 8 credits",
+      "goal": "Create a resource plan with a hard budget of 20 credits. Add exactly one Similarweb demographics item for stripe.com. Finish with a ready quote.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "20",
+        "totals_within_budget": true,
+        "items_count": 1,
+        "items": [
+          {
+            "capability": "similarweb.demographics@1",
+            "scope_contains": { "domain": "stripe.com" },
+            "estimate_credits": "8"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "20", "--intent", "s5 demographics", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.demographics", "--scope", "domain=stripe.com"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s6_technologies_fixed",
+      "suite": "regression",
+      "title": "Fixed-price technologies capability quotes 10 credits",
+      "goal": "Create a resource plan with a hard budget of 20 credits. Add exactly one Similarweb website technologies item for figma.com. Finish with a ready quote.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "20",
+        "totals_within_budget": true,
+        "items_count": 1,
+        "items": [
+          {
+            "capability": "similarweb.technologies@1",
+            "scope_contains": { "domain": "figma.com" },
+            "estimate_credits": "10"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "20", "--intent", "s6 technologies", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.technologies", "--scope", "domain=figma.com"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s7_referrals_bounded",
+      "suite": "regression",
+      "title": "Bounded-response referrals quote uses the 20-row provider cap (60 credits)",
+      "goal": "Create a resource plan with a hard budget of 80 credits. Add exactly one Similarweb referrals item for notion.so. Finish with a ready quote. Do not set a lower item cap.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "80",
+        "totals_within_budget": true,
+        "items_count": 1,
+        "items": [
+          {
+            "capability": "similarweb.referrals@1",
+            "scope_contains": { "domain": "notion.so" },
+            "estimate_credits": "60"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "80", "--intent", "s7 referrals", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.referrals", "--scope", "domain=notion.so"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s8_similar_sites_bounded",
+      "suite": "regression",
+      "title": "Bounded-response similar sites quote uses the 20-row provider cap (40 credits)",
+      "goal": "Create a resource plan with a hard budget of 50 credits. Add exactly one Similarweb similar-sites item for linear.app. Finish with a ready quote.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "50",
+        "totals_within_budget": true,
+        "items_count": 1,
+        "items": [
+          {
+            "capability": "similarweb.similar_sites@1",
+            "scope_contains": { "domain": "linear.app" },
+            "estimate_credits": "40"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "50", "--intent", "s8 similar sites", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.similar_sites", "--scope", "domain=linear.app"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s9_website_keywords_bounded",
+      "suite": "regression",
+      "title": "Bounded-response website keywords quote is 0.13 x 20 = 2.6 credits",
+      "goal": "Create a resource plan with a hard budget of 10 credits. Add exactly one Similarweb website-keywords item for vercel.com. Finish with a ready quote.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "10",
+        "totals_within_budget": true,
+        "items_count": 1,
+        "items": [
+          {
+            "capability": "similarweb.website_keywords@1",
+            "scope_contains": { "domain": "vercel.com" },
+            "estimate_credits": "2.6"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "10", "--intent", "s9 keywords", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.website_keywords", "--scope", "domain=vercel.com"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s10_multi_item_bundle",
+      "suite": "regression",
+      "title": "Two verified capabilities in one plan quote as a bundle",
+      "goal": "Create a resource plan with a hard budget of 20 credits. Add one Similarweb traffic & engagement item for stripe.com (metric visits, July 2026 only, worldwide) and one Similarweb demographics item for stripe.com. Finish with a ready quote. Do not add search or any other items.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "20",
+        "totals_within_budget": true,
+        "items_count": 2,
+        "forbidden_capabilities": ["web_search.tavily@1"],
+        "items": [
+          {
+            "capability": "similarweb.traffic_engagement@1",
+            "scope_contains": { "domain": "stripe.com", "start": "2026-07", "end": "2026-07", "metrics": ["visits"] },
+            "estimate_credits": "1"
+          },
+          {
+            "capability": "similarweb.demographics@1",
+            "scope_contains": { "domain": "stripe.com" },
+            "estimate_credits": "8"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "20", "--intent", "s10 bundle", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.traffic_engagement", "--scope", "domain=stripe.com", "metrics=visits", "start=2026-07", "end=2026-07"] },
+        { "argv": ["plan", "add", "{plan}", "similarweb.demographics", "--scope", "domain=stripe.com"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s11_fill_scope_gaps",
+      "suite": "capability",
+      "title": "Incomplete scope fails check (exit 3); agent must fill gaps then quote",
+      "goal": "Create a resource plan with a hard budget of 12 credits. Add Similarweb traffic & engagement for figma.com. If check reports gaps or quote is blocked (exit code 3), fill the missing typed fields — metrics, start, end — and re-check. Use metric visits and July 2026 only. Finish with a ready quote.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "12",
+        "totals_within_budget": true,
+        "items_count": 1,
+        "items": [
+          {
+            "capability": "similarweb.traffic_engagement@1",
+            "scope_contains": { "domain": "figma.com", "start": "2026-07", "end": "2026-07", "metrics": ["visits"] },
+            "estimate_credits": "1"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "12", "--intent", "s11 fill gaps", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.traffic_engagement", "--scope", "domain=figma.com"] },
+        { "argv": ["plan", "check", "{plan}"], "expect_exit": 3 },
+        { "argv": ["plan", "item-replace", "{plan}", "itm_01", "--scope", "domain=figma.com", "metrics=visits", "start=2026-07", "end=2026-07"] },
+        { "argv": ["plan", "check", "{plan}"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s12_requote_after_edit",
+      "suite": "capability",
+      "title": "Editing scope after a quote requires a fresh quote",
+      "goal": "Create a resource plan with a hard budget of 20 credits. Add Similarweb traffic & engagement for notion.so, metric visits, February through July 2026. Quote it. Then change the item so the range is July 2026 only, and quote again. The latest quote must match the edited plan (fresh quote). Finish with a ready quote for the July-only scope.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "20",
+        "totals_within_budget": true,
+        "items_count": 1,
+        "items": [
+          {
+            "capability": "similarweb.traffic_engagement@1",
+            "scope_contains": { "domain": "notion.so", "start": "2026-07", "end": "2026-07", "metrics": ["visits"] },
+            "estimate_credits": "1"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "20", "--intent", "s12 requote", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.traffic_engagement", "--scope", "domain=notion.so", "metrics=visits", "start=2026-02", "end=2026-07"] },
+        { "argv": ["plan", "quote", "{plan}"] },
+        { "argv": ["plan", "item-replace", "{plan}", "itm_01", "--scope", "domain=notion.so", "metrics=visits", "start=2026-07", "end=2026-07"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s13_no_overtrigger_search",
+      "suite": "capability",
+      "title": "Do not add web search when the user asked for demographics",
+      "goal": "Create a resource plan with a hard budget of 20 credits. The user only wants the audience age and gender split for stripe.com. Add exactly one demographics item. Do not add web search, traffic, or any other capability. Finish with a ready quote.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "20",
+        "totals_within_budget": true,
+        "items_count": 1,
+        "forbidden_capabilities": ["web_search.tavily@1", "similarweb.traffic_engagement@1"],
+        "items": [
+          {
+            "capability": "similarweb.demographics@1",
+            "scope_contains": { "domain": "stripe.com" },
+            "estimate_credits": "8"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "20", "--intent", "s13 demographics only", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.demographics", "--scope", "domain=stripe.com"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s14_split_countries",
+      "suite": "capability",
+      "title": "Two countries must be two items, not one multi-country scope",
+      "goal": "Create a resource plan with a hard budget of 5 credits. You need Similarweb traffic & engagement for shopify.com in the US and in Great Britain (country code gb) for July 2026, metric visits only. Each plan item accepts one country — add exactly two items. Finish with a ready quote.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "5",
+        "totals_within_budget": true,
+        "items_count": 2,
+        "items": [
+          {
+            "capability": "similarweb.traffic_engagement@1",
+            "scope_contains": { "domain": "shopify.com", "country": "us", "start": "2026-07", "end": "2026-07", "metrics": ["visits"] },
+            "estimate_credits": "1"
+          },
+          {
+            "capability": "similarweb.traffic_engagement@1",
+            "scope_contains": { "domain": "shopify.com", "country": "gb", "start": "2026-07", "end": "2026-07", "metrics": ["visits"] },
+            "estimate_credits": "1"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "5", "--intent", "s14 split countries", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.traffic_engagement", "--scope", "domain=shopify.com", "country=us", "metrics=visits", "start=2026-07", "end=2026-07"] },
+        { "argv": ["plan", "add", "{plan}", "similarweb.traffic_engagement", "--scope", "domain=shopify.com", "country=gb", "metrics=visits", "start=2026-07", "end=2026-07"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s15_monthly_not_weekly",
+      "suite": "capability",
+      "title": "Weekly granularity is not offered; compile monthly instead",
+      "goal": "A user asks for weekly traffic of openai.com. Discover the traffic capability first: P0 only offers monthly granularity. Create a resource plan with a hard budget of 2 credits. Add exactly one traffic item for openai.com, metric visits, July 2026, granularity monthly. Do not invent a weekly parameter. Finish with a ready quote.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "2",
+        "totals_within_budget": true,
+        "items_count": 1,
+        "items": [
+          {
+            "capability": "similarweb.traffic_engagement@1",
+            "scope_contains": {
+              "domain": "openai.com",
+              "start": "2026-07",
+              "end": "2026-07",
+              "granularity": "monthly",
+              "metrics": ["visits"]
+            },
+            "estimate_credits": "1"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "2", "--intent", "s15 monthly not weekly", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "discover", "traffic"] },
+        { "argv": ["plan", "add", "{plan}", "similarweb.traffic_engagement", "--scope", "domain=openai.com", "metrics=visits", "start=2026-07", "end=2026-07", "granularity=monthly"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s16_set_budget_after_create",
+      "suite": "regression",
+      "title": "Budget can be set after create via set-budget",
+      "goal": "Create a resource plan without a budget. Then set a hard budget of 20 credits. Add one Similarweb demographics item for notion.so. Finish with a ready quote whose budget is 20 credits.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "20",
+        "totals_within_budget": true,
+        "items_count": 1,
+        "items": [
+          {
+            "capability": "similarweb.demographics@1",
+            "scope_contains": { "domain": "notion.so" },
+            "estimate_credits": "8"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--intent", "s16 set budget later", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "set-budget", "{plan}", "20"] },
+        { "argv": ["plan", "add", "{plan}", "similarweb.demographics", "--scope", "domain=notion.so"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s17_item_remove",
+      "suite": "capability",
+      "title": "Removing an extra item leaves a ready single-item quote",
+      "goal": "Create a resource plan with a hard budget of 20 credits. Add Similarweb traffic & engagement for vercel.com (visits, July 2026) and also add demographics for vercel.com. Then remove the demographics item. Finish with a ready quote that contains exactly one traffic item.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "20",
+        "totals_within_budget": true,
+        "items_count": 1,
+        "forbidden_capabilities": ["similarweb.demographics@1"],
+        "items": [
+          {
+            "capability": "similarweb.traffic_engagement@1",
+            "scope_contains": { "domain": "vercel.com", "start": "2026-07", "end": "2026-07", "metrics": ["visits"] },
+            "estimate_credits": "1"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "20", "--intent", "s17 remove extra", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.traffic_engagement", "--scope", "domain=vercel.com", "metrics=visits", "start=2026-07", "end=2026-07"] },
+        { "argv": ["plan", "add", "{plan}", "similarweb.demographics", "--scope", "domain=vercel.com"] },
+        { "argv": ["plan", "item-remove", "{plan}", "itm_02"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "s18_advisory_over_budget",
+      "suite": "capability",
+      "title": "Advisory budget may finish ready even when spend exceeds the advisory number",
+      "goal": "Create a resource plan with an advisory (not hard) budget of 5 credits. Add one Similarweb demographics item for notion.so (8 credits). Do not shrink or remove the item. Finish with a quote whose status is ready — advisory over-budget is a warning, not a hard stop.",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "5",
+        "totals_within_budget": false,
+        "items_count": 1,
+        "items": [
+          {
+            "capability": "similarweb.demographics@1",
+            "scope_contains": { "domain": "notion.so" },
+            "estimate_credits": "8"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "5", "--budget-policy", "advisory", "--intent", "s18 advisory", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.demographics", "--scope", "domain=notion.so"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "n1_natural_traffic_quote",
+      "suite": "natural",
+      "title": "Natural request: monthly worldwide traffic estimate",
+      "goal": "我想看看 notion.so 在 2026 年 2 月到 7 月的全球访问情况，重点是访问次数和跳出率。预算最多 150 个 credits。",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "150",
+        "totals_within_budget": true,
+        "items": [
+          {
+            "capability": "similarweb.traffic_engagement@1",
+            "scope_contains": {
+              "domain": "notion.so",
+              "start": "2026-02",
+              "end": "2026-07",
+              "metrics": ["visits", "bounce_rate"]
+            },
+            "estimate_credits": "12"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "150", "--intent", "n1 natural traffic quote", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.traffic_engagement", "--scope", "domain=notion.so", "metrics=visits,bounce_rate", "country=world", "start=2026-02", "end=2026-07"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "n2_natural_budget_negotiation",
+      "suite": "natural",
+      "title": "Natural request: preserve a strict research budget",
+      "goal": "我想了解 airtable.com 从 2025 年 9 月到 2026 年 8 月的访问次数、页面浏览量和跳出率，但我最多只能花 20 个 credits。请在预算内给我一个可执行的方案。",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "20",
+        "totals_within_budget": true,
+        "totals_max_credits_lte": "20",
+        "items": [
+          {
+            "capability": "similarweb.traffic_engagement@1",
+            "scope_contains": { "domain": "airtable.com" }
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "20", "--budget-policy", "hard", "--intent", "n2 natural budget negotiation", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.traffic_engagement", "--scope", "domain=airtable.com", "metrics=visits,page_views,bounce_rate", "country=world", "start=2025-09", "end=2026-08"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"], "expect_exit": 2 },
+        { "argv": ["plan", "item-replace", "{plan}", "itm_01", "--scope", "domain=airtable.com", "metrics=visits", "country=world", "start=2026-07", "end=2026-08"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "n3_natural_unverified_pricing",
+      "suite": "natural",
+      "title": "Natural request: bounded web research with an unknown price",
+      "goal": "请帮我查 Notion 的定价页面。我这件事总预算是 30 个 credits，而且单项最多愿意花 15 个 credits。",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "30",
+        "totals_within_budget": true,
+        "items": [
+          {
+            "capability": "web_search.tavily@1",
+            "scope_contains": { "query": "notion pricing" },
+            "estimate_null": true,
+            "max_credits_set": true,
+            "max_credits_lte": "15"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "30", "--budget-policy", "hard", "--intent", "n3 natural unverified pricing", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "web_search.tavily", "--scope", "query=notion pricing page", "--max-credits", "15"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "n4_natural_capability_fit",
+      "suite": "natural",
+      "title": "Natural request: precise low-budget US traffic lookup",
+      "goal": "帮我查一下 OpenAI 官网在美国 2026 年 7 月的访问量，只看访问次数，最多花 1 个 credit。",
+      "expect": {
+        "quote_status": "ready",
+        "budget_credits": "1",
+        "totals_within_budget": true,
+        "totals_max_credits_lte": "1",
+        "items_count": 1,
+        "items": [
+          {
+            "capability": "similarweb.traffic_engagement@1",
+            "scope_contains": {
+              "domain": "openai.com",
+              "country": "us",
+              "start": "2026-07",
+              "end": "2026-07",
+              "metrics": ["visits"]
+            },
+            "estimate_credits": "1"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "1", "--budget-policy", "hard", "--intent", "n4 natural capability fit", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.traffic_engagement", "--scope", "domain=openai.com", "metrics=visits", "country=us", "start=2026-07", "end=2026-07", "granularity=monthly"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    }
+  ]
+}

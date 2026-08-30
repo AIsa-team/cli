@@ -33,8 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   external baseline: pi + DeepSeek flash, a deliberately weak model) and
   graded by inspecting the plan artifacts on disk — quote status, freshness,
   budget, scopes, caps — never by an LLM judge. A no-LLM `scripted` agent
-  replays each scenario's reference solution to self-test the harness. See
-  [eval/README.md](eval/README.md).
+  replays each scenario's reference solution to self-test the harness. The
+  task set and scoring standards live in [`eval/suite.json`](eval/suite.json)
+  (`--list` / `--export`). See [eval/README.md](eval/README.md).
 
 - **`aisa connect`** — a one-shot local page (`npx @aisa-one/cli connect`) to
   wire AIsa MCP servers into local coding agents. Detects Claude Code, Cursor,

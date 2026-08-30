@@ -113,6 +113,15 @@ export function grade(plan, expect) {
       `max=${microsToCredits(quote.totals.maxCreditMicros)} bound=${expect.totals_max_credits_lte}`
     );
   }
+  // 平衡集：明确不该出现的能力（防 overtrigger）
+  for (const forbidden of expect.forbidden_capabilities ?? []) {
+    const hit = plan.items.find((item) => item.capability === forbidden);
+    push(
+      `forbidden ${forbidden}`,
+      !hit,
+      hit ? `present as ${hit.itemId}` : "absent"
+    );
+  }
 
   for (const [index, wanted] of (expect.items ?? []).entries()) {
     const label = `item[${index}] ${wanted.capability}`;

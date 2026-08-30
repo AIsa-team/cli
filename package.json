@@ -21,6 +21,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "eval": "node eval/run.mjs",
+    "eval:list": "node eval/run.mjs --list",
+    "eval:export": "node eval/run.mjs --export-summary",
     "prepublishOnly": "npm run build"
   },
   "engines": {
