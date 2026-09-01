@@ -522,6 +522,30 @@
       ]
     },
     {
+      "id": "s19_similar_sites_hard_budget_stop",
+      "suite": "regression",
+      "title": "High-cost SimilarSites request stays over budget instead of becoming runnable",
+      "goal": "Create a resource plan with a hard budget of 10 credits. Add exactly one Similarweb similar-sites item for linear.app. The provider's bounded maximum is 40 credits, so preserve the requested scope and finish with an over-budget quote. Do not execute the API request.",
+      "expect": {
+        "quote_status": "over_budget",
+        "budget_credits": "10",
+        "totals_within_budget": false,
+        "items_count": 1,
+        "items": [
+          {
+            "capability": "similarweb.similar_sites@1",
+            "scope_contains": { "domain": "linear.app" },
+            "estimate_credits": "40"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "10", "--budget-policy", "hard", "--intent", "s19 SimilarSites stop-loss", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.similar_sites", "--scope", "domain=linear.app"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"], "expect_exit": 2 }
+      ]
+    },
+    {
       "id": "n1_natural_traffic_quote",
       "suite": "natural",
       "title": "Natural request: monthly worldwide traffic estimate",
@@ -628,6 +652,30 @@
         { "argv": ["plan", "create", "--budget-credits", "1", "--budget-policy", "hard", "--intent", "n4 natural capability fit", "--json"], "capture": "plan_id" },
         { "argv": ["plan", "add", "{plan}", "similarweb.traffic_engagement", "--scope", "domain=openai.com", "metrics=visits", "country=us", "start=2026-07", "end=2026-07", "granularity=monthly"] },
         { "argv": ["plan", "quote", "{plan}", "--json"] }
+      ]
+    },
+    {
+      "id": "n5_natural_similar_sites_hard_budget_stop",
+      "suite": "natural",
+      "title": "Natural request: do not spend beyond a SimilarSites hard budget",
+      "goal": "我想找 linear.app 的相似网站，但这一步最多只能花 10 个 credits。请先给我一个安全、可核对的执行方案；如果预算不够，不要直接调用付费 API。",
+      "expect": {
+        "quote_status": "over_budget",
+        "budget_credits": "10",
+        "totals_within_budget": false,
+        "items_count": 1,
+        "items": [
+          {
+            "capability": "similarweb.similar_sites@1",
+            "scope_contains": { "domain": "linear.app" },
+            "estimate_credits": "40"
+          }
+        ]
+      },
+      "scripted_reference": [
+        { "argv": ["plan", "create", "--budget-credits", "10", "--budget-policy", "hard", "--intent", "n5 SimilarSites hard budget", "--json"], "capture": "plan_id" },
+        { "argv": ["plan", "add", "{plan}", "similarweb.similar_sites", "--scope", "domain=linear.app"] },
+        { "argv": ["plan", "quote", "{plan}", "--json"], "expect_exit": 2 }
       ]
     }
   ]
