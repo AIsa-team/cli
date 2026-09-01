@@ -91,6 +91,32 @@ export function buildManifest(program: Command, prefix = ""): ManifestCommand {
   };
 }
 
-export function manifestAction(program: Command): void {
-  console.log(JSON.stringify(buildManifest(program), null, 2));
+/** Walk down a command path: ["twitter", "search"] -> that one node. */
+export function descend(root: ManifestCommand, path: string[]): ManifestCommand | undefined {
+  let node: ManifestCommand | undefined = root;
+  for (const step of path) {
+    node = node?.subcommands.find((c) => c.path.split(" ").pop() === step);
+    if (!node) return undefined;
+  }
+  return node;
+}
+
+/**
+ * A path argument, because the whole tree is ~15k tokens.
+ *
+ * An agent that needs to post a tweet should not have to read the definition
+ * of 87 commands to find out how — `aisa manifest twitter search` is under
+ * half a kilobyte. The full dump stays the default so that asking for
+ * everything still works, but the help line advertises the narrow form.
+ */
+export function manifestAction(program: Command, path: string[] = []): void {
+  const root = buildManifest(program);
+  const node = path.length ? descend(root, path) : root;
+  if (!node) {
+    console.error(`Unknown command: aisa ${path.join(" ")}`);
+    console.error(`Run \`aisa manifest\` with no arguments to see every command.`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(JSON.stringify(node, null, 2));
 }

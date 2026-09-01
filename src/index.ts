@@ -682,9 +682,9 @@ cache
 // The whole tree as JSON. Agents get one shot at a top-level dump, and the
 // default help renders every subcommand as a bare `[options]`.
 program
-  .command("manifest")
-  .description("Print every command, argument and flag as JSON (for agents and scripts)")
-  .action(() => manifestAction(program));
+  .command("manifest [command...]")
+  .description("Print commands, arguments and flags as JSON (for agents and scripts)")
+  .action((path: string[] = []) => manifestAction(program, path));
 
 program
   .command("completion [shell]")
@@ -715,12 +715,16 @@ program
  */
 function applyHelpStyle(cmd: Command): void {
   if (cmd.commands.length > 0) {
-    cmd.addHelpText("after", "\nAgents: `aisa manifest` prints every command, argument and flag as JSON.");
+    // Advertise the narrow form: the whole tree is ~15k tokens, one subtree
+    // is a fraction of that, and an agent reads whichever it is shown.
+    const scope = cmd.parent ? ` ${cmd.name()}` : " [command]";
+    cmd.addHelpText(
+      "after",
+      `\nAgents: \`aisa manifest${scope}\` prints these commands, arguments and flags as JSON.`
+    );
   }
   for (const c of cmd.commands) applyHelpStyle(c);
 }
-applyHelpStyle(program);
-
 // The root page also gets worked examples: the fastest way to convey that
 // `run` takes repeated -q pairs is to show one.
 program.addHelpText(
@@ -732,6 +736,10 @@ Examples:
   $ aisa api show coingecko           list one API's endpoints
   $ aisa run coingecko simple/price -q ids=bitcoin -q vs_currencies=usd`
 );
+
+// Last, after the human-facing examples: it is the line an agent scanning to
+// the end of the page will find.
+applyHelpStyle(program);
 
 // ── Parse ──
 

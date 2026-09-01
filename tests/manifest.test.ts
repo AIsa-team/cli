@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Command } from "commander";
-import { buildManifest } from "../src/commands/manifest.js";
+import { buildManifest, descend } from "../src/commands/manifest.js";
 
 /**
  * The manifest exists because `--help` hides what an agent needs: Commander
@@ -93,5 +93,32 @@ describe("buildManifest", () => {
 
   it("is JSON-serialisable end to end", () => {
     expect(() => JSON.parse(JSON.stringify(buildManifest(fixture())))).not.toThrow();
+  });
+});
+
+/**
+ * The whole tree is ~15k tokens. An agent that needs one command should not
+ * have to read the definition of 87 to find it, so the path argument is what
+ * makes the manifest affordable to actually use.
+ */
+describe("scoping by command path", () => {
+  it("returns just the named subtree", () => {
+    const root = buildManifest(fixture());
+    const api = descend(root, ["api"]);
+    expect(api?.path).toBe("aisa api");
+    expect(api?.subcommands.map((c) => c.path)).toEqual(["aisa api show"]);
+  });
+
+  it("reaches a leaf, which is a fraction of the full dump", () => {
+    const root = buildManifest(fixture());
+    const leaf = descend(root, ["api", "show"]);
+    expect(leaf?.path).toBe("aisa api show");
+    expect(JSON.stringify(leaf).length).toBeLessThan(JSON.stringify(root).length);
+  });
+
+  it("returns undefined for a path that does not exist", () => {
+    const root = buildManifest(fixture());
+    expect(descend(root, ["api", "nope"])).toBeUndefined();
+    expect(descend(root, ["nope"])).toBeUndefined();
   });
 });
