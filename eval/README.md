@@ -49,6 +49,14 @@ Failed trials still write a transcript path so a human can tell a real agent
 mistake from a broken task or grader. The grader itself does not use that
 file.
 
+## Feedback-derived pricing regressions
+
+The suite includes sanitized SimilarWeb scenarios drawn from real support
+patterns: a high-cost, bounded-response request with a hard budget must remain
+`over_budget` rather than becoming a runnable paid call. These scenarios keep
+customer identifiers and raw prompts out of the repository while preserving the
+budget-safety behavior that the product must not regress.
+
 ## Suites and metrics
 
 `suite.json` → `standards` is the scoring contract:

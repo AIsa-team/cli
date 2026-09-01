@@ -38,6 +38,7 @@ describe("eval/suite.json", () => {
       "n2_natural_budget_negotiation",
       "n3_natural_unverified_pricing",
       "n4_natural_capability_fit",
+      "n5_natural_similar_sites_hard_budget_stop",
     ]);
   });
 
