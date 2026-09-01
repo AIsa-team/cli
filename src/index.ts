@@ -699,8 +699,57 @@ program
   .allowExcessArguments()
   .action((words: string[] = []) => completeAction(program, words));
 
-// The one line that makes the manifest discoverable: an agent reads this page
-// first, and would otherwise never learn the flags exist.
+/**
+ * Show each subcommand's real flags instead of the literal word `[options]`.
+ *
+ * Commander's default term is `search [options] <query>` — the flags are in
+ * its own metadata but never rendered, so the one line an agent (or a person)
+ * reads to pick a command tells them nothing about how to call it. An LLM
+ * given only this page invented `--json`; the flag is `--raw`, and it was
+ * sitting right there unprinted.
+ *
+ * Long forms only, and no -h/--help: every command has it, so repeating it
+ * 35 times costs a column and says nothing.
+ */
+const FLAG_BUDGET = 32;
+
+function subcommandTerm(cmd: Command): string {
+  const args = cmd
+    .registeredArguments.map((a) => (a.required ? `<${a.name()}>` : `[${a.name()}]`))
+    .join(" ");
+  // One verbose command would otherwise set the column width for the whole
+  // list: `twitter login` has seven flags, which pushed every description on
+  // the page past column 70 and off an 80-column terminal. Spend a fixed
+  // budget and trail off; the full set is one `--help` (or the manifest) away.
+  const longs = cmd.options.filter((o) => o.long && o.long !== "--help").map((o) => o.long as string);
+  const shown: string[] = [];
+  let width = 0;
+  for (const f of longs) {
+    if (width + f.length + 1 > FLAG_BUDGET) break;
+    shown.push(f);
+    width += f.length + 1;
+  }
+  const flags = shown.length
+    ? `[${shown.join(" ")}${shown.length < longs.length ? " …" : ""}]`
+    : "";
+  const nested = cmd.commands.length > 0 ? "<command>" : "";
+  return [cmd.name(), args, nested, flags].filter(Boolean).join(" ");
+}
+
+// configureHelp is per-command, so every node in the tree needs it — and each
+// one also gets the pointer to the manifest, because an agent that lands on
+// `aisa twitter` never sees the root page.
+function applyHelpStyle(cmd: Command): void {
+  cmd.configureHelp({ subcommandTerm });
+  if (cmd.commands.length > 0) {
+    cmd.addHelpText("after", "\nAgents: `aisa manifest` prints every command, argument and flag as JSON.");
+  }
+  for (const c of cmd.commands) applyHelpStyle(c);
+}
+applyHelpStyle(program);
+
+// The root page also gets worked examples: the fastest way to convey that
+// `run` takes repeated -q pairs is to show one.
 program.addHelpText(
   "after",
   `
@@ -708,9 +757,7 @@ Examples:
   $ aisa connect                      wire your coding agent to AIsa (start here)
   $ aisa twitter search "ai" --raw    search X, full JSON out
   $ aisa api show coingecko           list one API's endpoints
-  $ aisa run coingecko simple/price -q ids=bitcoin -q vs_currencies=usd
-
-Agents: \`aisa manifest\` prints every command, argument and flag as JSON.`
+  $ aisa run coingecko simple/price -q ids=bitcoin -q vs_currencies=usd`
 );
 
 // ── Parse ──
