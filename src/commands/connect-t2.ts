@@ -4,6 +4,10 @@ import { defaultModelsFor } from "./llm-config.js";
 import { stripped, type LiveServer } from "./mcp.js";
 import { BRAND_LOGOS } from "./brand-logos.js";
 import {
+  STEP_AGENT, AGENT_ORDER, agentRank, AGENT_BADGE, AGENT_SIDE_TITLES,
+  AGENT_NOTES, AGENT_HAVE_NOTES, installOffer, t, type Lang,
+} from "./flow.js";
+import {
   RED,
   RED_CTA,
   INK,
@@ -77,42 +81,6 @@ const COMING_SOON: Array<{ id: string; label: string; note: string }> = [
 
 /** One paragraph per agent on what connecting it means, for the Your-agent
  *  step's side column. */
-const AGENT_NOTES: Record<string, string> = {
-  "claude-code":
-    "Servers are added with <code>claude mcp add</code> in user scope — the official mechanism, reversible with <code>claude mcp remove</code>. Models, if you choose to, are set through Claude Code's own settings file.",
-  codex:
-    "Servers are added with <code>codex mcp add</code>, Codex's own command. Models go in an <code>aisa</code> provider inside <code>~/.codex/config.toml</code> — only keys we wrote are ever touched.",
-  opencode:
-    "Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.",
-  vscode:
-    "Nothing is done by hand. The AIsa servers go into VS Code's <code>mcp.json</code> (with your key, or VS Code signs in to them itself), and a small <b>AIsa extension</b> is installed that asks VS Code to store your key and add the models as a <b>Custom Endpoint</b> group named AIsa — beside Copilot's own, which stay. Inline completions keep using Copilot.",
-  cursor:
-    "One click per server: each becomes an <b>Add to Cursor</b> link on the last step. Cursor opens, shows you the exact entry, and writes it into its own MCP settings when you confirm. Models stay as they are — Cursor picks its own.",
-  "claude-desktop":
-    "Claude Desktop's config file only takes MCP servers over stdio, so each AIsa server is written in as a small <code>mcp-remote</code> bridge carrying your key (plus the free <code>aisa-docs</code> server). The bridges live and die with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the servers appear under its tools menu.",
-  "claude-ai":
-    "Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own.",
-  windsurf: "The AIsa servers are written into Windsurf's <code>mcp_config.json</code>.",
-};
-
-/** What "nothing of yours changes" means for each agent, on the Your-agent step. */
-const HAVE_NOTES: Record<string, string> = {
-  "claude-code":
-    "Nothing of yours is replaced. Your <code>claude</code> keeps its login, models and settings; the next step lets you add AIsa <b>beside</b> it as a separate <b><code>claude-aisa</code></b> command, or switch — your call.",
-  codex:
-    "Nothing of yours is replaced. Your <code>codex</code> keeps its login and config; the next step lets you add AIsa <b>beside</b> it as an <code>aisa</code> profile and a <b><code>codex-aisa</code></b> command, or switch — your call.",
-  opencode:
-    "Nothing of yours is replaced. Your default model stays; the next step can add AIsa as an extra <code>aisa/…</code> provider you pick from the model list, or switch — your call.",
-  "claude-desktop":
-    "Nothing of yours is replaced. Anything already in <code>claude_desktop_config.json</code> stays; AIsa's entries are added beside it under <code>aisa-*</code> names and removing them is deleting those entries.",
-  "claude-ai":
-    "Nothing of yours is touched — the connectors live in your claude.ai account, beside any you already have, and can be removed there in one click.",
-  vscode:
-    "Nothing of yours is replaced. Other MCP servers and model groups in those two files stay; only the <code>aisa-*</code> entries and the AIsa group are ours, and removing them is deleting those entries.",
-  cursor:
-    "Nothing of yours is replaced. Cursor adds each AIsa server beside your existing MCP entries under <code>aisa-*</code> names, and you approve every one inside Cursor first.",
-};
-
 /** Why the Models step has nothing to offer a file-configured client. */
 const FILE_MODEL_NOTE: Record<string, string> = {
   "claude-desktop":
@@ -156,8 +124,18 @@ export function renderT2Page(
   token: string,
   keyed: boolean,
   canInstall: boolean,
-  view: "start" | "done"
+  view: "start" | "done",
+  /**
+   * Defaults to English so this signature could grow without moving a byte of
+   * the rendered page: the picker that will set it is a later step, and the
+   * snapshots guarding this refactor have to stay green in between.
+   */
+  lang: Lang = "en"
 ): string {
+  const T = (x: { en: string; zh: string }) => t(x, lang);
+  /** A per-agent map of Text, flattened to the current language. */
+  const resolved = (m: Record<string, { en: string; zh: string }>) =>
+    Object.fromEntries(Object.entries(m).map(([k, v]) => [k, t(v, lang)]));
   const totalTools = servers.reduce((n, s) => n + s.toolCount, 0);
   const cats = new Map<string, LiveServer[]>();
   for (const s of servers) {
@@ -223,10 +201,9 @@ nothing here is irreversible.</p>
 </div>`;
 
   // ── step 2: your agent ──
-  // Fixed card order, whatever is or is not installed: Claude Code, Codex,
-  // opencode, then the editors and web targets.
-  const AGENT_ORDER = ["claude-code", "codex", "opencode", "vscode", "cursor", "claude-desktop", "claude-ai"];
-  const agentRank = (id: string) => { const i = AGENT_ORDER.indexOf(id); return i === -1 ? 99 : i; };
+  // Order comes from the flow definition — the terminal numbers its menu from
+  // the same list, so "pick 2" cannot mean two different agents.
+  void AGENT_ORDER;
   const shown = CLIENTS.filter((c) => c.detected || c.installable).sort((a, b) => agentRank(a.id) - agentRank(b.id));
   const firstPick = shown.find((c) => c.detected) ?? shown[0];
   const rest = CLIENTS.filter((c) => !c.detected && !c.installable);
@@ -236,29 +213,28 @@ nothing here is irreversible.</p>
   <span class="tlogo${c.id === "cursor" ? " mono" : ""}">${BRAND_LOGOS[c.id] ?? (c.id === "claude-desktop" ? BRAND_LOGOS["claude-ai"] : undefined) ?? CLIENT_LOGOS[c.id] ?? I.terminal}</span>
   <span class="tbody"><span class="thead"><span class="tname">${c.label}</span></span>
     <span class="tbrief" data-brief>${
-      c.detected ? c.detail : `Install <b>and</b> connect it — <code>${c.command}</code>`
+      c.detected ? c.detail : installOffer(c.command ?? "", lang)
     }</span></span>
-  ${c.kind === "web" ? `<span class="badge web end">web · no install</span>` : c.detected ? `<span class="badge ok end">✓ detected</span>` : `<span class="badge todo end" data-badge>not installed</span>`}</label>`;
+  ${c.kind === "web" ? `<span class="badge web end">${T(AGENT_BADGE.web)}</span>` : c.detected ? `<span class="badge ok end">${T(AGENT_BADGE.detected)}</span>` : `<span class="badge todo end" data-badge>${T(AGENT_BADGE.absent)}</span>`}</label>`;
   const agentCards = shown.map((c) => clientCard(c, c === firstPick)).join("");
   // Fixed order: Claude Desktop, ChatGPT, Cursor, VS Code — by how likely a
   // reader is to care, not by which list they come from.
   const chipOrder = ["claude-desktop", "claude-ai", "chatgpt", "cursor", "vscode"];
   // (vscode only lands here when it has never been run on this machine)
   const chips = [
-    ...rest.map((c) => ({ id: c.id, html: `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>not found</i></span>` })),
-    ...COMING_SOON.map((c) => ({ id: c.id, html: `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>${c.note} · soon</i></span>` })),
+    ...rest.map((c) => ({ id: c.id, html: `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>${T(AGENT_BADGE.notFound)}</i></span>` })),
+    ...COMING_SOON.map((c) => ({ id: c.id, html: `<span class="chip">${BRAND_LOGOS[c.id] ?? ""}${c.label} <i>${c.note} · ${T(AGENT_BADGE.soon)}</i></span>` })),
   ].sort((a, b) => chipOrder.indexOf(a.id) - chipOrder.indexOf(b.id));
   const restChips = chips.length ? `<div class="soon">${chips.map((c) => c.html).join("")}</div>` : "";
   const agent = `
-<h1>Which agent should AIsa <em>plug into</em>?</h1>
-<p class="lede">One agent per run, so a problem is always easy to place. Detected tools are ready
-to connect; a missing one can be installed right here through its official installer.</p>
+<h1>${T(STEP_AGENT.question).replace("plug into", "<em>plug into</em>")}</h1>
+<p class="lede">${T(STEP_AGENT.lede!)}</p>
 <div class="grid1">${agentCards}</div>
 ${restChips}
 <div class="side">
-  <h3 id="agentNoteTitle">How it connects</h3>
+  <h3 id="agentNoteTitle">${T(AGENT_SIDE_TITLES.how)}</h3>
   <p id="agentNote"></p>
-  <h3 id="agentHaveTitle">Already have it set up?</h3>
+  <h3 id="agentHaveTitle">${T(AGENT_SIDE_TITLES.have)}</h3>
   <p id="agentHave"></p>
 </div>`;
 
@@ -403,8 +379,8 @@ each step reports as it finishes, and your results open on the last step.</p>
   var MODEL_FOR = ${JSON.stringify(MODEL_FOR)};
   var EXAMPLES = ${JSON.stringify(EXAMPLES)};
   var BACKUP_COPY = ${JSON.stringify(BACKUP_COPY)};
-  var AGENT_NOTES = ${JSON.stringify(AGENT_NOTES)};
-  var HAVE_NOTES = ${JSON.stringify(HAVE_NOTES)};
+  var AGENT_NOTES = ${JSON.stringify(resolved(AGENT_NOTES))};
+  var HAVE_NOTES = ${JSON.stringify(resolved(AGENT_HAVE_NOTES))};
   var FILE_MODEL_NOTE = ${JSON.stringify(FILE_MODEL_NOTE)};
   var NEEDS_CLI = ${JSON.stringify(!isInstalled("aisa"))};
   var PROVIDER_ID = ${JSON.stringify(AISA_PROVIDER_ID)};
