@@ -181,7 +181,6 @@ export function renderT2Page(
   // on the web is parked until AIsa is in the Connector Directory — the
   // hand-off page below is ready, the card is not offered; see mcp.md T20.
   const CLIENTS = clients
-    .filter((c) => c.id !== "windsurf")
     .map((c) => ({
       id: c.id,
       label: c.label,

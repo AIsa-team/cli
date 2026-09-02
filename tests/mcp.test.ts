@@ -74,9 +74,23 @@ function claudeConfig(): Record<string, any> {
   );
 }
 
+/** Make a client look installed. Detection keys off the config directory, so
+ *  creating it is exactly what having the editor on the machine looks like. */
+function pretendInstalled(...clients: string[]): void {
+  for (const c of clients) {
+    const dir =
+      c === "cursor" ? join(home, ".cursor")
+      : join(home, "Library", "Application Support", "Claude");
+    mkdirSync(dir, { recursive: true });
+  }
+}
+
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "aisa-home-"));
   process.env.HOME = home;
+  // Setup writes only where a client lives — before 2026-08-25 it wrote
+  // everywhere, which is how a machine without Windsurf got ~/.codeium/.
+  pretendInstalled("cursor", "claude-desktop");
   apiKey = "sk-test-123";
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -93,7 +107,7 @@ describe("mcp setup", () => {
   it("writes url entries with a Bearer header for cursor", async () => {
     stubManifest();
     const { mcpSetupAction } = await freshMcp();
-    await mcpSetupAction({ agent: "cursor" });
+    await mcpSetupAction({ agent: "cursor", yes: true });
 
     const entries = cursorConfig().mcpServers;
     expect(entries["aisa-web-search"]).toEqual({
@@ -107,7 +121,7 @@ describe("mcp setup", () => {
   it("writes an mcp-remote stdio bridge for claude-desktop", async () => {
     stubManifest();
     const { mcpSetupAction } = await freshMcp();
-    await mcpSetupAction({ agent: "claude-desktop" });
+    await mcpSetupAction({ agent: "claude-desktop", yes: true });
 
     const entry = claudeConfig().mcpServers["aisa-web-search"];
     expect(entry.command).toBe("npx");
@@ -129,7 +143,7 @@ describe("mcp setup", () => {
     apiKey = undefined;
     stubManifest();
     const { mcpSetupAction } = await freshMcp();
-    await mcpSetupAction({});
+    await mcpSetupAction({ yes: true });
 
     expect(cursorConfig().mcpServers["aisa-web-search"].headers).toBeUndefined();
     const args: string[] = claudeConfig().mcpServers["aisa-web-search"].args;
@@ -139,7 +153,7 @@ describe("mcp setup", () => {
   it("configures only default slugs unless --all, and never a planned server", async () => {
     stubManifest();
     const { mcpSetupAction } = await freshMcp();
-    await mcpSetupAction({ agent: "cursor" });
+    await mcpSetupAction({ agent: "cursor", yes: true });
 
     let names = Object.keys(cursorConfig().mcpServers);
     expect(names).toContain("aisa-web-search");
@@ -149,7 +163,7 @@ describe("mcp setup", () => {
     expect(names).not.toContain("aisa-twitter-api");
     expect(names).not.toContain("aisa-reddit");
 
-    await mcpSetupAction({ agent: "cursor", all: true });
+    await mcpSetupAction({ agent: "cursor", all: true, yes: true });
     names = Object.keys(cursorConfig().mcpServers);
     expect(names).toContain("aisa-reddit");
     expect(names).not.toContain("aisa-seo-keyword-research"); // planned: no endpoint exists
@@ -169,7 +183,7 @@ describe("mcp setup", () => {
     );
     stubManifest();
     const { mcpSetupAction } = await freshMcp();
-    await mcpSetupAction({ agent: "cursor" });
+    await mcpSetupAction({ agent: "cursor", yes: true });
 
     const entries = cursorConfig().mcpServers;
     expect(entries["aisa"]).toBeUndefined();
@@ -179,7 +193,7 @@ describe("mcp setup", () => {
   it("writes nothing at all when the manifest cannot be fetched", async () => {
     stubManifest(503);
     const { mcpSetupAction } = await freshMcp();
-    await mcpSetupAction({ agent: "cursor" });
+    await mcpSetupAction({ agent: "cursor", yes: true });
 
     expect(existsSync(join(home, ".cursor", "mcp.json"))).toBe(false);
     expect(process.exitCode).toBe(1);
@@ -284,6 +298,46 @@ describe("where the server list comes from", () => {
   });
 });
 
+/**
+ * The two guards added 2026-08-25, after `aisa mcp setup` with no arguments
+ * wrote three config files on a live machine without being asked — one of them
+ * for Windsurf, which was not installed. That write created ~/.codeium/, and
+ * connect's detection (which keys off the config directory existing) then
+ * offered a Windsurf card for an editor that had never been there: this
+ * command's output became that command's input.
+ */
+describe("mcp setup guards", () => {
+  it("writes nothing without --yes, and says what it would have written", async () => {
+    stubManifest();
+    const { mcpSetupAction } = await freshMcp();
+    await mcpSetupAction({ agent: "cursor" });
+
+    expect(existsSync(join(home, ".cursor", "mcp.json"))).toBe(false);
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it("skips a client that is not installed rather than creating its directory", async () => {
+    rmSync(join(home, "Library"), { recursive: true, force: true }); // no Claude Desktop
+    stubManifest();
+    const { mcpSetupAction } = await freshMcp();
+    await mcpSetupAction({ yes: true });
+
+    expect(existsSync(join(home, ".cursor", "mcp.json"))).toBe(true);
+    expect(existsSync(join(home, "Library", "Application Support", "Claude"))).toBe(false);
+  });
+
+  it("refuses outright when nothing requested is installed", async () => {
+    rmSync(join(home, ".cursor"), { recursive: true, force: true });
+    rmSync(join(home, "Library"), { recursive: true, force: true });
+    stubManifest();
+    const { mcpSetupAction } = await freshMcp();
+    await mcpSetupAction({ yes: true });
+
+    expect(process.exitCode).toBe(1);
+    expect(existsSync(join(home, ".cursor"))).toBe(false);
+  });
+});
+
 describe("pingEndpoint", () => {
   async function ping(status: number | Error): Promise<string> {
     vi.stubGlobal(
@@ -319,7 +373,7 @@ describe("mcp setup — unparseable configs", () => {
 
     stubManifest();
     const { mcpSetupAction } = await freshMcp();
-    await mcpSetupAction({ agent: "cursor" });
+    await mcpSetupAction({ agent: "cursor", yes: true });
 
     // byte-identical: a "setup" must never destroy a hand-edited config,
     // which is exactly what the old command did (it replaced it with {})

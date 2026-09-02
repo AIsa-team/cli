@@ -119,12 +119,22 @@ export const MCP_CONFIGS: Record<string, { path: string; key: string; shape: "ur
     key: "mcpServers",
     shape: "stdio",
   },
-  windsurf: {
-    path: "~/.codeium/windsurf/mcp_config.json",
-    key: "mcpServers",
-    shape: "stdio",
-  },
 };
+
+/**
+ * Windsurf was here until 2026-08-25 and was removed, not because it cannot be
+ * configured but because being listed did harm on a machine without it.
+ *
+ * `detectClients()` decides a client is present by whether the parent of its
+ * config path exists. `aisa mcp setup` with no --agent wrote to every entry in
+ * this table regardless of what was installed — so on a machine with no
+ * Windsurf it created ~/.codeium/windsurf/, and the next `aisa connect`
+ * offered a Windsurf card for an editor that was never there. A stale entry in
+ * this table is not inert: it is an input to detection.
+ *
+ * The T2 page had already been filtering it out by hand, which was the same
+ * observation reached one layer too late.
+ */
 
 /**
  * Ticker symbol → CoinGecko coin id.

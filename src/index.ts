@@ -614,8 +614,9 @@ const mcp = program.command("mcp").description("MCP server integration");
 mcp
   .command("setup")
   .description("Configure AIsa MCP servers (from the live manifest) for AI agents")
-  .option("--agent <agent>", "Target agent: cursor, claude-desktop, windsurf, all")
+  .option("--agent <agent>", "Target agent: cursor, claude-desktop, all")
   .option("--all", "Configure every live server, not just the default set")
+  .option("--yes", "Write the files. Without it, print what would change and stop")
   .action(mcpSetupAction);
 
 mcp

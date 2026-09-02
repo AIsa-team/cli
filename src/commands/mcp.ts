@@ -5,6 +5,7 @@ import { expandHome, ensureDir } from "../utils/file.js";
 import { MCP_CONFIGS, MCP_MANIFEST_URL, MCP_CATALOG_URL, DOCS_MCP_URL, MCP_DEFAULT_SLUGS } from "../constants.js";
 import { httpFetch, MAX_ATTEMPTS } from "../utils/http.js";
 import { getApiKey } from "../config.js";
+import { detectClients } from "./connect.js";
 import { join } from "node:path";
 
 /**
@@ -170,15 +171,35 @@ export function writeClientConfig(
   return { ok: true, written: chosen.length + 1 };
 }
 
-export async function mcpSetupAction(options: { agent?: string; all?: boolean }): Promise<void> {
-  const targets =
+export async function mcpSetupAction(
+  options: { agent?: string; all?: boolean; yes?: boolean }
+): Promise<void> {
+  const requested =
     options.agent && options.agent !== "all" ? [options.agent] : Object.keys(MCP_CONFIGS);
 
-  for (const agent of targets) {
+  for (const agent of requested) {
     if (!MCP_CONFIGS[agent]) {
       error(`Unknown agent: ${agent}. Valid: ${Object.keys(MCP_CONFIGS).join(", ")}, all`);
       return;
     }
+  }
+
+  // Write only where the client actually lives. Until 2026-08-25 `--agent all`
+  // (the default) wrote to every entry in MCP_CONFIGS whether or not it was
+  // installed, which on a machine without Windsurf created ~/.codeium/ and
+  // made the next `aisa connect` offer a card for an editor that was never
+  // there — this command's output became that command's input.
+  const installed = new Set(detectClients().filter((c) => c.detected).map((c) => c.id));
+  const targets = requested.filter((a) => installed.has(a));
+  const absent = requested.filter((a) => !installed.has(a));
+  for (const a of absent) {
+    console.log(`  ${chalk.gray("○")} ${a}: not installed — skipped`);
+  }
+  if (targets.length === 0) {
+    error("None of the requested clients are installed on this machine.");
+    hint("`aisa connect` detects what is here and walks you through it.");
+    process.exitCode = 1;
+    return;
   }
 
   // Fetch before touching any file: a setup that cannot see the manifest has
@@ -204,6 +225,22 @@ export async function mcpSetupAction(options: { agent?: string; all?: boolean })
   } else {
     info("No API key configured — entries are written without credentials, and the");
     info("server's OAuth flow will open in your browser on first use.");
+  }
+
+  // Nothing is written without saying so first. This command used to change
+  // three config files the moment it was typed, with no preview and no way to
+  // ask what it would do — the opposite of `connect`, which shows the plan and
+  // waits. --yes is how a script opts back in to writing straight away.
+  if (!options.yes) {
+    info("This would write:");
+    for (const agent of targets) {
+      console.log(`  ${chalk.cyan(MCP_CONFIGS[agent].path)}  (${agent}, ${MCP_CONFIGS[agent].shape})`);
+    }
+    for (const s of chosen) {
+      console.log(`    ${chalk.gray(`aisa-${s.slug}`)}  ${stripped(s.name)} (${s.toolCount} tools)`);
+    }
+    hint("Nothing was written. Re-run with --yes to apply, or use `aisa connect` to choose interactively.");
+    return;
   }
 
   for (const agent of targets) {
