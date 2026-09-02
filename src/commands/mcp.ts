@@ -2,7 +2,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import chalk from "chalk";
 import { success, error, info, hint } from "../utils/display.js";
 import { expandHome, ensureDir } from "../utils/file.js";
-import { MCP_CONFIGS, MCP_MANIFEST_URL, DOCS_MCP_URL, MCP_DEFAULT_SLUGS } from "../constants.js";
+import { MCP_CONFIGS, MCP_MANIFEST_URL, MCP_CATALOG_URL, DOCS_MCP_URL, MCP_DEFAULT_SLUGS } from "../constants.js";
+import { httpFetch, MAX_ATTEMPTS } from "../utils/http.js";
 import { getApiKey } from "../config.js";
 import { join } from "node:path";
 
@@ -39,32 +40,63 @@ export interface LiveServer {
 
 export const stripped = (name: string) => name.replace(/^AIsa\s+/i, "");
 
-export async function fetchLiveServers(): Promise<LiveServer[]> {
-  const res = await fetch(MCP_MANIFEST_URL, { signal: AbortSignal.timeout(15_000) });
-  if (!res.ok) throw new Error(`manifest answered HTTP ${res.status}`);
-  const manifest = (await res.json()) as {
-    servers?: Array<{
-      slug?: string;
-      name?: string;
-      status?: string;
-      transport?: { endpoint?: string };
-      tools?: unknown[];
-      description?: string;
-      category?: string;
-    }>;
-  };
-  const live = (manifest.servers ?? [])
+/** Both documents describe a server the same way; only the tool field differs. */
+interface DiscoveredServer {
+  slug?: string;
+  name?: string;
+  status?: string;
+  transport?: { endpoint?: string };
+  /** Index: a number. Manifest: the whole array, which we only ever count. */
+  toolCount?: number;
+  tools?: unknown[];
+  description?: string;
+  category?: string;
+}
+
+function toLive(servers: DiscoveredServer[]): LiveServer[] {
+  return servers
     .filter((s) => s.status === "live" && s.slug && s.transport?.endpoint)
     .map((s) => ({
       slug: s.slug as string,
       name: s.name ?? (s.slug as string),
       endpoint: s.transport!.endpoint as string,
-      toolCount: s.tools?.length ?? 0,
+      toolCount: s.toolCount ?? s.tools?.length ?? 0,
       description: s.description ?? "",
       category: s.category ?? "Other",
     }));
-  if (live.length === 0) throw new Error("manifest lists no live servers");
+}
+
+async function readSource(url: string, attempts: number): Promise<LiveServer[]> {
+  const res = await httpFetch(url, { idempotent: true, maxAttempts: attempts, timeoutMs: 15_000 });
+  if (!res.ok) throw new Error(`${url} answered HTTP ${res.status}`);
+  const doc = (await res.json()) as { servers?: DiscoveredServer[] };
+  const live = toLive(doc.servers ?? []);
+  if (live.length === 0) throw new Error(`${url} lists no live servers`);
   return live;
+}
+
+/**
+ * Which servers exist, asked of the host that runs them.
+ *
+ * The index is preferred and the manifest is the fallback, in that order for
+ * one reason: the manifest is a snapshot committed by hand, and on 2026-08-25
+ * it was three servers and 72 tools behind what the host was actually serving.
+ * Anything derived from a running process cannot drift that way.
+ *
+ * The fallback is not defensive padding — the index is newer than some
+ * deployments, and a self-hosted gateway configured through `baseUrl` may
+ * never grow one. A user in either case should still get a working setup from
+ * a slightly stale list rather than an error.
+ */
+export async function fetchLiveServers(): Promise<LiveServer[]> {
+  try {
+    // One attempt only: there is somewhere else to go, so spending a retry
+    // budget here just delays the fallback. The manifest is the last resort
+    // and gets the full three.
+    return await readSource(MCP_CATALOG_URL, 1);
+  } catch {
+    return await readSource(MCP_MANIFEST_URL, MAX_ATTEMPTS);
+  }
 }
 
 /** One config entry in the shape the client actually executes. */

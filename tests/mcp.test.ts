@@ -193,6 +193,97 @@ describe("mcp setup", () => {
   });
 });
 
+/**
+ * Which document the server list comes from.
+ *
+ * The manifest is generated offline and committed by hand, so it drifts:
+ * measured 2026-08-25 it named 11 servers and 188 tools while mcp.aisa.one was
+ * serving 14 and 260 — three servers missing outright. The index is served by
+ * the process that owns the answer, so it is tried first. These tests pin the
+ * order, the fallback, and the one field whose shape differs between them.
+ */
+const CATALOG = {
+  catalogVersion: 1,
+  serverCount: 2,
+  servers: [
+    {
+      slug: "agentmail", name: "AIsa AgentMail", status: "live",
+      transport: { type: "streamable-http", endpoint: "https://mcp.aisa.one/agentmail/mcp" },
+      toolCount: 49, description: "Email", category: "Communication",
+    },
+    {
+      slug: "web-search", name: "AIsa Web Search", status: "live",
+      transport: { type: "streamable-http", endpoint: "https://mcp.aisa.one/web-search/mcp" },
+      toolCount: 27, description: "Search", category: "Search & Research",
+    },
+  ],
+};
+
+function stubBoth(catalog: { status: number; body?: unknown }): string[] {
+  const seen: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string | URL) => {
+    const u = String(url);
+    seen.push(u);
+    if (u.includes("/servers")) {
+      if (catalog.status === 0) throw new TypeError("fetch failed");
+      return new Response(catalog.status === 200 ? JSON.stringify(catalog.body ?? CATALOG) : "nope",
+                          { status: catalog.status });
+    }
+    if (u.includes(".well-known/mcp.json")) return new Response(JSON.stringify(MANIFEST), { status: 200 });
+    throw new Error(`unexpected fetch: ${u}`);
+  }));
+  return seen;
+}
+
+describe("where the server list comes from", () => {
+  it("prefers the live index over the hand-committed manifest", async () => {
+    const seen = stubBoth({ status: 200 });
+    const { fetchLiveServers } = await freshMcp();
+    const servers = await fetchLiveServers();
+
+    expect(seen.some((u) => u.includes("/servers"))).toBe(true);
+    expect(seen.some((u) => u.includes(".well-known/mcp.json"))).toBe(false);
+    expect(servers.map((s) => s.slug).sort()).toEqual(["agentmail", "web-search"]);
+  });
+
+  it("reads toolCount from the index, which carries no tools array", async () => {
+    stubBoth({ status: 200 });
+    const { fetchLiveServers } = await freshMcp();
+    const agentmail = (await fetchLiveServers()).find((s) => s.slug === "agentmail");
+    expect(agentmail?.toolCount).toBe(49);
+  });
+
+  it("falls back to the manifest when the index is not deployed yet", async () => {
+    const seen = stubBoth({ status: 404 });
+    const { fetchLiveServers } = await freshMcp();
+    const servers = await fetchLiveServers();
+
+    expect(seen.some((u) => u.includes(".well-known/mcp.json"))).toBe(true);
+    expect(servers.length).toBeGreaterThan(0);
+    // The manifest names tools instead of counting them; the count still lands.
+    expect(servers.find((s) => s.slug === "web-search")?.toolCount).toBe(2);
+  });
+
+  it("falls back when the index host cannot be reached at all", async () => {
+    stubBoth({ status: 0 });
+    const { fetchLiveServers } = await freshMcp();
+    expect((await fetchLiveServers()).length).toBeGreaterThan(0);
+  });
+
+  it("falls back rather than trusting an index that lists nothing live", async () => {
+    stubBoth({ status: 200, body: { servers: [] } });
+    const { fetchLiveServers } = await freshMcp();
+    expect((await fetchLiveServers()).length).toBeGreaterThan(0);
+  });
+
+  it("does not spend the retry budget on the index — the fallback is the point", async () => {
+    const seen = stubBoth({ status: 0 });
+    const { fetchLiveServers } = await freshMcp();
+    await fetchLiveServers();
+    expect(seen.filter((u) => u.includes("/servers")).length).toBe(1);
+  });
+});
+
 describe("pingEndpoint", () => {
   async function ping(status: number | Error): Promise<string> {
     vi.stubGlobal(

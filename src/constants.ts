@@ -15,6 +15,26 @@ export const ENV_VAR_NAME = "AISA_API_KEY";
  */
 export const MCP_MANIFEST_URL = "https://aisa.one/.well-known/mcp.json";
 
+/**
+ * The live server index, served by the MCP host itself.
+ *
+ * Preferred over the manifest above, which is generated offline and committed
+ * by hand: being a snapshot it drifts. Measured 2026-08-25 it named 11 servers
+ * and 188 tools while mcp.aisa.one was serving 14 and 260 — agentmail (49
+ * tools), seo (21) and creator-discovery (2) missing outright, so every user
+ * of this CLI was offered 72 fewer tools than exist.
+ *
+ * It is also 12 KB against the manifest's 137 KB. Most of that difference is
+ * tool names, of which this CLI uses exactly one thing: `tools.length`, to
+ * print a count. The index carries `toolCount` instead; a client that wants
+ * the names is about to connect anyway, and `tools/list` is authoritative.
+ *
+ * The manifest stays as the fallback — this endpoint is newer than some
+ * deployments — and as the public document for readers who want the roadmap
+ * of planned servers, which a running process cannot honestly report.
+ */
+export const MCP_CATALOG_URL = "https://mcp.aisa.one/servers";
+
 /** Mintlify's docs-search MCP (3 tools: search/read/feedback). Unauthenticated. */
 export const DOCS_MCP_URL = "https://aisa.one/docs/mcp";
 
