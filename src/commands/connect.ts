@@ -9,7 +9,7 @@ import chalk from "chalk";
 import { success, error, info, hint } from "../utils/display.js";
 import { expandHome } from "../utils/file.js";
 import { MCP_CONFIGS, MCP_DEFAULT_SLUGS, AISA_PROVIDER_ID } from "../constants.js";
-import { getApiKey, getConfig } from "../config.js";
+import { getApiKey, getConfig, setConfig } from "../config.js";
 import { fetchLiveServers, writeClientConfig, buildEntry, stripped, type LiveServer } from "./mcp.js";
 import { INSTALLERS, installAgent, isInstalled, supported } from "./install.js";
 import {
@@ -31,7 +31,7 @@ import { run, runSync, QUICK_TIMEOUT_MS } from "../utils/exec.js";
 import { httpFetch } from "../utils/http.js";
 import { Journal } from "../utils/journal.js";
 import { checkForUpdate } from "../utils/update-check.js";
-import { resolveLang } from "./flow.js";
+import { resolveLang, LANGS, type Lang } from "./flow.js";
 import { VERSION } from "../constants.js";
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -2025,7 +2025,7 @@ export async function connectAction(options: {
   // One language for both surfaces. Reading it here rather than in the page
   // is the point: a language the browser chose alone would leave the terminal
   // in English while the page is in Chinese.
-  const lang = resolveLang(options.lang, getConfig("lang") as string | undefined);
+  let lang = resolveLang(options.lang, getConfig("lang") as string | undefined);
 
   // One run at a time. A second one would serve a second page against the
   // same machine — two plans writing the same config files — so point the
@@ -2088,7 +2088,10 @@ export async function connectAction(options: {
   // One random token per run: the page and every endpoint require it, so
   // another local process cannot drive this server blind.
   const token = randomBytes(16).toString("hex");
-  const page =
+  // Rendered per request, not once at startup: the language picker changes
+  // `lang` and reloads, and a page built before that would come back in the
+  // language the user just switched away from.
+  const page = () =>
     template === "t2"
       ? renderT2Page(servers, clients, token, Boolean(key), supported(), "start", lang)
       : renderPage(servers, clients, token, Boolean(key), supported());
@@ -2137,7 +2140,7 @@ export async function connectAction(options: {
         res.writeHead(403).end("forbidden");
         return;
       }
-      res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(page);
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(page());
       return;
     }
     if (req.method === "GET" && url.pathname === "/status") {
@@ -2171,6 +2174,31 @@ export async function connectAction(options: {
         return;
       }
       res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ key: key ?? null }));
+      return;
+    }
+    if (req.method === "POST" && url.pathname === "/lang") {
+      if (!tokenOk) {
+        res.writeHead(403).end();
+        return;
+      }
+      // Stored by the CLI rather than the browser, so the terminal running
+      // beside this page switches too and the next run opens the same way.
+      let body: { lang?: string };
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        res.writeHead(400).end();
+        return;
+      }
+      const picked = LANGS.includes(body.lang as Lang) ? (body.lang as Lang) : undefined;
+      if (!picked) {
+        res.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ ok: false }));
+        return;
+      }
+      setConfig("lang", picked);
+      lang = picked;
+      log.line("info", "Language", picked === "zh" ? "切换为中文" : "switched to English");
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, lang: picked }));
       return;
     }
     if (req.method === "POST" && url.pathname === "/select") {

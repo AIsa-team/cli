@@ -107,27 +107,58 @@ function say(text: string, indent = "│  "): void {
   for (const line of wrap(plain(text))) console.log(dim(indent) + line);
 }
 
+/** What happened to a question: the user typed, or the page answered it. */
+type Answer =
+  | { by: "user"; index: number }
+  | { by: "page"; draft: Selection };
+
 /**
- * Ask one question. Returns the chosen index, or -1 if the user just pressed
- * enter with no default and nothing to pick.
+ * Ask one question, while watching for the page to answer it instead.
  *
- * `onPoll` runs between keystrokes-worth of time so a choice made in the page
- * can interrupt the prompt — the terminal is not allowed to sit on a question
- * the user already answered somewhere else.
+ * Waiting on readline alone is what made the terminal look dead: a person who
+ * ticked a card in the browser saw nothing happen here, because this side
+ * only looked at the shared draft between questions. So the prompt races
+ * against a poll, and whichever resolves first wins the step.
+ *
+ * The abandoned readline promise cannot be cancelled — it stays pending on a
+ * closed interface, which is harmless — but the caller must not ask again on
+ * the same interface after the page wins, so each step reads at most once.
  */
-async function ask(
+async function askOrWatch(
   rl: readline.Interface,
-  prompt: string,
+  o: TerminalFlowOptions,
   count: number,
-  fallback: number
-): Promise<number> {
-  for (;;) {
-    const answer = (await rl.question(bold.cyan("│  > "))).trim();
-    if (answer === "") return fallback;
-    const n = Number(answer);
-    if (Number.isInteger(n) && n >= 1 && n <= count) return n - 1;
-    console.log(dim("│  ") + chalk.yellow(prompt));
-  }
+  fallback: number,
+  seenRev: number,
+  changed: (d: Selection) => boolean
+): Promise<Answer> {
+  let stop = false;
+
+  const typed = (async (): Promise<Answer> => {
+    for (;;) {
+      const answer = (await rl.question(bold.cyan("│  > "))).trim();
+      if (stop) return { by: "user", index: fallback };
+      if (answer === "") return { by: "user", index: fallback };
+      const n = Number(answer);
+      if (Number.isInteger(n) && n >= 1 && n <= count) return { by: "user", index: n - 1 };
+      console.log(dim("│  ") + chalk.yellow(`1–${count}`));
+    }
+  })();
+
+  const watched = (async (): Promise<Answer> => {
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 900));
+      if (stop) return { by: "user", index: fallback };
+      const s = await pull(o);
+      if (s && s.rev !== seenRev && s.draft && changed(s.draft)) {
+        return { by: "page", draft: s.draft };
+      }
+    }
+  })();
+
+  const winner = await Promise.race([typed, watched]);
+  stop = true;
+  return winner;
 }
 
 /** Push a change to the shared draft. Failure is not fatal: the terminal can
@@ -206,8 +237,19 @@ export async function runTerminalFlow(
     });
     console.log(dim("│"));
     const preferred = Math.max(0, shown.findIndex((c) => draft.clients[0] === c.id));
-    const pickedIdx = await ask(rl, `1–${shown.length}`, shown.length, preferred);
-    const client = shown[pickedIdx];
+    const a1 = await askOrWatch(rl, o, shown.length, preferred, rev,
+      (d) => Boolean(d.clients[0]) && d.clients[0] !== draft.clients[0]);
+    let client: FlowClient;
+    if (a1.by === "page") {
+      // Answered in the browser. Say so rather than redrawing silently —
+      // seeing why the prompt moved on is the whole point.
+      client = shown.find((c) => c.id === a1.draft.clients[0]) ?? shown[preferred];
+      Object.assign(draft, a1.draft);
+      const s = await pull(o); if (s) rev = s.rev;
+      console.log(dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 在页面中选择了" : "↩ chosen in the page"));
+    } else {
+      client = shown[a1.index];
+    }
     draft.clients = [client.id];
     draft.install = client.detected ? [] : [client.id];
     console.log(dim("└─ ") + chalk.green(client.label) + " ✓");
@@ -234,9 +276,19 @@ export async function runTerminalFlow(
       if (m.brief) for (const l of wrap(m.brief, 68)) console.log(dim("│      ") + dim(l));
     });
     console.log(dim("│"));
-    const modeIdx = await ask(rl, `1–${modes.length}`, modes.length, 0);
-    draft.llmMode = modes[modeIdx].id;
-    console.log(dim("└─ ") + chalk.green(modes[modeIdx].label) + " ✓");
+    const a2 = await askOrWatch(rl, o, modes.length, 0, rev,
+      (d) => Boolean(d.llmMode) && d.llmMode !== draft.llmMode);
+    let mode = modes[0];
+    if (a2.by === "page") {
+      mode = modes.find((m) => m.id === a2.draft.llmMode) ?? modes[0];
+      Object.assign(draft, a2.draft);
+      const s = await pull(o); if (s) rev = s.rev;
+      console.log(dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 在页面中选择了" : "↩ chosen in the page"));
+    } else {
+      mode = modes[a2.index];
+    }
+    draft.llmMode = mode.id;
+    console.log(dim("└─ ") + chalk.green(mode.label) + " ✓");
     ({ rev } = await push(o, rev, { step: 4, draft: { llmMode: draft.llmMode } }));
 
     // ── step 4: capabilities ──

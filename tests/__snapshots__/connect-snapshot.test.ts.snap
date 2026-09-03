@@ -45,7 +45,12 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
      stay readable on a wide screen. */
   .main { display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
   .content { width: 100%; max-width: 980px; }
-  .topnav { min-height: 3rem; margin-bottom: 2.4rem; }
+  .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
+  .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
+  .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
+    padding: .3rem .72rem; border-radius: 999px; line-height: 1.4; }
+  .langpick .lang:hover { color: var(--ink); }
+  .langpick .lang.on { background: var(--ink); color: #fff; }
   .topnav .ghost { padding: .65rem 1.3rem; font-size: 1rem; }
   .pane { display: none; animation: fade .25s ease; }
   .pane.show { display: block; }
@@ -306,7 +311,7 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
 </nav>
 <section class="main">
 <div class="content">
-  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button></div>
+  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button><div class="langpick"><button type="button" class="lang on" data-lang="en">EN</button><button type="button" class="lang" data-lang="zh">中文</button></div></div>
   <div class="pane" data-pane="1">
 <h1>One connection. <em>Every major model</em>, live data and skills — inside the agent you already use.</h1>
 <p class="lede">AIsa is the capability layer for AI agents: one account, one key, and your coding agent can reach the best models <b>and</b> the real world. Setting it up takes about a minute and nothing here is irreversible.</p>
@@ -495,6 +500,20 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
   var ARROW = nextBtn.innerHTML.replace(/^[^<]*/, "");
   var NEXT_WORD = { 1: "Let's get started ", 2: "Continue to models ", 3: "Continue to capabilities ",
                     4: "Review and connect ", 5: "", 6: "" };
+
+  // Switching reloads: the page is rendered by the CLI, so the new language
+  // arrives the same way the first one did. Storing it first means the
+  // terminal picks it up too.
+  $$(".lang").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (b.classList.contains("on")) return;
+      fetch("/lang?token=" + TOKEN, { method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ lang: b.dataset.lang }) })
+        .then(function () { location.reload(); })
+        .catch(function () { location.reload(); });
+    });
+  });
 
   // ── the shared draft ──
   // The terminal is looking at the same run. Publishing every change here is
@@ -1039,7 +1058,12 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
      stay readable on a wide screen. */
   .main { display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
   .content { width: 100%; max-width: 980px; }
-  .topnav { min-height: 3rem; margin-bottom: 2.4rem; }
+  .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
+  .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
+  .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
+    padding: .3rem .72rem; border-radius: 999px; line-height: 1.4; }
+  .langpick .lang:hover { color: var(--ink); }
+  .langpick .lang.on { background: var(--ink); color: #fff; }
   .topnav .ghost { padding: .65rem 1.3rem; font-size: 1rem; }
   .pane { display: none; animation: fade .25s ease; }
   .pane.show { display: block; }
@@ -1300,7 +1324,7 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
 </nav>
 <section class="main">
 <div class="content">
-  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button></div>
+  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button><div class="langpick"><button type="button" class="lang on" data-lang="en">EN</button><button type="button" class="lang" data-lang="zh">中文</button></div></div>
   <div class="pane" data-pane="1">
 <h1>One connection. <em>Every major model</em>, live data and skills — inside the agent you already use.</h1>
 <p class="lede">AIsa is the capability layer for AI agents: one account, one key, and your coding agent can reach the best models <b>and</b> the real world. Setting it up takes about a minute and nothing here is irreversible.</p>
@@ -1477,6 +1501,20 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
   var ARROW = nextBtn.innerHTML.replace(/^[^<]*/, "");
   var NEXT_WORD = { 1: "Let's get started ", 2: "Continue to models ", 3: "Continue to capabilities ",
                     4: "Review and connect ", 5: "", 6: "" };
+
+  // Switching reloads: the page is rendered by the CLI, so the new language
+  // arrives the same way the first one did. Storing it first means the
+  // terminal picks it up too.
+  $$(".lang").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (b.classList.contains("on")) return;
+      fetch("/lang?token=" + TOKEN, { method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ lang: b.dataset.lang }) })
+        .then(function () { location.reload(); })
+        .catch(function () { location.reload(); });
+    });
+  });
 
   // ── the shared draft ──
   // The terminal is looking at the same run. Publishing every change here is
@@ -2021,7 +2059,12 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
      stay readable on a wide screen. */
   .main { display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
   .content { width: 100%; max-width: 980px; }
-  .topnav { min-height: 3rem; margin-bottom: 2.4rem; }
+  .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
+  .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
+  .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
+    padding: .3rem .72rem; border-radius: 999px; line-height: 1.4; }
+  .langpick .lang:hover { color: var(--ink); }
+  .langpick .lang.on { background: var(--ink); color: #fff; }
   .topnav .ghost { padding: .65rem 1.3rem; font-size: 1rem; }
   .pane { display: none; animation: fade .25s ease; }
   .pane.show { display: block; }
@@ -2282,7 +2325,7 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
 </nav>
 <section class="main">
 <div class="content">
-  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button></div>
+  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button><div class="langpick"><button type="button" class="lang on" data-lang="en">EN</button><button type="button" class="lang" data-lang="zh">中文</button></div></div>
   <div class="pane" data-pane="1">
 <h1>One connection. <em>Every major model</em>, live data and skills — inside the agent you already use.</h1>
 <p class="lede">AIsa is the capability layer for AI agents: one account, one key, and your coding agent can reach the best models <b>and</b> the real world. Setting it up takes about a minute and nothing here is irreversible.</p>
@@ -2459,6 +2502,20 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
   var ARROW = nextBtn.innerHTML.replace(/^[^<]*/, "");
   var NEXT_WORD = { 1: "Let's get started ", 2: "Continue to models ", 3: "Continue to capabilities ",
                     4: "Review and connect ", 5: "", 6: "" };
+
+  // Switching reloads: the page is rendered by the CLI, so the new language
+  // arrives the same way the first one did. Storing it first means the
+  // terminal picks it up too.
+  $$(".lang").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (b.classList.contains("on")) return;
+      fetch("/lang?token=" + TOKEN, { method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ lang: b.dataset.lang }) })
+        .then(function () { location.reload(); })
+        .catch(function () { location.reload(); });
+    });
+  });
 
   // ── the shared draft ──
   // The terminal is looking at the same run. Publishing every change here is
@@ -3003,7 +3060,12 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
      stay readable on a wide screen. */
   .main { display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
   .content { width: 100%; max-width: 980px; }
-  .topnav { min-height: 3rem; margin-bottom: 2.4rem; }
+  .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
+  .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
+  .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
+    padding: .3rem .72rem; border-radius: 999px; line-height: 1.4; }
+  .langpick .lang:hover { color: var(--ink); }
+  .langpick .lang.on { background: var(--ink); color: #fff; }
   .topnav .ghost { padding: .65rem 1.3rem; font-size: 1rem; }
   .pane { display: none; animation: fade .25s ease; }
   .pane.show { display: block; }
@@ -3264,7 +3326,7 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
 </nav>
 <section class="main">
 <div class="content">
-  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button></div>
+  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button><div class="langpick"><button type="button" class="lang on" data-lang="en">EN</button><button type="button" class="lang" data-lang="zh">中文</button></div></div>
   <div class="pane" data-pane="1">
 <h1>One connection. <em>Every major model</em>, live data and skills — inside the agent you already use.</h1>
 <p class="lede">AIsa is the capability layer for AI agents: one account, one key, and your coding agent can reach the best models <b>and</b> the real world. Setting it up takes about a minute and nothing here is irreversible.</p>
@@ -3453,6 +3515,20 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
   var ARROW = nextBtn.innerHTML.replace(/^[^<]*/, "");
   var NEXT_WORD = { 1: "Let's get started ", 2: "Continue to models ", 3: "Continue to capabilities ",
                     4: "Review and connect ", 5: "", 6: "" };
+
+  // Switching reloads: the page is rendered by the CLI, so the new language
+  // arrives the same way the first one did. Storing it first means the
+  // terminal picks it up too.
+  $$(".lang").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (b.classList.contains("on")) return;
+      fetch("/lang?token=" + TOKEN, { method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ lang: b.dataset.lang }) })
+        .then(function () { location.reload(); })
+        .catch(function () { location.reload(); });
+    });
+  });
 
   // ── the shared draft ──
   // The terminal is looking at the same run. Publishing every change here is
@@ -3997,7 +4073,12 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
      stay readable on a wide screen. */
   .main { display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
   .content { width: 100%; max-width: 980px; }
-  .topnav { min-height: 3rem; margin-bottom: 2.4rem; }
+  .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
+  .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
+  .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
+    padding: .3rem .72rem; border-radius: 999px; line-height: 1.4; }
+  .langpick .lang:hover { color: var(--ink); }
+  .langpick .lang.on { background: var(--ink); color: #fff; }
   .topnav .ghost { padding: .65rem 1.3rem; font-size: 1rem; }
   .pane { display: none; animation: fade .25s ease; }
   .pane.show { display: block; }
@@ -4258,7 +4339,7 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
 </nav>
 <section class="main">
 <div class="content">
-  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button></div>
+  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button><div class="langpick"><button type="button" class="lang on" data-lang="en">EN</button><button type="button" class="lang" data-lang="zh">中文</button></div></div>
   <div class="pane" data-pane="1">
 <h1>One connection. <em>Every major model</em>, live data and skills — inside the agent you already use.</h1>
 <p class="lede">AIsa is the capability layer for AI agents: one account, one key, and your coding agent can reach the best models <b>and</b> the real world. Setting it up takes about a minute and nothing here is irreversible.</p>
@@ -4447,6 +4528,20 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
   var ARROW = nextBtn.innerHTML.replace(/^[^<]*/, "");
   var NEXT_WORD = { 1: "Let's get started ", 2: "Continue to models ", 3: "Continue to capabilities ",
                     4: "Review and connect ", 5: "", 6: "" };
+
+  // Switching reloads: the page is rendered by the CLI, so the new language
+  // arrives the same way the first one did. Storing it first means the
+  // terminal picks it up too.
+  $$(".lang").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (b.classList.contains("on")) return;
+      fetch("/lang?token=" + TOKEN, { method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ lang: b.dataset.lang }) })
+        .then(function () { location.reload(); })
+        .catch(function () { location.reload(); });
+    });
+  });
 
   // ── the shared draft ──
   // The terminal is looking at the same run. Publishing every change here is

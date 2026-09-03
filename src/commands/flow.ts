@@ -503,3 +503,10 @@ export function runtimeCopy(lang: Lang): Record<string, unknown> {
   };
   return walk(RUNTIME_COPY) as Record<string, unknown>;
 }
+
+/** What each language calls itself — never translated. */
+export const LANG_LABEL: Record<Lang, string> = { en: "EN", zh: "中文" };
+
+export const NAV = {
+  back: { en: "← Back", zh: "← 返回" },
+} satisfies Record<string, Text>;

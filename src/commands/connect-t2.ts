@@ -5,7 +5,7 @@ import { stripped, type LiveServer } from "./mcp.js";
 import { BRAND_LOGOS } from "./brand-logos.js";
 import {
   STEP_AGENT, AGENT_ORDER, agentRank, AGENT_BADGE, AGENT_SIDE_TITLES,
-  AGENT_NOTES, AGENT_HAVE_NOTES, installOffer, t, fill, type Lang,
+  AGENT_NOTES, AGENT_HAVE_NOTES, installOffer, t, fill, type Lang, LANGS, LANG_LABEL, NAV,
   STEP_TITLES, STEP_WELCOME, STEP_MODELS, STEP_CAPS, STEP_INSTALL, STEP_DONE,
   FILE_MODEL_NOTE, FILE_MODEL_FALLBACK, BACKUP_COPY, CATEGORY_BLURB, runtimeCopy,
 } from "./flow.js";
@@ -293,6 +293,14 @@ ${restChips}
   <span class="rn">${s.n}</span><span class="rt"><span class="rtitle">${T(s.title)}</span><span class="rsub">${T(s.sub)}</span></span></button>`
   ).join("");
 
+  // Top-right, and it sticks: the choice is posted back to the CLI, which
+  // stores it, so the terminal beside this page switches too and the next run
+  // opens in the same language. A picker that only changed the page would
+  // leave the two surfaces disagreeing — the thing flow.ts exists to prevent.
+  const langPicker = `<div class="langpick">${LANGS.map((code) =>
+    `<button type="button" class="lang${code === lang ? " on" : ""}" data-lang="${code}">${LANG_LABEL[code]}</button>`
+  ).join("")}</div>`;
+
   const body = `
 <div class="wrap">
 <nav class="rail">
@@ -301,7 +309,7 @@ ${restChips}
 </nav>
 <section class="main">
 <div class="content">
-  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button></div>
+  <div class="topnav"><button type="button" class="ghost" id="back">${T(NAV.back)}</button>${langPicker}</div>
   <div class="pane" data-pane="1">${welcome}</div>
   <div class="pane" data-pane="2">${agent}</div>
   <div class="pane" data-pane="3">${models}</div>
@@ -350,6 +358,20 @@ ${restChips}
   var ARROW = nextBtn.innerHTML.replace(/^[^<]*/, "");
   var NEXT_WORD = { 1: "Let's get started ", 2: "Continue to models ", 3: "Continue to capabilities ",
                     4: "Review and connect ", 5: "", 6: "" };
+
+  // Switching reloads: the page is rendered by the CLI, so the new language
+  // arrives the same way the first one did. Storing it first means the
+  // terminal picks it up too.
+  $$(".lang").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (b.classList.contains("on")) return;
+      fetch("/lang?token=" + TOKEN, { method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ lang: b.dataset.lang }) })
+        .then(function () { location.reload(); })
+        .catch(function () { location.reload(); });
+    });
+  });
 
   // ── the shared draft ──
   // The terminal is looking at the same run. Publishing every change here is
@@ -896,7 +918,12 @@ function shellT2(title: string, body: string): string {
      stay readable on a wide screen. */
   .main { display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
   .content { width: 100%; max-width: 980px; }
-  .topnav { min-height: 3rem; margin-bottom: 2.4rem; }
+  .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
+  .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
+  .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
+    padding: .3rem .72rem; border-radius: 999px; line-height: 1.4; }
+  .langpick .lang:hover { color: var(--ink); }
+  .langpick .lang.on { background: var(--ink); color: #fff; }
   .topnav .ghost { padding: .65rem 1.3rem; font-size: 1rem; }
   .pane { display: none; animation: fade .25s ease; }
   .pane.show { display: block; }
