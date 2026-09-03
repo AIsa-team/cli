@@ -527,3 +527,21 @@ export const NEXT_WORD: Record<number, Text> = {
   5: { en: "", zh: "" },
   6: { en: "", zh: "" },
 };
+
+/** The last gate before anything is written. */
+export const CONFIRM = {
+  heading: { en: "Ready to connect", zh: "准备就绪" },
+  agent: { en: "Agent", zh: "Agent" },
+  models: { en: "Models", zh: "模型" },
+  capabilities: { en: "Capabilities", zh: "能力" },
+  /**
+   * A word, not a keystroke. Everything up to here was reversible browsing;
+   * this is the point where files on the machine change, and a prompt you can
+   * clear with a stray return is the wrong shape for it.
+   */
+  ask: {
+    en: "Type ok to apply, or n to go back",
+    zh: "输入 ok 开始配置,输入 n 返回修改",
+  },
+  cancelled: { en: "Nothing was written.", zh: "什么都没有写入。" },
+};
