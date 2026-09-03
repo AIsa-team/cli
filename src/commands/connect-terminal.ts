@@ -1,7 +1,7 @@
 import * as readline from "node:readline/promises";
 import chalk from "chalk";
 import {
-  STEP_TITLES, STEP_AGENT, STEP_MODELS, STEP_CAPS, agentRank,
+  STEP_TITLES, STEP_WELCOME, STEP_AGENT, STEP_MODELS, STEP_CAPS, agentRank,
   AGENT_BADGE, AGENT_NOTES, t, fill, type Lang,
 } from "./flow.js";
 import type { ClientInfo, LlmMode, Selection } from "./connect-shared.js";
@@ -82,25 +82,50 @@ export function plain(html: string): string {
     .trim();
 }
 
-/** Wrap to the terminal width, so a paragraph does not become one long line. */
+/** Two columns wide in a terminal: CJK, and the punctuation that comes with it. */
+const WIDE = /[\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6]/;
+
+/** Display width, not character count — one CJK glyph occupies two cells. */
+export function displayWidth(text: string): number {
+  let n = 0;
+  for (const ch of text) n += WIDE.test(ch) ? 2 : 1;
+  return n;
+}
+
+/**
+ * Wrap to the terminal width.
+ *
+ * Splitting on spaces alone is wrong for Chinese, which has none: a whole
+ * sentence arrives as one "word" and the line runs far past the margin —
+ * observed on the welcome step, where a paragraph overflowed by half a line.
+ * So a run that is itself too wide is broken between characters, and width is
+ * measured in cells rather than characters because CJK glyphs take two.
+ */
 export function wrap(text: string, width = Math.min(process.stdout.columns || 80, 84)): string[] {
   const out: string[] = [];
   let line = "";
-  for (const word of text.split(" ")) {
-    // CJK has no spaces, so a "word" can be a whole sentence — measure and
-    // break it rather than emitting a line far past the width.
-    if (line && line.length + word.length + 1 > width) {
-      out.push(line);
-      line = "";
+  const flush = () => { if (line) { out.push(line); line = ""; } };
+
+  const breakWide = (word: string) => {
+    let chunk = "";
+    for (const ch of word) {
+      if (displayWidth(chunk + ch) > width) { out.push(chunk); chunk = ""; }
+      chunk += ch;
     }
-    if (word.length > width) {
-      if (line) { out.push(line); line = ""; }
-      for (let i = 0; i < word.length; i += width) out.push(word.slice(i, i + width));
+    return chunk;
+  };
+
+  for (const word of text.split(" ")) {
+    const sep = line ? 1 : 0;
+    if (line && displayWidth(line) + sep + displayWidth(word) > width) flush();
+    if (displayWidth(word) > width) {
+      flush();
+      line = breakWide(word);
       continue;
     }
     line = line ? `${line} ${word}` : word;
   }
-  if (line) out.push(line);
+  flush();
   return out;
 }
 
@@ -222,6 +247,23 @@ export async function runTerminalFlow(
   }
 
   try {
+    // ── step 1: welcome ──
+    // The page opens on this and the terminal used to skip straight past it,
+    // which left the one surface that cannot be scrolled back through with no
+    // answer to "what am I about to get". Same four points, without the tiles.
+    console.log(header(1, o.lang));
+    say(t(STEP_WELCOME.h1, o.lang));
+    console.log(dim("│"));
+    say(t(STEP_WELCOME.lede, o.lang));
+    console.log(dim("│"));
+    for (const tile of STEP_WELCOME.tiles) {
+      console.log(dim("│  ") + chalk.bold("· " + plain(t(tile.h3, o.lang))));
+      for (const line of wrap(plain(t(tile.p, o.lang)), 74)) {
+        console.log(dim("│    ") + dim(line));
+      }
+    }
+    console.log(dim("└─"));
+
     // ── step 2: your agent ──
     console.log(header(2, o.lang));
     say(t(STEP_AGENT.question, o.lang));
