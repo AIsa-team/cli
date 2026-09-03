@@ -7,7 +7,7 @@ import {
   STEP_AGENT, AGENT_ORDER, agentRank, AGENT_BADGE, AGENT_SIDE_TITLES,
   AGENT_NOTES, AGENT_HAVE_NOTES, installOffer, t, fill, type Lang, LANGS, LANG_LABEL, NAV,
   STEP_TITLES, STEP_WELCOME, STEP_MODELS, STEP_CAPS, STEP_INSTALL, STEP_DONE,
-  FILE_MODEL_NOTE, FILE_MODEL_FALLBACK, BACKUP_COPY, CATEGORY_BLURB, runtimeCopy,
+  FILE_MODEL_NOTE, FILE_MODEL_FALLBACK, BACKUP_COPY, CATEGORY_BLURB, runtimeCopy, NEXT_WORD,
 } from "./flow.js";
 import {
   RED,
@@ -317,7 +317,7 @@ ${restChips}
   <div class="pane" data-pane="5">${install}</div>
   <div class="pane" data-pane="6">${done}</div>
   <div class="navbar">
-    <button type="button" class="cta" id="next">Let's get started ${I.arrow}</button>
+    <button type="button" class="cta" id="next">${T(NEXT_WORD[1])}${I.arrow}</button>
     <span class="navnote" id="navnote"></span>
   </div>
 </div>
@@ -356,8 +356,7 @@ ${restChips}
   var panes = $$(".pane"), rails = $$(".rstep");
   var nextBtn = $("#next"), backBtn = $("#back"), navnote = $("#navnote");
   var ARROW = nextBtn.innerHTML.replace(/^[^<]*/, "");
-  var NEXT_WORD = { 1: "Let's get started ", 2: "Continue to models ", 3: "Continue to capabilities ",
-                    4: "Review and connect ", 5: "", 6: "" };
+  var NEXT_WORD = ${JSON.stringify(resolved(NEXT_WORD as unknown as Record<string, { en: string; zh: string }>))};
 
   // Switching reloads: the page is rendered by the CLI, so the new language
   // arrives the same way the first one did. Storing it first means the
@@ -380,9 +379,14 @@ ${restChips}
   // who was late and hands them the current state instead of accepting a
   // stale copy. (No backticks in here: this whole script is a template
   // literal, and one would end it.)
-  var rev = 0, pushing = false, adopting = false;
+  // The ready flag gates writing until this page has read what is there.
+  // Publishing first was self-defeating: the arrival publish bumped rev to
+  // match the server, so the very next poll saw "nothing new" and the page
+  // never adopted a run the terminal had already moved along. A surface has
+  // to read the shared state before it is allowed to speak for it.
+  var rev = 0, pushing = false, adopting = false, ready = false;
   function publish(patch) {
-    if (pushing) return; pushing = true;
+    if (!ready || pushing) return; pushing = true;
     fetch("/select?token=" + TOKEN, { method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(Object.assign({ rev: rev }, patch)) })
@@ -876,8 +880,13 @@ ${restChips}
   }
   fetch("/status?token=" + TOKEN).then(function (r) { return r.json(); }).then(function (s) {
     if (hydrate(s)) { go(VIEW === "done" || s.phase === "done" || s.phase === "failed" ? (VIEW === "done" ? 6 : 5) : 5); return; }
-    go(1);
-  }).catch(function () { go(1); });
+    // Land where the run is, not where a run would start. hydrate only knows
+    // about a run already applying; a run still being chosen — in the
+    // terminal, say — was answered here with go(1), throwing away the step
+    // the shared draft had already reached.
+    if (s.phase === "selecting") { adopt(s); ready = true; }
+    go(Math.max(current, 1));
+  }).catch(function () { ready = true; go(1); });
 })();
 </script>`;
 

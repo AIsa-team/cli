@@ -517,3 +517,13 @@ export const LANG_LABEL: Record<Lang, string> = { en: "EN", zh: "中文" };
 export const NAV = {
   back: { en: "← Back", zh: "← 返回" },
 } satisfies Record<string, Text>;
+
+/** The forward button, worded for the step it leads out of. */
+export const NEXT_WORD: Record<number, Text> = {
+  1: { en: "Let's get started ", zh: "开始吧 " },
+  2: { en: "Continue to models ", zh: "下一步:模型 " },
+  3: { en: "Continue to capabilities ", zh: "下一步:能力 " },
+  4: { en: "Review and connect ", zh: "确认并连接 " },
+  5: { en: "", zh: "" },
+  6: { en: "", zh: "" },
+};

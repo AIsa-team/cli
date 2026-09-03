@@ -156,6 +156,8 @@ async function askOrWatch(
   count: number,
   fallback: number,
   seenRev: number,
+  /** The step being asked, so moving past it counts as an answer. */
+  step: number,
   changed: (d: Selection) => boolean
 ): Promise<Answer> {
   let stop = false;
@@ -176,7 +178,12 @@ async function askOrWatch(
       await new Promise((r) => setTimeout(r, 900));
       if (stop) return { by: "user", index: fallback };
       const s = await pull(o);
-      if (s && s.rev !== seenRev && s.draft && changed(s.draft)) {
+      if (!s || s.rev === seenRev || !s.draft) continue;
+      // Two ways the page can answer this step: change the value, or move
+      // past it. Watching only for a change meant a page whose default was
+      // already right — pressing Next without touching anything — left the
+      // terminal waiting on a question that had been settled.
+      if (changed(s.draft) || (s.currentStep ?? 0) > step) {
         return { by: "page", draft: s.draft };
       }
     }
@@ -202,7 +209,21 @@ async function push(
       body: JSON.stringify({ rev, ...patch }),
       timeoutMs: 5_000,
     });
-    const body = (await res.json()) as { rev: number; draft?: Selection };
+    const body = (await res.json()) as { ok?: boolean; rev: number; draft?: Selection };
+    // A stale rev means someone wrote while this was being typed — but they
+    // wrote a different field, and dropping this write silently is worse than
+    // the conflict it was meant to catch. Retry once against what is now
+    // current. Without this the terminal's step never landed: the page
+    // publishes its step on load, and every later terminal write was refused.
+    if (body.ok === false) {
+      const retry = await httpFetch(`${o.baseUrl}/select?token=${o.token}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ rev: body.rev, ...patch }),
+        timeoutMs: 5_000,
+      });
+      return (await retry.json()) as { rev: number; draft?: Selection };
+    }
     return body;
   } catch {
     return { rev };
@@ -210,15 +231,17 @@ async function push(
 }
 
 /** Read the shared draft, to pick up whatever the page did. */
-async function pull(o: TerminalFlowOptions): Promise<{ rev: number; draft?: Selection } | undefined> {
+async function pull(
+  o: TerminalFlowOptions
+): Promise<{ rev: number; draft?: Selection; currentStep?: number } | undefined> {
   try {
     const res = await httpFetch(`${o.baseUrl}/status?token=${o.token}`, {
       idempotent: true,
       maxAttempts: 1,
       timeoutMs: 3_000,
     });
-    const s = (await res.json()) as { rev?: number; draft?: Selection };
-    return { rev: s.rev ?? 0, draft: s.draft };
+    const s = (await res.json()) as { rev?: number; draft?: Selection; currentStep?: number };
+    return { rev: s.rev ?? 0, draft: s.draft, currentStep: s.currentStep };
   } catch {
     return undefined;
   }
@@ -280,7 +303,7 @@ export async function runTerminalFlow(
     });
     console.log(dim("│"));
     const preferred = Math.max(0, shown.findIndex((c) => draft.clients[0] === c.id));
-    const a1 = await askOrWatch(rl, o, shown.length, preferred, rev,
+    const a1 = await askOrWatch(rl, o, shown.length, preferred, rev, 2,
       (d) => Boolean(d.clients[0]) && d.clients[0] !== draft.clients[0]);
     let client: FlowClient;
     if (a1.by === "page") {
@@ -324,7 +347,7 @@ export async function runTerminalFlow(
       if (m.brief) for (const l of wrap(m.brief, 68)) console.log(dim("│      ") + dim(l));
     });
     console.log(dim("│"));
-    const a2 = await askOrWatch(rl, o, modes.length, 0, rev,
+    const a2 = await askOrWatch(rl, o, modes.length, 0, rev, 3,
       (d) => Boolean(d.llmMode) && d.llmMode !== draft.llmMode);
     let mode = modes[0];
     if (a2.by === "page") {
@@ -361,8 +384,28 @@ export async function runTerminalFlow(
     say(o.lang === "zh"
       ? "输入编号切换选中(空格分隔),直接回车确认。"
       : "Type numbers to toggle (space-separated), or press enter to confirm.");
+    // Same race as the earlier steps: the page can finish this one by moving
+    // to step 5, and the terminal must not sit on a question already settled.
     for (;;) {
-      const answer = (await rl.question(bold.cyan("│  > "))).trim();
+      const typed = rl.question(bold.cyan("│  > "));
+      const watched = (async () => {
+        for (;;) {
+          await new Promise((r) => setTimeout(r, 900));
+          const s = await pull(o);
+          if (s && s.rev !== rev && (s.currentStep ?? 0) > 4) return s;
+        }
+      })();
+      const first = await Promise.race([typed.then((x) => ({ typed: x })), watched.then((s) => ({ page: s }))]);
+      if ("page" in first && first.page) {
+        if (first.page.draft?.servers?.length) {
+          chosen.clear();
+          for (const slug of first.page.draft.servers) chosen.add(slug);
+        }
+        rev = first.page.rev;
+        console.log("\n" + dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 已在页面中选择" : "↩ chosen in the page"));
+        break;
+      }
+      const answer = ("typed" in first ? first.typed : "").trim();
       if (answer === "") break;
       for (const tok of answer.split(/[\s,]+/)) {
         const n = Number(tok);
