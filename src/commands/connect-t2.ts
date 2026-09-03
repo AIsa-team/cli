@@ -426,7 +426,15 @@ ${restChips}
       });
       syncCaps();
     }
-    if (s.currentStep && s.currentStep > current && s.currentStep <= unlocked) go(s.currentStep);
+    // Answering in the terminal advances the run, so this page has to unlock
+    // as far as the run has gone — gating on the Next button alone meant the
+    // terminal could move to step 3 and this side would sit on step 1,
+    // ignoring the update as out of range.
+    if (s.currentStep && s.currentStep > current) {
+      unlocked = Math.max(unlocked, Math.min(s.currentStep, 5));
+      renderSteps();
+      go(s.currentStep);
+    }
     } finally { adopting = false; }
   }
 
