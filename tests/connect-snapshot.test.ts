@@ -49,24 +49,24 @@ const TOKEN = "0123456789abcdef0123456789abcdef";
 
 describe("T2 page — byte-exact snapshots", () => {
   it("start view, key already configured", () => {
-    expect(renderT2Page(servers, clients, TOKEN, true, true, "start")).toMatchSnapshot();
+    expect(renderT2Page(servers, clients, TOKEN, true, true, false, "start")).toMatchSnapshot();
   });
 
   it("start view, no key — the sign-in step reads differently", () => {
-    expect(renderT2Page(servers, clients, TOKEN, false, true, "start")).toMatchSnapshot();
+    expect(renderT2Page(servers, clients, TOKEN, false, true, false, "start")).toMatchSnapshot();
   });
 
   it("start view, installers unavailable — the install offer must disappear", () => {
-    expect(renderT2Page(servers, clients, TOKEN, true, false, "start")).toMatchSnapshot();
+    expect(renderT2Page(servers, clients, TOKEN, true, false, false, "start")).toMatchSnapshot();
   });
 
   it("done view", () => {
-    expect(renderT2Page(servers, clients, TOKEN, true, true, "done")).toMatchSnapshot();
+    expect(renderT2Page(servers, clients, TOKEN, true, true, false, "done")).toMatchSnapshot();
   });
 
   it("nothing detected — every card is an install offer", () => {
     const none = clients.map((c) => ({ ...c, detected: false }));
-    expect(renderT2Page(servers, none, TOKEN, true, true, "start")).toMatchSnapshot();
+    expect(renderT2Page(servers, none, TOKEN, true, true, false, "start")).toMatchSnapshot();
   });
 });
 
@@ -77,7 +77,7 @@ describe("T2 page — byte-exact snapshots", () => {
  * strings come from the flow definition rather than from this markup.
  */
 describe("T2 agent step — the copy the terminal will have to match", () => {
-  const page = () => renderT2Page(servers, clients, TOKEN, true, true, "start");
+  const page = () => renderT2Page(servers, clients, TOKEN, true, true, false, "start");
 
   it("asks the question", () => {
     expect(page()).toContain("Which agent should AIsa");
@@ -118,7 +118,7 @@ describe("the generated page script is valid JavaScript", () => {
   ] as const;
 
   it.each(cases)("%s / %s", (lang, view) => {
-    const html = renderT2Page(servers, clients, TOKEN, true, true, view, lang);
+    const html = renderT2Page(servers, clients, TOKEN, true, true, false, view, lang);
     const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
     expect(scripts.length).toBeGreaterThan(0);
     for (const src of scripts) {

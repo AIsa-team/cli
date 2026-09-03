@@ -153,7 +153,7 @@ describe("the page renders from the flow definition, not its own copy", () => {
     { id: "codex", label: "Codex", kind: "cli", detected: false, detail: "not on PATH", installable: true, command: "npm install -g @openai/codex" },
   ];
   const page = (lang?: "en" | "zh") =>
-    renderT2Page(servers, clients, "t".repeat(32), true, true, "start", lang);
+    renderT2Page(servers, clients, "t".repeat(32), true, true, false, "start", lang);
 
   it("takes the question and lede from STEP_AGENT", () => {
     const html = page("en");

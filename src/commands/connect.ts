@@ -2093,7 +2093,7 @@ export async function connectAction(options: {
   // language the user just switched away from.
   const page = () =>
     template === "t2"
-      ? renderT2Page(servers, clients, token, Boolean(key), supported(), "start", lang)
+      ? renderT2Page(servers, clients, token, Boolean(key), supported(), !isInstalled("aisa"), "start", lang)
       : renderPage(servers, clients, token, Boolean(key), supported());
 
   const state: RunState = {
@@ -2160,7 +2160,7 @@ export async function connectAction(options: {
       // dedicated success page.
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(
         template === "t2"
-          ? renderT2Page(servers, clients, token, Boolean(key), supported(), "done", lang)
+          ? renderT2Page(servers, clients, token, Boolean(key), supported(), !isInstalled("aisa"), "done", lang)
           : renderDone(chosenServers, chosenClients, state.steps, servers, state.balanceMicros ?? null, state.llmMode)
       );
       return;

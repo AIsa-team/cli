@@ -28,7 +28,7 @@ describe("connect template selection", () => {
 });
 
 describe("T2 page", () => {
-  const html = renderT2Page(servers, clients, "tok", false, true, "start");
+  const html = renderT2Page(servers, clients, "tok", false, true, false, "start");
 
   it("renders all six steps on the rail and one pane each", () => {
     for (let n = 1; n <= 6; n++) {
@@ -53,6 +53,6 @@ describe("T2 page", () => {
     expect(html).toMatch(/value="web-search" checked/);
     expect(html).toContain('var TOKEN = "tok"');
     expect(html).toContain('var VIEW = "start"');
-    expect(renderT2Page(servers, clients, "tok", true, true, "done")).toContain('var VIEW = "done"');
+    expect(renderT2Page(servers, clients, "tok", true, true, false, "done")).toContain('var VIEW = "done"');
   });
 });

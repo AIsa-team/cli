@@ -25,7 +25,6 @@ import {
   type ClientInfo,
 } from "./connect-shared.js";
 import { AISA_PROVIDER_ID } from "../constants.js";
-import { isInstalled } from "./install.js";
 import { VSCODE_MODELS } from "./vscode.js";
 
 /**
@@ -90,6 +89,14 @@ export function renderT2Page(
   token: string,
   keyed: boolean,
   canInstall: boolean,
+  /**
+   * Whether this machine still needs the AIsa CLI installed. Probed by the
+   * caller, never in here: this function's output is snapshot-tested byte
+   * for byte, and a live probe inside it froze one machine's answer into
+   * the baseline — green wherever the CLI happened to be installed, red on
+   * every CI runner (runs 74-84, 2026-09-03).
+   */
+  needsCli: boolean,
   view: "start" | "done",
   /**
    * Defaults to English so this signature could grow without moving a byte of
@@ -336,7 +343,7 @@ ${restChips}
   var AGENT_NOTES = ${JSON.stringify(resolved(AGENT_NOTES))};
   var HAVE_NOTES = ${JSON.stringify(resolved(AGENT_HAVE_NOTES))};
   var FILE_MODEL_NOTE = ${JSON.stringify(resolved(FILE_MODEL_NOTE))};
-  var NEEDS_CLI = ${JSON.stringify(!isInstalled("aisa"))};
+  var NEEDS_CLI = ${JSON.stringify(needsCli)};
   var PROVIDER_ID = ${JSON.stringify(AISA_PROVIDER_ID)};
   var ART = ${JSON.stringify({ codex: CODEX_FACE, claude: CLAUDE_BOT, opencode: OPENCODE_MARK })};
   var LABEL = {}; CLIENTS.forEach(function (c) { LABEL[c.id] = c.label; });
