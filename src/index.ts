@@ -603,6 +603,7 @@ program
   .option("--template <id>", "Page template: t2 (guided steps, default) or t1 (classic two-page)")
   .option("--force", "Start a new run even if another one is still open")
   .option("--lang <lang>", "Page and terminal language: en or zh (default: your system locale)")
+  .option("--headless", "Answer in the terminal only — no page, no browser")
   .action(wrap(connectAction));
 
 program

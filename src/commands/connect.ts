@@ -28,6 +28,7 @@ import { vscodeDetected, vscodeUserDir, writeVSCodeLLM, writeVSCodeMCP, installV
 import { formatMicrosUSD } from "./account.js";
 import { apiRequest } from "../api.js";
 import { run, runSync, QUICK_TIMEOUT_MS } from "../utils/exec.js";
+import { httpFetch } from "../utils/http.js";
 import { Journal } from "../utils/journal.js";
 import { checkForUpdate } from "../utils/update-check.js";
 import { resolveLang } from "./flow.js";
@@ -38,9 +39,13 @@ import {
   RED, RED_CTA, INK, PAPER, I, LOGO, CATEGORY_ICON, EXAMPLES, FILE_CLIENT_LABELS, CLIENT_LOGOS,
   type ClientInfo, type ApplyResult, type StepState, type Step, type AuthState, type RunState,
   type LlmMode,
+  // Aliased: the DOM lib declares a global Selection, and TypeScript would
+  // silently resolve to that one inside this file.
+  type Selection as RunSelection,
   CODEX_FACE, CLAUDE_BOT, OPENCODE_MARK,
 } from "./connect-shared.js";
 import { renderT2Page } from "./connect-t2.js";
+import { runTerminalFlow, flowClients } from "./connect-terminal.js";
 
 /**
  * Page templates. T1 is the original two-page flow (selection + live
@@ -2014,6 +2019,7 @@ export async function connectAction(options: {
   template?: string;
   force?: boolean;
   lang?: string;
+  headless?: boolean;
 }): Promise<void> {
   const template = resolveTemplate(options.template);
   // One language for both surfaces. Reading it here rather than in the page
@@ -2087,7 +2093,23 @@ export async function connectAction(options: {
       ? renderT2Page(servers, clients, token, Boolean(key), supported(), "start", lang)
       : renderPage(servers, clients, token, Boolean(key), supported());
 
-  const state: RunState = { phase: "selecting", results: [], auth: {}, steps: [] };
+  const state: RunState = {
+    phase: "selecting",
+    results: [],
+    auth: {},
+    steps: [],
+    rev: 0,
+    currentStep: 1,
+    // Seeded with what the page would have ticked on its own, so a terminal
+    // that never opens a browser starts from the same defaults rather than
+    // from nothing.
+    draft: {
+      servers: servers.filter((s) => MCP_DEFAULT_SLUGS.includes(s.slug)).map((s) => s.slug),
+      clients: [],
+      install: [],
+      llmMode: "backup",
+    },
+  };
   let chosenServers: LiveServer[] = [];
   let chosenClients: string[] = [];
   let port = 0;
@@ -2149,6 +2171,33 @@ export async function connectAction(options: {
         return;
       }
       res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ key: key ?? null }));
+      return;
+    }
+    if (req.method === "POST" && url.pathname === "/select") {
+      if (!tokenOk) {
+        res.writeHead(403).end();
+        return;
+      }
+      // The shared draft. Both the page and the terminal write here, so the
+      // reply always carries the state that won — a writer whose rev is stale
+      // gets told what it missed instead of having its copy accepted.
+      let body: { rev?: number; step?: number; draft?: Partial<RunSelection> };
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        res.writeHead(400).end();
+        return;
+      }
+      const current = state.rev ?? 0;
+      const stale = typeof body.rev === "number" && body.rev !== current;
+      if (!stale) {
+        if (body.draft) state.draft = { ...(state.draft as RunSelection), ...body.draft };
+        if (typeof body.step === "number") state.currentStep = body.step;
+        state.rev = current + 1;
+      }
+      res.writeHead(stale ? 409 : 200, { "content-type": "application/json" }).end(
+        JSON.stringify({ ok: !stale, rev: state.rev, draft: state.draft, currentStep: state.currentStep })
+      );
       return;
     }
     if (req.method === "POST" && url.pathname === "/seen") {
@@ -2411,13 +2460,46 @@ export async function connectAction(options: {
   log.line("ok", "Found on this machine", detected.map((c) => c.label).join(", "));
   const missing = clients.filter((c) => !c.detected).map((c) => c.label);
   if (missing.length) log.record(`not found: ${missing.join(", ")}`);
-  log.line("info", `${servers.length} AIsa MCP servers are live`, "pick what you need in the page");
-  log.section("Open this page to choose");
-  console.log(`  ${chalk.cyan(pageUrl)}`);
-  if (options.open === false) {
-    log.note("open the URL above in your browser to continue (Ctrl-C to cancel)");
-  } else {
-    log.note("opening your browser… (Ctrl-C to cancel)");
-    openBrowser(pageUrl);
+  log.line("info", `${servers.length} AIsa MCP servers are live`, "pick what you need");
+
+  // The terminal walks the same six steps from the same definition. It is not
+  // a fallback: on a machine with no browser, printing a localhost URL is a
+  // dead end, and both surfaces share one draft so either can be used —
+  // together, or on its own.
+  if (!options.headless) {
+    log.section("Open this page to choose");
+    console.log(`  ${chalk.cyan(pageUrl)}`);
+    if (options.open === false) {
+      log.note("open the URL above, or answer here — both stay in step");
+    } else {
+      log.note("opening your browser… (or answer here — both stay in step)");
+      openBrowser(pageUrl);
+    }
+  }
+
+  if (options.headless || (process.stdin.isTTY && process.stdout.isTTY)) {
+    const picked = await runTerminalFlow({
+      baseUrl: `http://127.0.0.1:${port}`,
+      token,
+      lang,
+      servers,
+      clients: flowClients(clients, supported()),
+      headless: Boolean(options.headless),
+    });
+    if (picked) {
+      // Hand the terminal's answers to the same endpoint the page posts to,
+      // so there is one apply path and not a second one that can drift.
+      await httpFetch(`http://127.0.0.1:${port}/apply?token=${token}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          servers: picked.servers,
+          clients: picked.clients,
+          install: picked.install,
+          llmMode: picked.llmMode,
+        }),
+        timeoutMs: 15_000,
+      }).catch(() => undefined);
+    }
   }
 }

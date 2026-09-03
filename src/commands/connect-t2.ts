@@ -351,9 +351,61 @@ ${restChips}
   var NEXT_WORD = { 1: "Let's get started ", 2: "Continue to models ", 3: "Continue to capabilities ",
                     4: "Review and connect ", 5: "", 6: "" };
 
+  // ── the shared draft ──
+  // The terminal is looking at the same run. Publishing every change here is
+  // what lets it show what was ticked in this page, and pulling lets this
+  // page show what was answered there. Neither is the master; rev decides
+  // who was late and hands them the current state instead of accepting a
+  // stale copy. (No backticks in here: this whole script is a template
+  // literal, and one would end it.)
+  var rev = 0, pushing = false;
+  function publish(patch) {
+    if (pushing) return; pushing = true;
+    fetch("/select?token=" + TOKEN, { method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(Object.assign({ rev: rev }, patch)) })
+      .then(function (r) { return r.json(); })
+      .then(function (b) { if (typeof b.rev === "number") rev = b.rev; })
+      .catch(function () {})
+      .then(function () { pushing = false; });
+  }
+  function publishDraft(step) {
+    var c = chosenClient();
+    publish({ step: step, draft: {
+      clients: c ? [c.value] : [],
+      install: c && c.dataset.install ? [c.value] : [],
+      llmMode: llmMode(),
+      servers: pickedServers(),
+    } });
+  }
+  /** Apply what another surface chose, without echoing it straight back. */
+  function adopt(s) {
+    if (typeof s.rev !== "number" || s.rev === rev || !s.draft) return;
+    rev = s.rev;
+    var d = s.draft;
+    if (d.clients && d.clients[0]) {
+      var el = $('input[name="client"][value="' + d.clients[0] + '"]');
+      if (el && !el.checked) { el.checked = true; syncAgent(); }
+    }
+    if (d.llmMode) {
+      var m = $('input[name="lmodeDet"][value="' + d.llmMode + '"]')
+           || $('input[name="lmodeFresh"][value="' + d.llmMode + '"]');
+      if (m && !m.checked) { m.checked = true; syncModels(); }
+    }
+    if (d.servers) {
+      var want = {}; d.servers.forEach(function (x) { want[x] = 1; });
+      $$('input[name="server"]').forEach(function (i) {
+        if (!!want[i.value] !== i.checked) { i.checked = !!want[i.value]; }
+      });
+      syncCaps();
+    }
+    if (s.currentStep && s.currentStep > current && s.currentStep <= unlocked) go(s.currentStep);
+  }
+
   function go(n) {
     if (n < 1 || n > 6 || n > unlocked) return;
     current = n;
+    publishDraft(n);
     panes.forEach(function (p) { p.classList.toggle("show", Number(p.dataset.pane) === n); });
     rails.forEach(function (r) {
       var k = Number(r.dataset.step);
@@ -396,7 +448,7 @@ ${restChips}
     if (have) $("#agentHave").innerHTML = have;
     $$(".tile.agent").forEach(function (t) { t.classList.toggle("on", t.querySelector("input").checked); });
   }
-  $$('input[name="client"]').forEach(function (r) { r.addEventListener("change", function () { syncAgent(); armed = false; }); });
+  $$('input[name="client"]').forEach(function (r) { r.addEventListener("change", function () { syncAgent(); armed = false; publishDraft(current); }); });
 
   // ── step 3 ──
   var armed = false;
@@ -421,7 +473,7 @@ ${restChips}
     $("#modelwarn").style.display = need ? "" : "none";
     if (!need) armed = false;
   }
-  $$('input[name="lmodeFresh"], input[name="lmodeDet"]').forEach(function (r) { r.addEventListener("change", syncModels); });
+  $$('input[name="lmodeFresh"], input[name="lmodeDet"]').forEach(function (r) { r.addEventListener("change", function () { syncModels(); publishDraft(current); }); });
   $("#modelfix").addEventListener("click", function () {
     $('input[name="lmodeFresh"][value="switch"]').checked = true; syncModels();
   });
@@ -453,7 +505,7 @@ ${restChips}
     activeCat = activeCat === t.dataset.cat ? null : t.dataset.cat; syncCaps();
     if (activeCat) $("#spanel").scrollIntoView({ block: "nearest", behavior: "smooth" });
   }); });
-  $$('input[name="server"]').forEach(function (c) { c.addEventListener("change", syncCaps); });
+  $$('input[name="server"]').forEach(function (c) { c.addEventListener("change", function () { syncCaps(); publishDraft(current); }); });
   $("#spAll").addEventListener("click", function () {
     if (!activeCat) return;
     var boxes = $$('.stile[data-cat="' + activeCat + '"] input');
@@ -589,6 +641,7 @@ ${restChips}
   function poll() {
     fetch("/status?token=" + TOKEN).then(function (r) { return r.json(); }).then(function (s) {
       phase = s.phase; serverSteps = s.steps; lastStatus = s;
+      if (phase === "selecting") adopt(s);
       syncClientCard(s.steps);
       if (phase === "done" || phase === "failed") { document.title = "✓ AIsa Connected"; return; }
       setTimeout(poll, 1000);

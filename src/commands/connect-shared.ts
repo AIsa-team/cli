@@ -166,6 +166,24 @@ export interface RunState {
   llmMode?: LlmMode;
   /** What the run was started with; set at /apply, read by the done tab. */
   selection?: Selection;
+  /**
+   * The live draft, shared by every surface looking at this run.
+   *
+   * `selection` is what a run was launched with and never changes after; this
+   * is what is currently ticked, before anyone presses go. The page and the
+   * terminal both read it from /status and both write it through /select, so
+   * a choice made in one appears in the other.
+   */
+  draft?: Selection;
+  /**
+   * Bumped on every accepted /select. A writer sends the rev it last saw; a
+   * mismatch means someone else moved first, and the writer is handed the
+   * current state to redraw from rather than having its stale copy accepted.
+   * Last writer wins, but no writer overwrites blind.
+   */
+  rev?: number;
+  /** Which step the surfaces are on, so opening a second one lands in place. */
+  currentStep?: number;
   /** Cursor install deeplinks, one per chosen server (T2 only). The config
    *  inside carries the bearer header when a key exists — the page is
    *  local and token-gated, and Cursor shows the config before adding it. */
