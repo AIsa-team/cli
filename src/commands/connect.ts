@@ -2122,6 +2122,8 @@ export async function connectAction(options: {
   // closed tab would never say so, hence the bounded wait below.
   let pageSeen: () => void = () => {};
   const pageSeenP = new Promise<void>((r) => (pageSeen = r));
+  /** Set when /apply came from the terminal rather than the page. */
+  let drivenByTerminal = false;
 
   let settled = false;
   const idle = setTimeout(() => {
@@ -2289,6 +2291,8 @@ export async function connectAction(options: {
         res.writeHead(400).end();
         return;
       }
+      // Who started this decides whether there is an animation to wait for.
+      drivenByTerminal = req.headers["x-connect-source"] === "terminal";
       chosenServers = servers.filter((s) => body.servers?.includes(s.slug));
       chosenClients = body.clients ?? [];
       const wantInstall = new Set(body.install ?? []);
@@ -2400,7 +2404,12 @@ export async function connectAction(options: {
           const doneUrl = `http://127.0.0.1:${port}/done?token=${token}`;
           state.doneUrl = doneUrl;
           log.line("info", "Finishing up on the page…", "waiting for its checklist to settle");
-          if (template === "t2") await Promise.race([pageSeenP, pause(PAGE_SEEN_TIMEOUT_MS)]);
+          // Only a page that ran the apply itself has a checklist to finish.
+          // Waiting on one that never started meant the terminal sat here for
+          // the full ninety seconds after everything was already done.
+          if (template === "t2" && !drivenByTerminal) {
+            await Promise.race([pageSeenP, pause(PAGE_SEEN_TIMEOUT_MS)]);
+          }
           await pause(BEFORE_HANDOFF_MS);
           openBrowser(doneUrl);
           celebrate();
@@ -2519,7 +2528,7 @@ export async function connectAction(options: {
       // so there is one apply path and not a second one that can drift.
       await httpFetch(`http://127.0.0.1:${port}/apply?token=${token}`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "x-connect-source": "terminal" },
         body: JSON.stringify({
           servers: picked.servers,
           clients: picked.clients,

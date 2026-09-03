@@ -589,11 +589,36 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
   // is far too late: the whole point is to stay in step *before* anything is
   // applied. Slower than that one (1.5s against 250ms) because a person
   // ticking boxes is not a progress bar.
+  /**
+   * Enter progress mode for a run this page did not start.
+   *
+   * The install view only ever opened from this page's own apply, so a run
+   * driven from the terminal left step 5 unseen entirely — the page sat on
+   * step 4 through the whole install and only reappeared at step 6 when it
+   * was over. Watching the phase is what makes the step the user is actually
+   * living through visible on both surfaces.
+   */
+  function enterProgress(s) {
+    if (locked) return;
+    lockSelections();
+    serverSteps = s.steps || [];
+    shown = {}; lastFlip = 0;
+    unlocked = 5;
+    renderSteps();
+    go(5);
+    if (!ticker) ticker = setInterval(tick, 250);
+    poll();
+  }
+
   var draftTimer = setInterval(function () {
     if (locked) { clearInterval(draftTimer); return; }
     fetch("/status?token=" + TOKEN)
       .then(function (r) { return r.json(); })
-      .then(function (s) { if (s.phase === "selecting") adopt(s); })
+      .then(function (s) {
+        if (s.phase === "selecting") { adopt(s); return; }
+        clearInterval(draftTimer);
+        enterProgress(s);
+      })
       .catch(function () {});
   }, 1500);
 
@@ -1611,11 +1636,36 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
   // is far too late: the whole point is to stay in step *before* anything is
   // applied. Slower than that one (1.5s against 250ms) because a person
   // ticking boxes is not a progress bar.
+  /**
+   * Enter progress mode for a run this page did not start.
+   *
+   * The install view only ever opened from this page's own apply, so a run
+   * driven from the terminal left step 5 unseen entirely — the page sat on
+   * step 4 through the whole install and only reappeared at step 6 when it
+   * was over. Watching the phase is what makes the step the user is actually
+   * living through visible on both surfaces.
+   */
+  function enterProgress(s) {
+    if (locked) return;
+    lockSelections();
+    serverSteps = s.steps || [];
+    shown = {}; lastFlip = 0;
+    unlocked = 5;
+    renderSteps();
+    go(5);
+    if (!ticker) ticker = setInterval(tick, 250);
+    poll();
+  }
+
   var draftTimer = setInterval(function () {
     if (locked) { clearInterval(draftTimer); return; }
     fetch("/status?token=" + TOKEN)
       .then(function (r) { return r.json(); })
-      .then(function (s) { if (s.phase === "selecting") adopt(s); })
+      .then(function (s) {
+        if (s.phase === "selecting") { adopt(s); return; }
+        clearInterval(draftTimer);
+        enterProgress(s);
+      })
       .catch(function () {});
   }, 1500);
 
@@ -2633,11 +2683,36 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
   // is far too late: the whole point is to stay in step *before* anything is
   // applied. Slower than that one (1.5s against 250ms) because a person
   // ticking boxes is not a progress bar.
+  /**
+   * Enter progress mode for a run this page did not start.
+   *
+   * The install view only ever opened from this page's own apply, so a run
+   * driven from the terminal left step 5 unseen entirely — the page sat on
+   * step 4 through the whole install and only reappeared at step 6 when it
+   * was over. Watching the phase is what makes the step the user is actually
+   * living through visible on both surfaces.
+   */
+  function enterProgress(s) {
+    if (locked) return;
+    lockSelections();
+    serverSteps = s.steps || [];
+    shown = {}; lastFlip = 0;
+    unlocked = 5;
+    renderSteps();
+    go(5);
+    if (!ticker) ticker = setInterval(tick, 250);
+    poll();
+  }
+
   var draftTimer = setInterval(function () {
     if (locked) { clearInterval(draftTimer); return; }
     fetch("/status?token=" + TOKEN)
       .then(function (r) { return r.json(); })
-      .then(function (s) { if (s.phase === "selecting") adopt(s); })
+      .then(function (s) {
+        if (s.phase === "selecting") { adopt(s); return; }
+        clearInterval(draftTimer);
+        enterProgress(s);
+      })
       .catch(function () {});
   }, 1500);
 
@@ -3667,11 +3742,36 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
   // is far too late: the whole point is to stay in step *before* anything is
   // applied. Slower than that one (1.5s against 250ms) because a person
   // ticking boxes is not a progress bar.
+  /**
+   * Enter progress mode for a run this page did not start.
+   *
+   * The install view only ever opened from this page's own apply, so a run
+   * driven from the terminal left step 5 unseen entirely — the page sat on
+   * step 4 through the whole install and only reappeared at step 6 when it
+   * was over. Watching the phase is what makes the step the user is actually
+   * living through visible on both surfaces.
+   */
+  function enterProgress(s) {
+    if (locked) return;
+    lockSelections();
+    serverSteps = s.steps || [];
+    shown = {}; lastFlip = 0;
+    unlocked = 5;
+    renderSteps();
+    go(5);
+    if (!ticker) ticker = setInterval(tick, 250);
+    poll();
+  }
+
   var draftTimer = setInterval(function () {
     if (locked) { clearInterval(draftTimer); return; }
     fetch("/status?token=" + TOKEN)
       .then(function (r) { return r.json(); })
-      .then(function (s) { if (s.phase === "selecting") adopt(s); })
+      .then(function (s) {
+        if (s.phase === "selecting") { adopt(s); return; }
+        clearInterval(draftTimer);
+        enterProgress(s);
+      })
       .catch(function () {});
   }, 1500);
 
@@ -4701,11 +4801,36 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
   // is far too late: the whole point is to stay in step *before* anything is
   // applied. Slower than that one (1.5s against 250ms) because a person
   // ticking boxes is not a progress bar.
+  /**
+   * Enter progress mode for a run this page did not start.
+   *
+   * The install view only ever opened from this page's own apply, so a run
+   * driven from the terminal left step 5 unseen entirely — the page sat on
+   * step 4 through the whole install and only reappeared at step 6 when it
+   * was over. Watching the phase is what makes the step the user is actually
+   * living through visible on both surfaces.
+   */
+  function enterProgress(s) {
+    if (locked) return;
+    lockSelections();
+    serverSteps = s.steps || [];
+    shown = {}; lastFlip = 0;
+    unlocked = 5;
+    renderSteps();
+    go(5);
+    if (!ticker) ticker = setInterval(tick, 250);
+    poll();
+  }
+
   var draftTimer = setInterval(function () {
     if (locked) { clearInterval(draftTimer); return; }
     fetch("/status?token=" + TOKEN)
       .then(function (r) { return r.json(); })
-      .then(function (s) { if (s.phase === "selecting") adopt(s); })
+      .then(function (s) {
+        if (s.phase === "selecting") { adopt(s); return; }
+        clearInterval(draftTimer);
+        enterProgress(s);
+      })
       .catch(function () {});
   }, 1500);
 
