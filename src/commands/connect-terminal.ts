@@ -479,7 +479,10 @@ export async function runTerminalFlow(
       return undefined;
     }
     console.log(dim("└─ ") + chalk.green(`${draft.servers.length} ✓`));
-    await push(o, rev, { step: 5, draft: { servers: draft.servers } });
+    // Publish the choice but NOT the step: arriving at step 5 is what makes
+    // the page start the run by itself, and the user has not confirmed yet.
+    // Announcing the step here applied everything without being asked.
+    ({ rev } = await push(o, rev, { draft: { servers: draft.servers } }));
 
     // ── step 5: confirm ──
     // Everything above was browsing and could be undone by closing the
@@ -504,6 +507,8 @@ export async function runTerminalFlow(
       console.log(dim("│  ") + chalk.yellow(t(CONFIRM.ask, o.lang)));
     }
     console.log(dim("└─ ") + chalk.green("ok ✓"));
+    // Now the run may begin, and the page may show it.
+    await push(o, rev, { step: 5 });
 
     return draft;
   } finally {

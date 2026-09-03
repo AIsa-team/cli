@@ -651,7 +651,11 @@ ${restChips}
     nextBtn.innerHTML = (installing() ? "Install &amp; connect " : "Connect ") + ARROW;
     navnote.textContent = "Starting…";
     // Arriving here is the decision: the plan shows for a beat, then runs.
-    setTimeout(function () { if (current === 5 && !serverSteps && !locked) start(); }, 500);
+    // Only auto-start a run this page was navigated into by its own Next
+    // button. Arriving at step 5 because another surface said so is not
+    // consent: a terminal that publishes the step while still asking the user
+    // to confirm would have the run applied out from under it.
+    setTimeout(function () { if (current === 5 && !serverSteps && !locked && !adopting) start(); }, 500);
   }
   function renderSteps() {
     var steps = serverSteps || [];
