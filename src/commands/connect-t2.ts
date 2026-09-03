@@ -213,7 +213,7 @@ ${restChips}
 <div id="mFresh" class="grid1 choice" style="display:none">
   <label class="tile on"><input type="radio" class="dot" name="lmodeFresh" value="switch" checked>
     <span class="tbody"><span class="thead"><span class="tname">${T(STEP_MODELS.freshSwitch.name)}</span><span class="badge rec">${T(STEP_MODELS.recommended)}</span></span>
-    <span class="tbrief">${T(STEP_MODELS.freshSwitch.brief)}</span></span></label>
+    <span class="tbrief">${T(STEP_MODELS.freshSwitch.brief).replace("{model}", '<b id="mModel"></b>')}</span></span></label>
   <label class="tile"><input type="radio" class="dot" name="lmodeFresh" value="skip">
     <span class="tbody"><span class="thead"><span class="tname">${T(STEP_MODELS.notNow.name)}</span></span>
     <span class="tbrief">${T(STEP_MODELS.notNow.briefFresh)}</span></span></label>
@@ -224,7 +224,7 @@ ${restChips}
     <span class="tbrief" id="mBackup"></span></span></label>
   <label class="tile" id="mSwitch"><input type="radio" class="dot" name="lmodeDet" value="switch">
     <span class="tbody"><span class="thead"><span class="tname">${T(STEP_MODELS.switchIt.name)}</span></span>
-    <span class="tbrief">${T(STEP_MODELS.switchIt.brief)}</span></span></label>
+    <span class="tbrief">${T(STEP_MODELS.switchIt.brief).replace("{model}", '<b id="mModel2"></b>')}</span></span></label>
   <label class="tile"><input type="radio" class="dot" name="lmodeDet" value="skip">
     <span class="tbody"><span class="thead"><span class="tname">${T(STEP_MODELS.notNow.name)}</span></span>
     <span class="tbrief">${T(STEP_MODELS.notNow.briefDetected)}</span></span></label>

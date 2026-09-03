@@ -6,6 +6,7 @@ import {
 } from "./flow.js";
 import type { ClientInfo, LlmMode, Selection } from "./connect-shared.js";
 import { INSTALLERS } from "./install.js";
+import { defaultModelsFor } from "./llm-config.js";
 
 import type { LiveServer } from "./mcp.js";
 import { httpFetch } from "../utils/http.js";
@@ -260,15 +261,20 @@ export async function runTerminalFlow(
     console.log(header(3, o.lang));
     say(`${t(STEP_MODELS.h2Prefix, o.lang)}${client.label}${t(STEP_MODELS.h2Suffix, o.lang)}`);
     console.log(dim("│"));
+    // The copy carries {model}; the page swaps in an element its script
+    // fills, and here the name goes straight in.
+    const modelName = defaultModelsFor(client.id).model;
+    const brief = (x: { en: string; zh: string }) =>
+      plain(t(x, o.lang)).split("{model}").join(modelName);
     const modes: Array<{ id: LlmMode; label: string; brief: string }> = client.detected
       ? [
           { id: "backup", label: t(STEP_MODELS.backup.name, o.lang), brief: "" },
-          { id: "switch", label: t(STEP_MODELS.switchIt.name, o.lang), brief: plain(t(STEP_MODELS.switchIt.brief, o.lang)) },
-          { id: "skip", label: t(STEP_MODELS.notNow.name, o.lang), brief: plain(t(STEP_MODELS.notNow.briefDetected, o.lang)) },
+          { id: "switch", label: t(STEP_MODELS.switchIt.name, o.lang), brief: brief(STEP_MODELS.switchIt.brief) },
+          { id: "skip", label: t(STEP_MODELS.notNow.name, o.lang), brief: brief(STEP_MODELS.notNow.briefDetected) },
         ]
       : [
-          { id: "switch", label: t(STEP_MODELS.freshSwitch.name, o.lang), brief: plain(t(STEP_MODELS.freshSwitch.brief, o.lang)) },
-          { id: "skip", label: t(STEP_MODELS.notNow.name, o.lang), brief: plain(t(STEP_MODELS.notNow.briefFresh, o.lang)) },
+          { id: "switch", label: t(STEP_MODELS.freshSwitch.name, o.lang), brief: brief(STEP_MODELS.freshSwitch.brief) },
+          { id: "skip", label: t(STEP_MODELS.notNow.name, o.lang), brief: brief(STEP_MODELS.notNow.briefFresh) },
         ];
     modes.forEach((m, i) => {
       const rec = i === 0 ? dim(` (${t(STEP_MODELS.recommended, o.lang)})`) : "";
@@ -307,7 +313,7 @@ export async function runTerminalFlow(
     const chosen = new Set(draft.servers);
     o.servers.forEach((s, i) => {
       const mark = chosen.has(s.slug) ? chalk.green("[x]") : dim("[ ]");
-      console.log(`${dim("│")}  ${mark} ${bold(String(i + 1).padStart(2))}) ${s.slug.padEnd(24)} ${dim(String(s.toolCount) + " tools")}`);
+      console.log(`${dim("│")}  ${mark} ${bold(String(i + 1).padStart(2))}) ${s.slug.padEnd(24)} ${dim(String(s.toolCount) + " " + t(STEP_CAPS.toolsWord, o.lang))}`);
     });
     console.log(dim("│"));
     say(o.lang === "zh"

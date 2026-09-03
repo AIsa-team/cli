@@ -300,8 +300,8 @@ export const STEP_MODELS = {
   recommended: { en: "recommended", zh: "推荐" },
   freshSwitch: {
     name: { en: "Run it on AIsa models", zh: "就用 AIsa 的模型跑" },
-    brief: { en: "A fresh install has no model backend yet. This writes the agent's own provider settings so it starts on <b id=\"mModel\"></b> through AIsa — reversible.",
-             zh: "全新安装还没有模型后端。这会写入 agent 自己的 provider 设置,让它一上来就通过 AIsa 使用 <b id=\"mModel\"></b> —— 可撤销。" },
+    brief: { en: "A fresh install has no model backend yet. This writes the agent's own provider settings so it starts on {model} through AIsa — reversible.",
+             zh: "全新安装还没有模型后端。这会写入 agent 自己的 provider 设置,让它一上来就通过 AIsa 使用 {model} —— 可撤销。" },
   },
   notNow: {
     name: { en: "Not now", zh: "暂时不用" },
@@ -315,8 +315,8 @@ export const STEP_MODELS = {
   },
   switchIt: {
     name: { en: "Switch it to AIsa", zh: "切换到 AIsa" },
-    brief: { en: "Points this agent's model traffic at AIsa (<b id=\"mModel2\"></b>). Writes the agent's own provider settings and nothing else — reversible.",
-             zh: "把这个 agent 的模型流量指向 AIsa(<b id=\"mModel2\"></b>)。只写 agent 自己的 provider 设置,别的都不动 —— 可撤销。" },
+    brief: { en: "Points this agent's model traffic at AIsa ({model}). Writes the agent's own provider settings and nothing else — reversible.",
+             zh: "把这个 agent 的模型流量指向 AIsa({model})。只写 agent 自己的 provider 设置,别的都不动 —— 可撤销。" },
   },
   warn: {
     head: { en: "⚠︎ Installing without a model backend", zh: "⚠︎ 安装后将没有模型后端" },
@@ -387,8 +387,15 @@ export const STEP_CAPS = {
     en: "{n} {noun} · {tools} tools",
     zh: "{n} 个 {noun} · {tools} 个工具",
   },
+  /**
+   * A placeholder both renderers can fill. The page used to carry
+   * <b id="mModel"></b> here and fill it with script — which left the
+   * terminal printing "AIsa()" with nothing inside, because stripping tags is
+   * all it can do with markup meant for the other surface.
+   */
   serversWord: { en: "servers", zh: "server" },
   serverWord: { en: "server", zh: "server" },
+  toolsWord: { en: "tools", zh: "个工具" },
 };
 
 /** Shown for a file-configured client that has no note of its own. */
