@@ -446,7 +446,11 @@ ${restChips}
   function go(n) {
     if (n < 1 || n > 6 || n > unlocked) return;
     current = n;
-    publishDraft(n);
+    // Only the step, never the draft. Publishing what is ticked here on mere
+    // arrival made opening the page look like answering it: the terminal saw
+    // the default agent appear and moved on, crediting a choice the user had
+    // not made. A draft is published when someone changes something.
+    publish({ step: n });
     panes.forEach(function (p) { p.classList.toggle("show", Number(p.dataset.pane) === n); });
     rails.forEach(function (r) {
       var k = Number(r.dataset.step);

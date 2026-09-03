@@ -289,7 +289,7 @@ export async function runTerminalFlow(
       client = shown.find((c) => c.id === a1.draft.clients[0]) ?? shown[preferred];
       Object.assign(draft, a1.draft);
       const s = await pull(o); if (s) rev = s.rev;
-      console.log(dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 在页面中选择了" : "↩ chosen in the page"));
+      console.log("\n" + dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 已在页面中选择" : "↩ chosen in the page"));
     } else {
       client = shown[a1.index];
     }
@@ -331,7 +331,7 @@ export async function runTerminalFlow(
       mode = modes.find((m) => m.id === a2.draft.llmMode) ?? modes[0];
       Object.assign(draft, a2.draft);
       const s = await pull(o); if (s) rev = s.rev;
-      console.log(dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 在页面中选择了" : "↩ chosen in the page"));
+      console.log("\n" + dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 已在页面中选择" : "↩ chosen in the page"));
     } else {
       mode = modes[a2.index];
     }

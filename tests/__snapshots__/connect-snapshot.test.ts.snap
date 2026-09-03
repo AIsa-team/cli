@@ -588,7 +588,11 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
   function go(n) {
     if (n < 1 || n > 6 || n > unlocked) return;
     current = n;
-    publishDraft(n);
+    // Only the step, never the draft. Publishing what is ticked here on mere
+    // arrival made opening the page look like answering it: the terminal saw
+    // the default agent appear and moved on, crediting a choice the user had
+    // not made. A draft is published when someone changes something.
+    publish({ step: n });
     panes.forEach(function (p) { p.classList.toggle("show", Number(p.dataset.pane) === n); });
     rails.forEach(function (r) {
       var k = Number(r.dataset.step);
@@ -1589,7 +1593,11 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
   function go(n) {
     if (n < 1 || n > 6 || n > unlocked) return;
     current = n;
-    publishDraft(n);
+    // Only the step, never the draft. Publishing what is ticked here on mere
+    // arrival made opening the page look like answering it: the terminal saw
+    // the default agent appear and moved on, crediting a choice the user had
+    // not made. A draft is published when someone changes something.
+    publish({ step: n });
     panes.forEach(function (p) { p.classList.toggle("show", Number(p.dataset.pane) === n); });
     rails.forEach(function (r) {
       var k = Number(r.dataset.step);
@@ -2590,7 +2598,11 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
   function go(n) {
     if (n < 1 || n > 6 || n > unlocked) return;
     current = n;
-    publishDraft(n);
+    // Only the step, never the draft. Publishing what is ticked here on mere
+    // arrival made opening the page look like answering it: the terminal saw
+    // the default agent appear and moved on, crediting a choice the user had
+    // not made. A draft is published when someone changes something.
+    publish({ step: n });
     panes.forEach(function (p) { p.classList.toggle("show", Number(p.dataset.pane) === n); });
     rails.forEach(function (r) {
       var k = Number(r.dataset.step);
@@ -3603,7 +3615,11 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
   function go(n) {
     if (n < 1 || n > 6 || n > unlocked) return;
     current = n;
-    publishDraft(n);
+    // Only the step, never the draft. Publishing what is ticked here on mere
+    // arrival made opening the page look like answering it: the terminal saw
+    // the default agent appear and moved on, crediting a choice the user had
+    // not made. A draft is published when someone changes something.
+    publish({ step: n });
     panes.forEach(function (p) { p.classList.toggle("show", Number(p.dataset.pane) === n); });
     rails.forEach(function (r) {
       var k = Number(r.dataset.step);
@@ -4616,7 +4632,11 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
   function go(n) {
     if (n < 1 || n > 6 || n > unlocked) return;
     current = n;
-    publishDraft(n);
+    // Only the step, never the draft. Publishing what is ticked here on mere
+    // arrival made opening the page look like answering it: the terminal saw
+    // the default agent appear and moved on, crediting a choice the user had
+    // not made. A draft is published when someone changes something.
+    publish({ step: n });
     panes.forEach(function (p) { p.classList.toggle("show", Number(p.dataset.pane) === n); });
     rails.forEach(function (r) {
       var k = Number(r.dataset.step);
