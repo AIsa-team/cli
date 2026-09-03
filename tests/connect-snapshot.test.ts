@@ -104,3 +104,25 @@ describe("T2 agent step — the copy the terminal will have to match", () => {
     expect(html).toContain("codex mcp add");
   });
 });
+
+/**
+ * The page script is assembled as a string, so `tsc` never parses it: a typo
+ * inside it compiles cleanly and breaks only in a browser, where nobody here
+ * would see it. This ran for the first time while moving the last inline
+ * strings into the flow definition — exactly the edit most likely to leave an
+ * unbalanced quote behind.
+ */
+describe("the generated page script is valid JavaScript", () => {
+  const cases = [
+    ["en", "start"], ["en", "done"], ["zh", "start"], ["zh", "done"],
+  ] as const;
+
+  it.each(cases)("%s / %s", (lang, view) => {
+    const html = renderT2Page(servers, clients, TOKEN, true, true, view, lang);
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    expect(scripts.length).toBeGreaterThan(0);
+    for (const src of scripts) {
+      expect(() => new Function(src), src.slice(0, 120)).not.toThrow();
+    }
+  });
+});

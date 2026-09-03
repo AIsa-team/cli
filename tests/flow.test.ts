@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   LANGS, resolveLang, t, STEP_AGENT, AGENT_ORDER, agentRank,
   AGENT_BADGE, AGENT_SIDE_TITLES, AGENT_NOTES, AGENT_HAVE_NOTES, installOffer,
+  STEP_TITLES, STEP_WELCOME, STEP_MODELS, STEP_CAPS, STEP_INSTALL, STEP_DONE,
+  FILE_MODEL_NOTE, FILE_MODEL_FALLBACK, BACKUP_COPY, CATEGORY_BLURB,
 } from "../src/commands/flow.js";
 import { renderT2Page } from "../src/commands/connect-t2.js";
 import type { LiveServer } from "../src/commands/mcp.js";
@@ -60,6 +62,33 @@ describe("translations are complete", () => {
     ...Object.fromEntries(Object.entries(AGENT_SIDE_TITLES).map(([k, v]) => [`side.${k}`, v])),
     ...Object.fromEntries(Object.entries(AGENT_NOTES).map(([k, v]) => [`note.${k}`, v])),
     ...Object.fromEntries(Object.entries(AGENT_HAVE_NOTES).map(([k, v]) => [`have.${k}`, v])),
+    ...Object.fromEntries(STEP_TITLES.flatMap((s) => [
+      [`rail.${s.n}.title`, s.title], [`rail.${s.n}.sub`, s.sub],
+    ])),
+    "welcome.h1": STEP_WELCOME.h1,
+    "welcome.lede": STEP_WELCOME.lede,
+    ...Object.fromEntries(STEP_WELCOME.tiles.flatMap((x, i) => [
+      [`welcome.tile${i}.h3`, x.h3], [`welcome.tile${i}.p`, x.p],
+    ])),
+    "models.h1": STEP_MODELS.h1,
+    "models.lede": STEP_MODELS.lede,
+    "models.callout": STEP_MODELS.callout,
+    "models.rerun": STEP_MODELS.rerun,
+    "models.freshSwitch.brief": STEP_MODELS.freshSwitch.brief,
+    "models.switchIt.brief": STEP_MODELS.switchIt.brief,
+    "models.warn.body": STEP_MODELS.warn.body,
+    "caps.h1": STEP_CAPS.h1,
+    "caps.ledeTail": STEP_CAPS.ledeTail,
+    "install.h1": STEP_INSTALL.h1,
+    "install.lede": STEP_INSTALL.lede,
+    "install.authKeyed": STEP_INSTALL.authKeyed,
+    "install.authFresh": STEP_INSTALL.authFresh,
+    "done.h1": STEP_DONE.h1,
+    "done.lede": STEP_DONE.lede,
+    "fileModel.fallback": FILE_MODEL_FALLBACK,
+    ...Object.fromEntries(Object.entries(FILE_MODEL_NOTE).map(([k, v]) => [`fileModel.${k}`, v])),
+    ...Object.fromEntries(Object.entries(BACKUP_COPY).map(([k, v]) => [`backup.${k}`, v])),
+    ...Object.fromEntries(Object.entries(CATEGORY_BLURB).map(([k, v]) => [`blurb.${k}`, v])),
   };
 
   it.each(LANGS)("every string has a %s", (lang) => {

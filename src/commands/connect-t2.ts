@@ -5,7 +5,9 @@ import { stripped, type LiveServer } from "./mcp.js";
 import { BRAND_LOGOS } from "./brand-logos.js";
 import {
   STEP_AGENT, AGENT_ORDER, agentRank, AGENT_BADGE, AGENT_SIDE_TITLES,
-  AGENT_NOTES, AGENT_HAVE_NOTES, installOffer, t, type Lang,
+  AGENT_NOTES, AGENT_HAVE_NOTES, installOffer, t, fill, type Lang,
+  STEP_TITLES, STEP_WELCOME, STEP_MODELS, STEP_CAPS, STEP_INSTALL, STEP_DONE,
+  FILE_MODEL_NOTE, FILE_MODEL_FALLBACK, BACKUP_COPY, CATEGORY_BLURB, runtimeCopy,
 } from "./flow.js";
 import {
   RED,
@@ -51,15 +53,6 @@ import { VSCODE_MODELS } from "./vscode.js";
  * server picks a template per run and both share the same endpoints.
  */
 
-const STEPS = [
-  { n: 1, title: "Welcome", sub: "What you are about to get" },
-  { n: 2, title: "Your agent", sub: "Pick the tool to connect" },
-  { n: 3, title: "Models", sub: "What it runs on" },
-  { n: 4, title: "Capabilities", sub: "Live data for your agent" },
-  { n: 5, title: "Install", sub: "Sign in and wire it up" },
-  { n: 6, title: "Done", sub: "Try it now" },
-] as const;
-
 /** Providers shown on the Models step. Model names are from the live
  *  `aisa models` catalogue (2026-08-23); a representative few per provider. */
 const PROVIDERS: Array<{ id: string; name: string; models: string }> = [
@@ -82,27 +75,7 @@ const COMING_SOON: Array<{ id: string; label: string; note: string }> = [
 /** One paragraph per agent on what connecting it means, for the Your-agent
  *  step's side column. */
 /** Why the Models step has nothing to offer a file-configured client. */
-const FILE_MODEL_NOTE: Record<string, string> = {
-  "claude-desktop":
-    "<b>Claude Desktop runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents on the same AIsa account; Claude Desktop gets the MCP tools.",
-  "claude-ai":
-    "<b>claude.ai runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents (Claude Code, Codex, opencode) on the same AIsa account; claude.ai gets the MCP connectors.",
-  cursor:
-    "<b>Cursor picks its models inside the app</b>, so nothing changes here — only the MCP servers are added.",
-};
-
 /** Backup-mode consent copy, per client — the same contract T1 shows. */
-const BACKUP_COPY: Record<string, string> = {
-  "claude-code":
-    "Installs one small command, <b><code>claude-aisa</code></b>, next to your other tools. Your original <b><code>claude</code></b> keeps its login, models and settings <b>exactly as they are</b>.<br>You can use the newly added <b><code>claude-aisa</code></b> whenever you want AIsa's models at lower prices. Delete that one file to remove it.",
-  codex:
-    "Adds an <b>aisa profile</b> inside Codex's own config and a <b><code>codex-aisa</code></b> command. Your default Codex is <b>untouched</b>.<br>You can use the newly added <b><code>codex-aisa</code></b> (or <code>codex --profile aisa</code>) whenever you want AIsa's models; it applies to that session only.",
-  vscode:
-    "Adds a <b>Custom Endpoint</b> group named <b>AIsa</b> to VS Code's chat models — Claude, GPT, DeepSeek, Kimi, GLM, Qwen — beside Copilot's own. Your Copilot setup is <b>untouched</b>.<br>A small <b>AIsa extension</b> is installed so VS Code stores your key itself — nothing to paste. Then pick any AIsa model from the chat model picker; inline completions stay on Copilot.",
-  opencode:
-    "Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b>.<br>You can pick the newly added <code>aisa/…</code> models from opencode's model list whenever you want them.",
-};
-
 /** The wordmark recoloured for the paper background: the white "sa" of the
  *  dark-background original becomes the ink colour via currentColor. */
 const LOGO_INK = LOGO.replace(/#FFFFFF/g, "currentColor");
@@ -110,13 +83,6 @@ const LOGO_INK = LOGO.replace(/#FFFFFF/g, "currentColor");
 function normCategory(c: string): string {
   return /^search/i.test(c) ? "Search & Research" : c;
 }
-
-const CATEGORY_BLURB: Record<string, string> = {
-  "Search & Research": "Ranked web results with page text already extracted, plus YouTube.",
-  Finance: "US equities, crypto, prediction markets and what X is saying about a ticker.",
-  Social: "Public X/Twitter, Reddit, Instagram and Pinterest — profiles, posts, engagement.",
-  Sales: "Apollo B2B data — enrich people and companies, find prospects.",
-};
 
 export function renderT2Page(
   servers: LiveServer[],
@@ -175,29 +141,22 @@ export function renderT2Page(
     (p) => `<span class="blogo" title="${p.name}">${BRAND_LOGOS[p.id] ?? ""}</span>`
   ).join("");
   const welcome = `
-<h1>One connection. <em>Every major model</em>, live data and skills — inside the agent you already use.</h1>
-<p class="lede">AIsa is the capability layer for AI agents: one account, one key, and your coding agent
-can reach the best models <b>and</b> the real world. Setting it up takes about a minute and
-nothing here is irreversible.</p>
+<h1>${T(STEP_WELCOME.h1).replace("Every major model", "<em>Every major model</em>")}</h1>
+<p class="lede">${T(STEP_WELCOME.lede).replace("models and the real", "models <b>and</b> the real")}</p>
 <div class="feat">
   <div class="ftile"><div class="fico">${I.sparkles}</div>
-    <h3>All the well-known LLM models, one key, lower prices</h3>
-    <p>Claude, GPT, Gemini, DeepSeek, Kimi, GLM, Qwen, Grok — all behind one endpoint,
-    well below going direct. Switch between them with a single setting, no re-configuring.</p>
+    <h3>${T(STEP_WELCOME.tiles[0].h3)}</h3>
+    <p>${T(STEP_WELCOME.tiles[0].p)}</p>
     <div class="strip">${logoStrip}</div></div>
   <div class="ftile"><div class="fico">${I.finance}</div>
-    <h3>Rich, advanced tools your agent can act on</h3>
-    <p>Market analysis and expansion research, finance data, social media signals, B2B
-    prospecting — a wide network of officially licensed commercial APIs, integrated and
-    refined by AIsa into MCP tools your agent can use out of the box.</p></div>
+    <h3>${T(STEP_WELCOME.tiles[1].h3)}</h3>
+    <p>${T(STEP_WELCOME.tiles[1].p)}</p></div>
   <div class="ftile"><div class="fico">${I.terminal}</div>
-    <h3>Agent skills, ready to run</h3>
-    <p>A public catalogue of skills that teach your agent how to use each capability well —
-    install with <code>aisa skills</code>, no prompt engineering needed.</p></div>
+    <h3>${T(STEP_WELCOME.tiles[2].h3)}</h3>
+    <p>${T(STEP_WELCOME.tiles[2].p)}</p></div>
   <div class="ftile"><div class="fico">${I.shield}</div>
-    <h3>MCP the friendly way</h3>
-    <p>One sign-in in your browser, zero keys to paste, every entry written through your
-    agent's own official command. Remove it all just as easily.</p></div>
+    <h3>${T(STEP_WELCOME.tiles[3].h3)}</h3>
+    <p>${T(STEP_WELCOME.tiles[3].p)}</p></div>
 </div>`;
 
   // ── step 2: your agent ──
@@ -244,45 +203,37 @@ ${restChips}
 <span class="pname">${p.name}</span><span class="pmodels">${p.models}</span></div>`
   ).join("");
   const models = `
-<h1>Every major model, <em>one account</em> — and switching is a one-liner</h1>
-<p class="lede">Whatever you decide below, this is what sits behind your AIsa key. No separate
-accounts, no separate billing, no re-wiring when a better model ships next month.</p>
+<h1>${T(STEP_MODELS.h1).replace("one account", "<em>one account</em>")}</h1>
+<p class="lede">${T(STEP_MODELS.lede)}</p>
 <div class="pgrid">${providerTiles}</div>
-<div class="callout">${I.sparkles}<div><b>Switching is the whole point.</b> One key, one endpoint:
-  change the model name and you are on a different lab's best model — Claude today,
-  DeepSeek for the cheap batch job tonight, GPT-5.5 tomorrow. No new sign-ups, no new config,
-  no juggling keys. </div></div>
-<p class="rerun">Change the default any time — just run <b><code>aisa connect</code></b> again.</p>
+<div class="callout">${I.sparkles}<div>${T(STEP_MODELS.callout)}</div></div>
+<p class="rerun">${T(STEP_MODELS.rerun)}</p>
 
-<h2>How should <span id="mClient">your agent</span> use them?</h2>
+<h2>${T(STEP_MODELS.h2Prefix)}<span id="mClient">${T(STEP_MODELS.yourAgent)}</span>${T(STEP_MODELS.h2Suffix)}</h2>
 <div id="mFresh" class="grid1 choice" style="display:none">
   <label class="tile on"><input type="radio" class="dot" name="lmodeFresh" value="switch" checked>
-    <span class="tbody"><span class="thead"><span class="tname">Run it on AIsa models</span><span class="badge rec">recommended</span></span>
-    <span class="tbrief">A fresh install has no model backend yet. This writes the agent's own
-    provider settings so it starts on <b id="mModel"></b> through AIsa — reversible.</span></span></label>
+    <span class="tbody"><span class="thead"><span class="tname">${T(STEP_MODELS.freshSwitch.name)}</span><span class="badge rec">${T(STEP_MODELS.recommended)}</span></span>
+    <span class="tbrief">${T(STEP_MODELS.freshSwitch.brief)}</span></span></label>
   <label class="tile"><input type="radio" class="dot" name="lmodeFresh" value="skip">
-    <span class="tbody"><span class="thead"><span class="tname">Not now</span></span>
-    <span class="tbrief">Install it without a model. It will not answer a prompt until you
-    configure a provider by hand.</span></span></label>
+    <span class="tbody"><span class="thead"><span class="tname">${T(STEP_MODELS.notNow.name)}</span></span>
+    <span class="tbrief">${T(STEP_MODELS.notNow.briefFresh)}</span></span></label>
 </div>
 <div id="mDetected" class="grid1 choice" style="display:none">
   <label class="tile on"><input type="radio" class="dot" name="lmodeDet" value="backup" checked>
-    <span class="tbody"><span class="thead"><span class="tname">Add AIsa beside it</span><span class="badge rec">recommended</span></span>
+    <span class="tbody"><span class="thead"><span class="tname">${T(STEP_MODELS.backup.name)}</span><span class="badge rec">${T(STEP_MODELS.recommended)}</span></span>
     <span class="tbrief" id="mBackup"></span></span></label>
   <label class="tile" id="mSwitch"><input type="radio" class="dot" name="lmodeDet" value="switch">
-    <span class="tbody"><span class="thead"><span class="tname">Switch it to AIsa</span></span>
-    <span class="tbrief">Points this agent's model traffic at AIsa (<b id="mModel2"></b>). Writes the
-    agent's own provider settings and nothing else — reversible.</span></span></label>
+    <span class="tbody"><span class="thead"><span class="tname">${T(STEP_MODELS.switchIt.name)}</span></span>
+    <span class="tbrief">${T(STEP_MODELS.switchIt.brief)}</span></span></label>
   <label class="tile"><input type="radio" class="dot" name="lmodeDet" value="skip">
-    <span class="tbody"><span class="thead"><span class="tname">Not now</span></span>
-    <span class="tbrief">Leave models exactly as they are; only the MCP tools are added.</span></span></label>
+    <span class="tbody"><span class="thead"><span class="tname">${T(STEP_MODELS.notNow.name)}</span></span>
+    <span class="tbrief">${T(STEP_MODELS.notNow.briefDetected)}</span></span></label>
 </div>
 <div id="mFile" class="callout" style="display:none">${I.shield}<div id="mFileText"></div></div>
 <div id="modelwarn" class="modelwarn" style="display:none">
-  <div class="mw-head">⚠︎ Installing without a model backend</div>
-  <div class="mw-body">A fresh install <b>cannot answer a single prompt</b> until you configure a
-  provider by hand. Turn on AIsa models and it leaves here ready to work.</div>
-  <button type="button" class="mw-fix" id="modelfix">Use AIsa models →</button>
+  <div class="mw-head">${T(STEP_MODELS.warn.head)}</div>
+  <div class="mw-body">${T(STEP_MODELS.warn.body)}</div>
+  <button type="button" class="mw-fix" id="modelfix">${T(STEP_MODELS.warn.fix)}</button>
 </div>`;
 
   // ── step 4: capabilities ──
@@ -292,8 +243,8 @@ accounts, no separate billing, no re-wiring when a better model ships next month
       return `<button type="button" class="ctile" data-cat="${cat}">
   <span class="cico">${CATEGORY_ICON[cat] ?? I.sparkles}</span>
   <span class="cname">${cat}</span>
-  <span class="cmeta">${list.length} server${list.length > 1 ? "s" : ""} · ${tools} tools</span>
-  <span class="cblurb">${CATEGORY_BLURB[cat] ?? ""}</span>
+  <span class="cmeta">${fill(STEP_CAPS.tileMeta, lang, { n: list.length, noun: list.length > 1 ? T(STEP_CAPS.serversWord) : T(STEP_CAPS.serverWord), tools })}</span>
+  <span class="cblurb">${CATEGORY_BLURB[cat] ? T(CATEGORY_BLURB[cat]) : ""}</span>
   <span class="csel" data-csel></span></button>`;
     })
     .join("");
@@ -312,40 +263,34 @@ accounts, no separate billing, no re-wiring when a better model ships next month
     )
     .join("");
   const caps = `
-<h1>What should your agent be able to <em>reach</em>?</h1>
-<p class="lede">Four areas, ${servers.length} servers, ${totalTools} tools. Open an area to pick the servers
-inside it. Everything here is live production data with licensed sources; you can add more later
-with one more <code>aisa connect</code>.</p>
+<h1>${T(STEP_CAPS.h1).replace("reach", "<em>reach</em>")}</h1>
+<p class="lede">${fill(STEP_CAPS.counts, lang, { areas: catList.length, servers: servers.length, tools: totalTools })} ${T(STEP_CAPS.ledeTail)}</p>
 <div class="cgrid">${catTiles}</div>
 <div class="spanel" id="spanel">
-  <div class="sphead"><h2 id="spTitle">Pick an area above</h2><button type="button" class="link" id="spAll">Select all in this area</button></div>
+  <div class="sphead"><h2 id="spTitle">${T(STEP_CAPS.pickArea)}</h2><button type="button" class="link" id="spAll">${T(STEP_CAPS.selectAll)}</button></div>
   <div class="sgrid" id="sgrid">${serverTiles}</div>
 </div>
 <div class="tally" id="tally"></div>`;
 
   // ── step 5: install ──
   const install = `
-<h1 id="inTitle">Ready to <em>connect</em></h1>
-<p class="lede" id="inLede">Here is everything that happens, in order. It starts on its own;
-each step reports as it finishes, and your results open on the last step.</p>
+<h1 id="inTitle">${T(STEP_INSTALL.h1).replace("connect", "<em>connect</em>").replace("接线", "<em>接线</em>")}</h1>
+<p class="lede" id="inLede">${T(STEP_INSTALL.lede)}</p>
 <div class="plan" id="plan"></div>
 <div class="barwrap" id="barwrap" style="display:none"><div class="barfill" id="barfill"></div></div>
 <div class="barnote" id="barnote"></div>
 <div class="authnote">${I.shield}<div>${
-    keyed
-      ? `Your configured AIsa API key is written into each entry — <b>no sign-in needed</b>.`
-      : `<b>One sign-in, nothing to paste.</b> Your browser opens the AIsa approval once; it issues a
-  long-lived key for this machine, and every server and model is configured with it.`
+    keyed ? T(STEP_INSTALL.authKeyed) : T(STEP_INSTALL.authFresh)
   }</div></div>
 <div id="inResult" class="fine"></div>`;
 
   // ── step 6: done (filled by the page script from /status) ──
-  const done = `<div id="doneBody"><div class="eyebrow">Step 6 of 6</div>
-<h1>Almost there…</h1><p class="lede">The results appear here as soon as the run finishes.</p></div>`;
+  const done = `<div id="doneBody"><div class="eyebrow">${T(STEP_DONE.eyebrow)}</div>
+<h1>${T(STEP_DONE.h1)}</h1><p class="lede">${T(STEP_DONE.lede)}</p></div>`;
 
-  const rail = STEPS.map(
+  const rail = STEP_TITLES.map(
     (s) => `<button type="button" class="rstep" data-step="${s.n}">
-  <span class="rn">${s.n}</span><span class="rt"><span class="rtitle">${s.title}</span><span class="rsub">${s.sub}</span></span></button>`
+  <span class="rn">${s.n}</span><span class="rt"><span class="rtitle">${T(s.title)}</span><span class="rsub">${T(s.sub)}</span></span></button>`
   ).join("");
 
   const body = `
@@ -378,10 +323,11 @@ each step reports as it finishes, and your results open on the last step.</p>
   var CLIENTS = ${JSON.stringify(CLIENTS)};
   var MODEL_FOR = ${JSON.stringify(MODEL_FOR)};
   var EXAMPLES = ${JSON.stringify(EXAMPLES)};
-  var BACKUP_COPY = ${JSON.stringify(BACKUP_COPY)};
+  var BACKUP_COPY = ${JSON.stringify(resolved(BACKUP_COPY))};
+  var COPY = ${JSON.stringify(runtimeCopy(lang))};
   var AGENT_NOTES = ${JSON.stringify(resolved(AGENT_NOTES))};
   var HAVE_NOTES = ${JSON.stringify(resolved(AGENT_HAVE_NOTES))};
-  var FILE_MODEL_NOTE = ${JSON.stringify(FILE_MODEL_NOTE)};
+  var FILE_MODEL_NOTE = ${JSON.stringify(resolved(FILE_MODEL_NOTE))};
   var NEEDS_CLI = ${JSON.stringify(!isInstalled("aisa"))};
   var PROVIDER_ID = ${JSON.stringify(AISA_PROVIDER_ID)};
   var ART = ${JSON.stringify({ codex: CODEX_FACE, claude: CLAUDE_BOT, opencode: OPENCODE_MARK })};
@@ -466,7 +412,7 @@ each step reports as it finishes, and your results open on the last step.</p>
     $("#mSwitch").style.display = vsc ? "none" : "";
     if (vsc && $('input[name="lmodeDet"][value="switch"]').checked) $('input[name="lmodeDet"][value="backup"]').checked = true;
     if ((kind === "cli" && !fresh) || vsc) $("#mBackup").innerHTML = BACKUP_COPY[id] || "";
-    if (kind !== "cli" && !vsc) $("#mFileText").innerHTML = FILE_MODEL_NOTE[id] || "This client picks its own models inside the app, so nothing is changed here — only the MCP servers are added.";
+    if (kind !== "cli" && !vsc) $("#mFileText").innerHTML = FILE_MODEL_NOTE[id] || ${JSON.stringify(T(FILE_MODEL_FALLBACK))};
     $$(".choice .tile").forEach(function (t) { t.classList.toggle("on", t.querySelector("input").checked); });
     updateWarn();
   }
@@ -501,7 +447,7 @@ each step reports as it finishes, and your results open on the last step.</p>
     var tools = picked.reduce(function (n, s) { return n + (BY_SLUG[s] ? BY_SLUG[s].toolCount : 0); }, 0);
     $("#tally").innerHTML = picked.length
       ? "<b>" + picked.length + " server" + (picked.length > 1 ? "s" : "") + "</b> · " + tools + " tools selected"
-      : "Nothing selected yet — pick at least one server.";
+      : COPY.nothingSelected;
   }
   $$(".ctile").forEach(function (t) { t.addEventListener("click", function () {
     activeCat = activeCat === t.dataset.cat ? null : t.dataset.cat; syncCaps();
@@ -550,7 +496,7 @@ each step reports as it finishes, and your results open on the last step.</p>
     rows.push([clientKind() === "web" ? "Prepare " + n + " connector URL" + (n === 1 ? "" : "s") : id === "cursor" ? "Prepare " + n + " Cursor install link" + (n === 1 ? "" : "s") : "Add " + n + " MCP server" + (n === 1 ? "" : "s"), clientKind() === "web" ? "for you to add in claude.ai" : id === "cursor" ? "one click each, confirmed inside Cursor" : "to " + LABEL[id]]);
     var m = llmMode();
     if (m === "switch") rows.push(["Point its models at AIsa", MODEL_FOR[id] + " by default; reversible"]);
-    if (m === "backup") rows.push([id === "claude-code" ? "Install the claude-aisa command" : id === "codex" ? "Add the aisa profile and codex-aisa" : id === "vscode" ? "Add AIsa models to VS Code chat" : "Add AIsa as a backup provider", "your current setup stays untouched"]);
+    if (m === "backup") rows.push([COPY.planBackup[id] || COPY.planBackup.other, COPY.planBackupNote]);
     rows.push(["Check your AIsa balance", "so an empty account is never a surprise"]);
     return rows.map(function (r) {
       return "<div class='step pending'><span class='mark'></span><span class='body'><span class='lbl'>" + r[0] +
@@ -617,7 +563,7 @@ each step reports as it finishes, and your results open on the last step.</p>
   function finish() {
     var failed = (serverSteps || []).filter(function (s) { return s.state === "fail"; }).length;
     $("#inTitle").innerHTML = failed ? "Finished, <em>with " + failed + " issue" + (failed > 1 ? "s" : "") + "</em>" : "All <em>connected</em>";
-    $("#inLede").textContent = failed ? "Some steps did not complete — the details are in the list; your results page explains how to retry." : "Everything ran. Your results, balance and try-it-now prompts are on the last step.";
+    $("#inLede").textContent = failed ? COPY.ledeFailed : COPY.ledeAllRan;
     unlocked = 6; rails.forEach(function (r) { r.classList.add("open"); });
     renderSteps();
     nextBtn.disabled = false; nextBtn.style.display = ""; nextBtn.innerHTML = "See your results " + ARROW;
@@ -761,7 +707,7 @@ each step reports as it finishes, and your results open on the last step.</p>
             "<button type='button' data-copy=\\"" + x.endpoint + "\\">" + ICON_COPY + " Copy URL</button></div>";
         }).join("") + "</div>";
     }
-    var backupNote = backup && id === "vscode" ? "" : backup ? "<p class='rerun'><b>Your usual setup is untouched.</b> " + (id === "opencode" ? "Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa." : "Run <code>" + bin + "</code> whenever you want AIsa's models; delete that one file to remove it.") + "</p>" : "";
+    var backupNote = backup && id === "vscode" ? "" : backup ? "<p class='rerun'><b>" + COPY.backupIntact + "</b> " + (id === "opencode" ? COPY.backupOpencode : COPY.backupBin.split("{bin}").join(bin)) + "</p>" : "";
     var model = MODEL_FOR[id] || "";
     var preview = id === "opencode"
       ? "<pre class='termlogo oc'>" + ART.opencode + "</pre><div class='termline'>Welcome to <b>opencode</b></div><div class='termline dim'>model: <b>" + PROVIDER_ID + "/" + model + "</b> · via AIsa</div><div class='termline dim'>config: ~/.config/opencode/opencode.json</div>"
@@ -782,7 +728,7 @@ each step reports as it finishes, and your results open on the last step.</p>
         failBlock + recap + balCard + fileNote + launch +
         "<h2>Try it now — paste one of these into " + name + (id === "claude-ai" || id === "cursor" ? " once the servers are added" : id === "claude-desktop" ? " after the restart" : "") + "</h2><div class='examples'>" + (examples || "<p class='fine'>Ask your agent to use any of the aisa-* MCP tools.</p>") + "</div>" +
         backupNote +
-        "<p class='rerun'>Change the default any time — just run <b><code>aisa connect</code></b> again.</p>";
+        "<p class='rerun'>${T(STEP_MODELS.rerun)}</p>";
     $("#doneBody").innerHTML = head + rest;
     $$("[data-copy]").forEach(function (b) { b.addEventListener("click", function () {
       navigator.clipboard.writeText(b.getAttribute("data-copy")).then(function () {
@@ -793,12 +739,12 @@ each step reports as it finishes, and your results open on the last step.</p>
         if (!d.key) throw 0;
         return navigator.clipboard.writeText(d.key);
       }).then(function () { ck.textContent = "Copied ✓"; setTimeout(function () { ck.textContent = "Copy your AIsa key"; }, 1600); })
-        .catch(function () { $("#copykeynote").innerHTML = "No key stored here — run <code>aisa login</code>, then copy it from <code>~/.aisa/key</code>."; });
+        .catch(function () { $("#copykeynote").innerHTML = COPY.noKeyStored; });
     });
     var lb = $("#launch"); if (lb) lb.addEventListener("click", function () {
       lb.disabled = true;
       fetch("/launch?token=" + TOKEN, { method: "POST" }).then(function (r) { if (!r.ok) throw 0; lb.textContent = id === "vscode" ? "✓ VS Code opened" : id === "cursor" ? "✓ Cursor opened" : id === "claude-desktop" ? "✓ Restarting…" : "✓ Opened in Terminal"; })
-        .catch(function () { lb.style.display = "none"; $("#launchnote").innerHTML = id === "vscode" || id === "cursor" || id === "claude-desktop" ? "Could not start " + name + " — open it from your Applications folder." : "Could not open a terminal — just run <code>" + bin + "</code> in any terminal."; });
+        .catch(function () { lb.style.display = "none"; $("#launchnote").innerHTML = id === "vscode" || id === "cursor" || id === "claude-desktop" ? COPY.cannotStartApp.split("{name}").join(name) : COPY.cannotOpenTerminal.split("{bin}").join(bin); });
     });
   }
 
