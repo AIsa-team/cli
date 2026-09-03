@@ -358,7 +358,7 @@ ${restChips}
   // who was late and hands them the current state instead of accepting a
   // stale copy. (No backticks in here: this whole script is a template
   // literal, and one would end it.)
-  var rev = 0, pushing = false;
+  var rev = 0, pushing = false, adopting = false;
   function publish(patch) {
     if (pushing) return; pushing = true;
     fetch("/select?token=" + TOKEN, { method: "POST",
@@ -370,6 +370,9 @@ ${restChips}
       .then(function () { pushing = false; });
   }
   function publishDraft(step) {
+    // Applying someone else's change must not be republished as if it were
+    // ours: that bumps rev for no reason and can bounce between surfaces.
+    if (adopting) return;
     var c = chosenClient();
     publish({ step: step, draft: {
       clients: c ? [c.value] : [],
@@ -382,6 +385,8 @@ ${restChips}
   function adopt(s) {
     if (typeof s.rev !== "number" || s.rev === rev || !s.draft) return;
     rev = s.rev;
+    adopting = true;
+    try {
     var d = s.draft;
     if (d.clients && d.clients[0]) {
       var el = $('input[name="client"][value="' + d.clients[0] + '"]');
@@ -400,7 +405,21 @@ ${restChips}
       syncCaps();
     }
     if (s.currentStep && s.currentStep > current && s.currentStep <= unlocked) go(s.currentStep);
+    } finally { adopting = false; }
   }
+
+  // While choosing, watch the shared draft so a choice made in the terminal
+  // appears here. The run-progress poll below only starts after /apply, which
+  // is far too late: the whole point is to stay in step *before* anything is
+  // applied. Slower than that one (1.5s against 250ms) because a person
+  // ticking boxes is not a progress bar.
+  var draftTimer = setInterval(function () {
+    if (locked) { clearInterval(draftTimer); return; }
+    fetch("/status?token=" + TOKEN)
+      .then(function (r) { return r.json(); })
+      .then(function (s) { if (s.phase === "selecting") adopt(s); })
+      .catch(function () {});
+  }, 1500);
 
   function go(n) {
     if (n < 1 || n > 6 || n > unlocked) return;

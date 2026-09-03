@@ -503,7 +503,7 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
   // who was late and hands them the current state instead of accepting a
   // stale copy. (No backticks in here: this whole script is a template
   // literal, and one would end it.)
-  var rev = 0, pushing = false;
+  var rev = 0, pushing = false, adopting = false;
   function publish(patch) {
     if (pushing) return; pushing = true;
     fetch("/select?token=" + TOKEN, { method: "POST",
@@ -515,6 +515,9 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
       .then(function () { pushing = false; });
   }
   function publishDraft(step) {
+    // Applying someone else's change must not be republished as if it were
+    // ours: that bumps rev for no reason and can bounce between surfaces.
+    if (adopting) return;
     var c = chosenClient();
     publish({ step: step, draft: {
       clients: c ? [c.value] : [],
@@ -527,6 +530,8 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
   function adopt(s) {
     if (typeof s.rev !== "number" || s.rev === rev || !s.draft) return;
     rev = s.rev;
+    adopting = true;
+    try {
     var d = s.draft;
     if (d.clients && d.clients[0]) {
       var el = $('input[name="client"][value="' + d.clients[0] + '"]');
@@ -545,7 +550,21 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
       syncCaps();
     }
     if (s.currentStep && s.currentStep > current && s.currentStep <= unlocked) go(s.currentStep);
+    } finally { adopting = false; }
   }
+
+  // While choosing, watch the shared draft so a choice made in the terminal
+  // appears here. The run-progress poll below only starts after /apply, which
+  // is far too late: the whole point is to stay in step *before* anything is
+  // applied. Slower than that one (1.5s against 250ms) because a person
+  // ticking boxes is not a progress bar.
+  var draftTimer = setInterval(function () {
+    if (locked) { clearInterval(draftTimer); return; }
+    fetch("/status?token=" + TOKEN)
+      .then(function (r) { return r.json(); })
+      .then(function (s) { if (s.phase === "selecting") adopt(s); })
+      .catch(function () {});
+  }, 1500);
 
   function go(n) {
     if (n < 1 || n > 6 || n > unlocked) return;
@@ -1466,7 +1485,7 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
   // who was late and hands them the current state instead of accepting a
   // stale copy. (No backticks in here: this whole script is a template
   // literal, and one would end it.)
-  var rev = 0, pushing = false;
+  var rev = 0, pushing = false, adopting = false;
   function publish(patch) {
     if (pushing) return; pushing = true;
     fetch("/select?token=" + TOKEN, { method: "POST",
@@ -1478,6 +1497,9 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
       .then(function () { pushing = false; });
   }
   function publishDraft(step) {
+    // Applying someone else's change must not be republished as if it were
+    // ours: that bumps rev for no reason and can bounce between surfaces.
+    if (adopting) return;
     var c = chosenClient();
     publish({ step: step, draft: {
       clients: c ? [c.value] : [],
@@ -1490,6 +1512,8 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
   function adopt(s) {
     if (typeof s.rev !== "number" || s.rev === rev || !s.draft) return;
     rev = s.rev;
+    adopting = true;
+    try {
     var d = s.draft;
     if (d.clients && d.clients[0]) {
       var el = $('input[name="client"][value="' + d.clients[0] + '"]');
@@ -1508,7 +1532,21 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
       syncCaps();
     }
     if (s.currentStep && s.currentStep > current && s.currentStep <= unlocked) go(s.currentStep);
+    } finally { adopting = false; }
   }
+
+  // While choosing, watch the shared draft so a choice made in the terminal
+  // appears here. The run-progress poll below only starts after /apply, which
+  // is far too late: the whole point is to stay in step *before* anything is
+  // applied. Slower than that one (1.5s against 250ms) because a person
+  // ticking boxes is not a progress bar.
+  var draftTimer = setInterval(function () {
+    if (locked) { clearInterval(draftTimer); return; }
+    fetch("/status?token=" + TOKEN)
+      .then(function (r) { return r.json(); })
+      .then(function (s) { if (s.phase === "selecting") adopt(s); })
+      .catch(function () {});
+  }, 1500);
 
   function go(n) {
     if (n < 1 || n > 6 || n > unlocked) return;
@@ -2429,7 +2467,7 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
   // who was late and hands them the current state instead of accepting a
   // stale copy. (No backticks in here: this whole script is a template
   // literal, and one would end it.)
-  var rev = 0, pushing = false;
+  var rev = 0, pushing = false, adopting = false;
   function publish(patch) {
     if (pushing) return; pushing = true;
     fetch("/select?token=" + TOKEN, { method: "POST",
@@ -2441,6 +2479,9 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
       .then(function () { pushing = false; });
   }
   function publishDraft(step) {
+    // Applying someone else's change must not be republished as if it were
+    // ours: that bumps rev for no reason and can bounce between surfaces.
+    if (adopting) return;
     var c = chosenClient();
     publish({ step: step, draft: {
       clients: c ? [c.value] : [],
@@ -2453,6 +2494,8 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
   function adopt(s) {
     if (typeof s.rev !== "number" || s.rev === rev || !s.draft) return;
     rev = s.rev;
+    adopting = true;
+    try {
     var d = s.draft;
     if (d.clients && d.clients[0]) {
       var el = $('input[name="client"][value="' + d.clients[0] + '"]');
@@ -2471,7 +2514,21 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
       syncCaps();
     }
     if (s.currentStep && s.currentStep > current && s.currentStep <= unlocked) go(s.currentStep);
+    } finally { adopting = false; }
   }
+
+  // While choosing, watch the shared draft so a choice made in the terminal
+  // appears here. The run-progress poll below only starts after /apply, which
+  // is far too late: the whole point is to stay in step *before* anything is
+  // applied. Slower than that one (1.5s against 250ms) because a person
+  // ticking boxes is not a progress bar.
+  var draftTimer = setInterval(function () {
+    if (locked) { clearInterval(draftTimer); return; }
+    fetch("/status?token=" + TOKEN)
+      .then(function (r) { return r.json(); })
+      .then(function (s) { if (s.phase === "selecting") adopt(s); })
+      .catch(function () {});
+  }, 1500);
 
   function go(n) {
     if (n < 1 || n > 6 || n > unlocked) return;
@@ -3404,7 +3461,7 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
   // who was late and hands them the current state instead of accepting a
   // stale copy. (No backticks in here: this whole script is a template
   // literal, and one would end it.)
-  var rev = 0, pushing = false;
+  var rev = 0, pushing = false, adopting = false;
   function publish(patch) {
     if (pushing) return; pushing = true;
     fetch("/select?token=" + TOKEN, { method: "POST",
@@ -3416,6 +3473,9 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
       .then(function () { pushing = false; });
   }
   function publishDraft(step) {
+    // Applying someone else's change must not be republished as if it were
+    // ours: that bumps rev for no reason and can bounce between surfaces.
+    if (adopting) return;
     var c = chosenClient();
     publish({ step: step, draft: {
       clients: c ? [c.value] : [],
@@ -3428,6 +3488,8 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
   function adopt(s) {
     if (typeof s.rev !== "number" || s.rev === rev || !s.draft) return;
     rev = s.rev;
+    adopting = true;
+    try {
     var d = s.draft;
     if (d.clients && d.clients[0]) {
       var el = $('input[name="client"][value="' + d.clients[0] + '"]');
@@ -3446,7 +3508,21 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
       syncCaps();
     }
     if (s.currentStep && s.currentStep > current && s.currentStep <= unlocked) go(s.currentStep);
+    } finally { adopting = false; }
   }
+
+  // While choosing, watch the shared draft so a choice made in the terminal
+  // appears here. The run-progress poll below only starts after /apply, which
+  // is far too late: the whole point is to stay in step *before* anything is
+  // applied. Slower than that one (1.5s against 250ms) because a person
+  // ticking boxes is not a progress bar.
+  var draftTimer = setInterval(function () {
+    if (locked) { clearInterval(draftTimer); return; }
+    fetch("/status?token=" + TOKEN)
+      .then(function (r) { return r.json(); })
+      .then(function (s) { if (s.phase === "selecting") adopt(s); })
+      .catch(function () {});
+  }, 1500);
 
   function go(n) {
     if (n < 1 || n > 6 || n > unlocked) return;
@@ -4379,7 +4455,7 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
   // who was late and hands them the current state instead of accepting a
   // stale copy. (No backticks in here: this whole script is a template
   // literal, and one would end it.)
-  var rev = 0, pushing = false;
+  var rev = 0, pushing = false, adopting = false;
   function publish(patch) {
     if (pushing) return; pushing = true;
     fetch("/select?token=" + TOKEN, { method: "POST",
@@ -4391,6 +4467,9 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
       .then(function () { pushing = false; });
   }
   function publishDraft(step) {
+    // Applying someone else's change must not be republished as if it were
+    // ours: that bumps rev for no reason and can bounce between surfaces.
+    if (adopting) return;
     var c = chosenClient();
     publish({ step: step, draft: {
       clients: c ? [c.value] : [],
@@ -4403,6 +4482,8 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
   function adopt(s) {
     if (typeof s.rev !== "number" || s.rev === rev || !s.draft) return;
     rev = s.rev;
+    adopting = true;
+    try {
     var d = s.draft;
     if (d.clients && d.clients[0]) {
       var el = $('input[name="client"][value="' + d.clients[0] + '"]');
@@ -4421,7 +4502,21 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
       syncCaps();
     }
     if (s.currentStep && s.currentStep > current && s.currentStep <= unlocked) go(s.currentStep);
+    } finally { adopting = false; }
   }
+
+  // While choosing, watch the shared draft so a choice made in the terminal
+  // appears here. The run-progress poll below only starts after /apply, which
+  // is far too late: the whole point is to stay in step *before* anything is
+  // applied. Slower than that one (1.5s against 250ms) because a person
+  // ticking boxes is not a progress bar.
+  var draftTimer = setInterval(function () {
+    if (locked) { clearInterval(draftTimer); return; }
+    fetch("/status?token=" + TOKEN)
+      .then(function (r) { return r.json(); })
+      .then(function (s) { if (s.phase === "selecting") adopt(s); })
+      .catch(function () {});
+  }, 1500);
 
   function go(n) {
     if (n < 1 || n > 6 || n > unlocked) return;
