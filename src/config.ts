@@ -49,6 +49,9 @@ const config = new Conf({
     defaultModel: { type: "string", default: "gpt-4.1-mini" },
     baseUrl: { type: "string", default: "https://api.aisa.one/v1" },
     outputFormat: { type: "string", default: "text" },
+    // Set by --lang or the page's picker; read by both renderers so they
+    // never end up in different languages.
+    lang: { type: "string", default: "" },
     twitterCookies: { type: "string", default: "" },
     twitterProxy: { type: "string", default: "" },
   },

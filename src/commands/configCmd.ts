@@ -3,7 +3,7 @@ import { getConfig, setConfig, listConfig, resetConfig } from "../config.js";
 import { success, info, hint } from "../utils/display.js";
 import { resolveBases } from "../api.js";
 
-const VALID_KEYS = ["defaultModel", "baseUrl", "outputFormat", "twitterCookies", "twitterProxy"];
+const VALID_KEYS = ["defaultModel", "baseUrl", "outputFormat", "twitterCookies", "twitterProxy", "lang"];
 
 export function configSetAction(key: string, value: string): void {
   if (!VALID_KEYS.includes(key)) {

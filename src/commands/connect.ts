@@ -9,7 +9,7 @@ import chalk from "chalk";
 import { success, error, info, hint } from "../utils/display.js";
 import { expandHome } from "../utils/file.js";
 import { MCP_CONFIGS, MCP_DEFAULT_SLUGS, AISA_PROVIDER_ID } from "../constants.js";
-import { getApiKey } from "../config.js";
+import { getApiKey, getConfig } from "../config.js";
 import { fetchLiveServers, writeClientConfig, buildEntry, stripped, type LiveServer } from "./mcp.js";
 import { INSTALLERS, installAgent, isInstalled, supported } from "./install.js";
 import {
@@ -30,6 +30,7 @@ import { apiRequest } from "../api.js";
 import { run, runSync, QUICK_TIMEOUT_MS } from "../utils/exec.js";
 import { Journal } from "../utils/journal.js";
 import { checkForUpdate } from "../utils/update-check.js";
+import { resolveLang } from "./flow.js";
 import { VERSION } from "../constants.js";
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -2012,8 +2013,13 @@ export async function connectAction(options: {
   dryRun?: boolean;
   template?: string;
   force?: boolean;
+  lang?: string;
 }): Promise<void> {
   const template = resolveTemplate(options.template);
+  // One language for both surfaces. Reading it here rather than in the page
+  // is the point: a language the browser chose alone would leave the terminal
+  // in English while the page is in Chinese.
+  const lang = resolveLang(options.lang, getConfig("lang") as string | undefined);
 
   // One run at a time. A second one would serve a second page against the
   // same machine — two plans writing the same config files — so point the
@@ -2078,7 +2084,7 @@ export async function connectAction(options: {
   const token = randomBytes(16).toString("hex");
   const page =
     template === "t2"
-      ? renderT2Page(servers, clients, token, Boolean(key), supported(), "start")
+      ? renderT2Page(servers, clients, token, Boolean(key), supported(), "start", lang)
       : renderPage(servers, clients, token, Boolean(key), supported());
 
   const state: RunState = { phase: "selecting", results: [], auth: {}, steps: [] };
@@ -2129,7 +2135,7 @@ export async function connectAction(options: {
       // dedicated success page.
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(
         template === "t2"
-          ? renderT2Page(servers, clients, token, Boolean(key), supported(), "done")
+          ? renderT2Page(servers, clients, token, Boolean(key), supported(), "done", lang)
           : renderDone(chosenServers, chosenClients, state.steps, servers, state.balanceMicros ?? null, state.llmMode)
       );
       return;
