@@ -10,7 +10,7 @@ import { defaultModelsFor } from "./llm-config.js";
 
 import type { LiveServer } from "./mcp.js";
 import { httpFetch } from "../utils/http.js";
-import { pick, interactive, type Choice } from "./prompt.js";
+import { pick, interactive, restoreTerminal, type Choice } from "./prompt.js";
 
 /** A client as the flow sees it: detection plus whether we could install it. */
 export interface FlowClient extends ClientInfo {
@@ -69,6 +69,32 @@ function header(n: number, lang: Lang): string {
   const step = STEP_TITLES.find((s) => s.n === n)!;
   const title = `${n}/6  ${t(step.title, lang)}`;
   return `\n${bold.cyan("┌─ " + title)} ${dim("· " + t(step.sub, lang))}`;
+}
+
+/**
+ * Ask for a line, on an interface that exists only for this question.
+ *
+ * A readline kept open across the whole flow does not survive the arrow-key
+ * pickers beside it: those put stdin in raw mode, and the interface that was
+ * listening before is left attached to a stdin whose mode changed underneath
+ * it. The result was a prompt that echoed nothing and accepted nothing, with
+ * no way out but killing the terminal.
+ *
+ * One question, one interface, closed before anything else touches stdin.
+ */
+async function askLine(prompt: string): Promise<string> {
+  // Cooked mode first: a picker may have just been open, and readline on a raw
+  // stdin accepts nothing.
+  restoreTerminal();
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return (await rl.question(prompt)).trim();
+  } finally {
+    rl.close();
+    // Whatever happened, the terminal goes back cooked. A flow that threw
+    // while a picker was open used to leave it raw.
+    restoreTerminal();
+  }
 }
 
 /** Strip the markup the page needs and the terminal cannot show. */
@@ -152,7 +178,6 @@ type Answer =
  * the same interface after the page wins, so each step reads at most once.
  */
 async function askOrWatch(
-  rl: readline.Interface,
   o: TerminalFlowOptions,
   count: number,
   fallback: number,
@@ -165,7 +190,7 @@ async function askOrWatch(
 
   const typed = (async (): Promise<Answer> => {
     for (;;) {
-      const answer = (await rl.question(bold.cyan("│  > "))).trim();
+      const answer = await askLine(bold.cyan("│  > "));
       if (stop) return { by: "user", index: fallback };
       if (answer === "") return { by: "user", index: fallback };
       const n = Number(answer);
@@ -292,7 +317,6 @@ async function pull(
 export async function runTerminalFlow(
   o: TerminalFlowOptions
 ): Promise<Selection | undefined> {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   let rev = 0;
   const draft: Selection = { servers: [], clients: [], install: [], llmMode: "backup" };
 
@@ -348,7 +372,7 @@ export async function runTerminalFlow(
           false, [preferred],
           o.lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
           (d) => Boolean(d.clients[0]) && d.clients[0] !== draft.clients[0])
-      : await askOrWatch(rl, o, shown.length, preferred, rev, 2,
+      : await askOrWatch(o, shown.length, preferred, rev, 2,
           (d) => Boolean(d.clients[0]) && d.clients[0] !== draft.clients[0]);
     let client: FlowClient;
     if (a1.by === "page") {
@@ -400,7 +424,7 @@ export async function runTerminalFlow(
           false, [0],
           o.lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
           (d) => Boolean(d.llmMode) && d.llmMode !== draft.llmMode)
-      : await askOrWatch(rl, o, modes.length, 0, rev, 3,
+      : await askOrWatch(o, modes.length, 0, rev, 3,
           (d) => Boolean(d.llmMode) && d.llmMode !== draft.llmMode);
     let mode = modes[0];
     if (a2.by === "page") {
@@ -460,7 +484,7 @@ export async function runTerminalFlow(
         ? "输入编号切换选中(空格分隔),直接回车确认。"
         : "Type numbers to toggle (space-separated), or press enter to confirm.");
       for (;;) {
-        const answer = (await rl.question(bold.cyan("│  > "))).trim();
+        const answer = await askLine(bold.cyan("│  > "));
         if (answer === "") break;
         for (const tok of answer.split(/[\s,]+/)) {
           const n = Number(tok);
@@ -498,7 +522,7 @@ export async function runTerminalFlow(
     console.log(dim("│"));
     say(t(CONFIRM.ask, o.lang));
     for (;;) {
-      const said = (await rl.question(bold.cyan("│  > "))).trim().toLowerCase();
+      const said = (await askLine(bold.cyan("│  > "))).toLowerCase();
       if (["ok", "yes", "y", "是", "好"].includes(said)) break;
       if (["n", "no", "否"].includes(said)) {
         console.log(dim("└─ ") + chalk.yellow(t(CONFIRM.cancelled, o.lang)));
@@ -512,6 +536,8 @@ export async function runTerminalFlow(
 
     return draft;
   } finally {
-    rl.close();
+    // Whatever happened, the terminal goes back cooked. A flow that threw
+    // while a picker was open used to leave it raw.
+    restoreTerminal();
   }
 }

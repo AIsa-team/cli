@@ -24,6 +24,53 @@ import chalk from "chalk";
  * viewport is sized against the window and long labels are cut, not wrapped.
  */
 
+/**
+ * Raw mode, and getting out of it.
+ *
+ * A process that exits while the terminal is raw leaves the user with no echo
+ * and no line editing — a shell that looks hung and is usually fixed by
+ * closing the window. That happened, so leaving it is not left to the happy
+ * path: the handlers below run on every way out, including a crash.
+ */
+let rawDepth = 0;
+let handlersInstalled = false;
+
+function leaveRaw(): void {
+  if (rawDepth === 0) return;
+  rawDepth = 0;
+  try {
+    if (process.stdin.isTTY) process.stdin.setRawMode(false);
+    process.stdin.resume();
+  } catch {
+    /* the terminal is going away anyway */
+  }
+}
+
+function enterRaw(): void {
+  if (!handlersInstalled) {
+    handlersInstalled = true;
+    process.on("exit", leaveRaw);
+    for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
+      process.on(sig, () => {
+        leaveRaw();
+        process.exit(130);
+      });
+    }
+    process.on("uncaughtException", (e) => {
+      leaveRaw();
+      throw e;
+    });
+  }
+  rawDepth++;
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+}
+
+/** Put the terminal back the way a shell expects it. Safe to call twice. */
+export function restoreTerminal(): void {
+  leaveRaw();
+}
+
 /** Can this terminal deliver arrow keys? */
 export function interactive(): boolean {
   return Boolean(process.stdin.isTTY && process.stdout.isTTY);
@@ -151,10 +198,8 @@ export async function pick<T>(opts: {
   };
 
   const stdin = process.stdin;
-  const wasRaw = stdin.isRaw;
-  stdin.setRawMode(true);
-  stdin.resume();
   stdin.setEncoding("utf8");
+  enterRaw();
 
   draw();
 
@@ -164,8 +209,12 @@ export async function pick<T>(opts: {
       if (done) return;
       done = true;
       stdin.off("data", onData);
-      stdin.setRawMode(Boolean(wasRaw));
-      stdin.pause();
+      // Hand the terminal back the way a shell expects it: cooked, flowing,
+      // no listener of ours left on it. Restoring the previous mode and
+      // pausing was wrong on both counts — the next readline prompt got a
+      // stdin that was still raw and no longer flowing, so nothing echoed and
+      // nothing was accepted, and the terminal had to be killed to recover.
+      leaveRaw();
       resolve(r);
     };
 
