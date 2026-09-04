@@ -31,7 +31,7 @@ import { run, runSync, QUICK_TIMEOUT_MS } from "../utils/exec.js";
 import { httpFetch } from "../utils/http.js";
 import { Journal } from "../utils/journal.js";
 import { checkForUpdate } from "../utils/update-check.js";
-import { resolveLang, LANGS, type Lang } from "./flow.js";
+import { resolveLang, LANGS, LAUNCH, t, type Lang } from "./flow.js";
 import { VERSION } from "../constants.js";
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -46,6 +46,7 @@ import {
 } from "./connect-shared.js";
 import { renderT2Page } from "./connect-t2.js";
 import { runTerminalFlow, flowClients } from "./connect-terminal.js";
+import { pick, type Choice } from "./prompt.js";
 
 /**
  * Page templates. T1 is the original two-page flow (selection + live
@@ -1894,29 +1895,33 @@ function looksLikeARealSession(code: number | null, ranForMs: number): boolean {
 async function offerLaunch(
   log: Journal,
   clientId: string,
-  llmMode: LlmMode
+  llmMode: LlmMode,
+  lang: Lang
 ): Promise<boolean> {
   const choices = launchChoices(clientId, llmMode);
   if (choices.length === 0 || !process.stdin.isTTY || !process.stdout.isTTY) return false;
 
+  // Arrow keys, like every other choice in this flow. Typing a number here
+  // while the six steps before it were driven with arrows is a change of
+  // input method at the last screen, and it did not reliably take the number
+  // anyway.
   console.log();
-  console.log(chalk.bold("What would you like to do now?"));
-  choices.forEach((c, i) => {
-    console.log(`  ${chalk.bold.cyan(String(i + 1))}) ${chalk.bold(c.cmd.padEnd(14))} ${chalk.gray(c.desc)}`);
+  console.log(chalk.bold(t(LAUNCH.question, lang)));
+  const rows: Choice[] = [
+    ...choices.map((c) => ({ label: chalk.bold(c.cmd), meta: c.desc })),
+    { label: chalk.bold(t(LAUNCH.exit, lang)), meta: t(LAUNCH.exitNote, lang) },
+  ];
+  const result = await pick<never>({
+    title: "",
+    choices: rows,
+    multi: false,
+    initial: [0],
+    hint: lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
   });
-  const exitNum = choices.length + 1;
-  console.log(
-    `  ${chalk.bold.cyan(String(exitNum))}) ${chalk.bold("Exit".padEnd(14))} ` +
-      `${chalk.gray("leave this terminal — the results page keeps working")}`
-  );
-
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await new Promise<string>((resolve) => rl.question("  > ", resolve));
-  rl.close();
-
-  const picked = choices[Number.parseInt(answer.trim(), 10) - 1];
+  const idx = result.aborted ? rows.length - 1 : (result.picked?.[0] ?? rows.length - 1);
+  const picked = choices[idx];
   if (!picked) {
-    log.record(`asked what to run next — ${answer.trim() ? `"${answer.trim()}" was not an option` : "no choice"}, exiting`);
+    log.record("asked what to run next — chose to exit");
     return false;
   }
   log.record(`asked what to run next — chose ${picked.cmd}`);
@@ -2433,7 +2438,7 @@ export async function connectAction(options: {
             ...(primary ? [{ cmd: primary.cmd, why: primary.desc }] : []),
             { cmd: "aisa connect", why: "run this any time — configure servers, switch models, connect another agent" },
           ]);
-          const usedAgent = await offerLaunch(log, chosenClients[0], llmMode);
+          const usedAgent = await offerLaunch(log, chosenClients[0], llmMode, lang);
           if (usedAgent) {
             // They were just inside a real agent session — that is the
             // strongest possible "done" signal. Hand the terminal straight

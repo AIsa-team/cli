@@ -242,13 +242,15 @@ async function pickOrWatch(
     multi,
     initial,
     hint,
-    watch: async () => {
-      for (;;) {
+    watch: async (signal) => {
+      while (!signal.aborted) {
         await new Promise((x) => setTimeout(x, 900));
+        if (signal.aborted) return undefined;
         const s = await pull(o);
         if (!s || s.rev === seenRev || !s.draft) continue;
         if (changed(s.draft) || (s.currentStep ?? 0) > step) return s.draft;
       }
+      return undefined;
     },
   });
   if (r.interrupted) return { by: "page", draft: r.interrupted };
@@ -330,6 +332,9 @@ export async function runTerminalFlow(
   }
 
   try {
+    // Steps 2–5 are one loop, because "n" at the confirmation means go back
+    // and change something — not abandon the run. Answering no used to end
+    // the process, which is the opposite of what the word offers.
     // ── step 1: welcome ──
     // The page opens on this and the terminal used to skip straight past it,
     // which left the one surface that cannot be scrolled back through with no
@@ -347,192 +352,220 @@ export async function runTerminalFlow(
     }
     console.log(dim("└─"));
 
-    // ── step 2: your agent ──
-    console.log(header(2, o.lang));
-    say(t(STEP_AGENT.question, o.lang));
-    console.log(dim("│"));
-    const shown = o.clients
-      .filter((c) => c.detected || c.installable)
-      .sort((a, b) => agentRank(a.id) - agentRank(b.id));
-    if (shown.length === 0) return undefined;
-    shown.forEach((c, i) => {
-      const badge = c.detected
-        ? chalk.green(t(AGENT_BADGE.detected, o.lang))
-        : chalk.yellow(t(AGENT_BADGE.absent, o.lang));
-      console.log(`${dim("│")}   ${bold(String(i + 1) + ")")} ${c.label.padEnd(16)} ${badge}  ${dim(c.detail ?? "")}`);
-    });
-    console.log(dim("│"));
-    const preferred = Math.max(0, shown.findIndex((c) => draft.clients[0] === c.id));
-    const a1 = interactive()
-      ? await pickOrWatch(o, rev, 2,
-          shown.map((c) => ({
-            label: c.label,
-            meta: c.detected ? t(AGENT_BADGE.detected, o.lang) : t(AGENT_BADGE.absent, o.lang),
-          })),
-          false, [preferred],
-          o.lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
-          (d) => Boolean(d.clients[0]) && d.clients[0] !== draft.clients[0])
-      : await askOrWatch(o, shown.length, preferred, rev, 2,
-          (d) => Boolean(d.clients[0]) && d.clients[0] !== draft.clients[0]);
-    let client: FlowClient;
-    if (a1.by === "page") {
-      // Answered in the browser. Say so rather than redrawing silently —
-      // seeing why the prompt moved on is the whole point.
-      client = shown.find((c) => c.id === a1.draft.clients[0]) ?? shown[preferred];
-      Object.assign(draft, a1.draft);
-      const s = await pull(o); if (s) rev = s.rev;
-      console.log("\n" + dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 已在页面中选择" : "↩ chosen in the page"));
-    } else {
-      client = shown[a1.index];
-    }
-    draft.clients = [client.id];
-    draft.install = client.detected ? [] : [client.id];
-    console.log(dim("└─ ") + chalk.green(client.label) + " ✓");
-    if (AGENT_NOTES[client.id]) say(t(AGENT_NOTES[client.id], o.lang), "   ");
-    ({ rev } = await push(o, rev, { step: 3, draft: { clients: draft.clients, install: draft.install } }));
-
-    // ── step 3: models ──
-    console.log(header(3, o.lang));
-    say(`${t(STEP_MODELS.h2Prefix, o.lang)}${client.label}${t(STEP_MODELS.h2Suffix, o.lang)}`);
-    console.log(dim("│"));
-    // The copy carries {model}; the page swaps in an element its script
-    // fills, and here the name goes straight in.
-    const modelName = defaultModelsFor(client.id).model;
-    const brief = (x: { en: string; zh: string }) =>
-      plain(t(x, o.lang)).split("{model}").join(modelName);
-    const modes: Array<{ id: LlmMode; label: string; brief: string }> = client.detected
-      ? [
-          { id: "backup", label: t(STEP_MODELS.backup.name, o.lang), brief: "" },
-          { id: "switch", label: t(STEP_MODELS.switchIt.name, o.lang), brief: brief(STEP_MODELS.switchIt.brief) },
-          { id: "skip", label: t(STEP_MODELS.notNow.name, o.lang), brief: brief(STEP_MODELS.notNow.briefDetected) },
-        ]
-      : [
-          { id: "switch", label: t(STEP_MODELS.freshSwitch.name, o.lang), brief: brief(STEP_MODELS.freshSwitch.brief) },
-          { id: "skip", label: t(STEP_MODELS.notNow.name, o.lang), brief: brief(STEP_MODELS.notNow.briefFresh) },
-        ];
-    modes.forEach((m, i) => {
-      const rec = i === 0 ? dim(` (${t(STEP_MODELS.recommended, o.lang)})`) : "";
-      console.log(`${dim("│")}   ${bold(String(i + 1) + ")")} ${m.label}${rec}`);
-      if (m.brief) for (const l of wrap(m.brief, 68)) console.log(dim("│      ") + dim(l));
-    });
-    console.log(dim("│"));
-    const a2 = interactive()
-      ? await pickOrWatch(o, rev, 3,
-          modes.map((m, i) => ({
-            label: m.label + (i === 0 ? dim(` (${t(STEP_MODELS.recommended, o.lang)})`) : ""),
-          })),
-          false, [0],
-          o.lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
-          (d) => Boolean(d.llmMode) && d.llmMode !== draft.llmMode)
-      : await askOrWatch(o, modes.length, 0, rev, 3,
-          (d) => Boolean(d.llmMode) && d.llmMode !== draft.llmMode);
-    let mode = modes[0];
-    if (a2.by === "page") {
-      mode = modes.find((m) => m.id === a2.draft.llmMode) ?? modes[0];
-      Object.assign(draft, a2.draft);
-      const s = await pull(o); if (s) rev = s.rev;
-      console.log("\n" + dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 已在页面中选择" : "↩ chosen in the page"));
-    } else {
-      mode = modes[a2.index];
-    }
-    draft.llmMode = mode.id;
-    console.log(dim("└─ ") + chalk.green(mode.label) + " ✓");
-    ({ rev } = await push(o, rev, { step: 4, draft: { llmMode: draft.llmMode } }));
-
-    // ── step 4: capabilities ──
-    console.log(header(4, o.lang));
-    const totalTools = o.servers.reduce((n, s) => n + s.toolCount, 0);
-    const cats = [...new Set(o.servers.map((s) => s.category))];
-    say(fill(STEP_CAPS.counts, o.lang, {
-      areas: cats.length, servers: o.servers.length, tools: totalTools,
-    }));
-    console.log(dim("│"));
-    // Pull once more: the capability list is long, and a page open beside
-    // this one is the likelier place to have ticked through it.
-    const fresh = await pull(o);
-    if (fresh?.draft?.servers?.length) draft.servers = fresh.draft.servers;
-    if (fresh) rev = fresh.rev;
-    const chosen = new Set(draft.servers);
-    if (interactive()) {
-      const initial = o.servers.map((s, i) => (chosen.has(s.slug) ? i : -1)).filter((i) => i >= 0);
-      const a3 = await pickOrWatch(o, rev, 4,
-        o.servers.map((s) => ({
-          label: s.slug,
-          meta: `${s.toolCount} ${t(STEP_CAPS.toolsWord, o.lang)}`,
-        })),
-        true, initial,
-        o.lang === "zh"
-          ? "↑↓ 移动 · 空格勾选 · a 全选/全不选 · 回车确认"
-          : "↑↓ move · space to tick · a for all · enter to confirm",
-        (d) => (d.servers ?? []).join(",") !== [...chosen].join(","));
-      if (a3.by === "page") {
-        chosen.clear();
-        for (const slug of a3.draft.servers ?? []) chosen.add(slug);
-        const s2 = await pull(o); if (s2) rev = s2.rev;
-        console.log("\n" + dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 已在页面中选择" : "↩ chosen in the page"));
-      } else {
-        chosen.clear();
-        for (const i of a3.picked ?? []) chosen.add(o.servers[i].slug);
-      }
-    } else {
-      o.servers.forEach((s, i) => {
-        const mark = chosen.has(s.slug) ? chalk.green("[x]") : dim("[ ]");
-        console.log(`${dim("│")}  ${mark} ${bold(String(i + 1).padStart(2))}) ${s.slug.padEnd(24)} ${dim(String(s.toolCount) + " " + t(STEP_CAPS.toolsWord, o.lang))}`);
+    // Steps 2 through the confirmation, repeatable: answering n at the end
+    // brings you back here with what you chose still in hand.
+    let confirmed: "go" | "again" = "again";
+    for (;;) {
+      // ── step 2: your agent ──
+      console.log(header(2, o.lang));
+      say(t(STEP_AGENT.question, o.lang));
+      console.log(dim("│"));
+      const shown = o.clients
+        .filter((c) => c.detected || c.installable)
+        .sort((a, b) => agentRank(a.id) - agentRank(b.id));
+      if (shown.length === 0) return undefined;
+      shown.forEach((c, i) => {
+        const badge = c.detected
+          ? chalk.green(t(AGENT_BADGE.detected, o.lang))
+          : chalk.yellow(t(AGENT_BADGE.absent, o.lang));
+        console.log(`${dim("│")}   ${bold(String(i + 1) + ")")} ${c.label.padEnd(16)} ${badge}  ${dim(c.detail ?? "")}`);
       });
       console.log(dim("│"));
-      say(o.lang === "zh"
-        ? "输入编号切换选中(空格分隔),直接回车确认。"
-        : "Type numbers to toggle (space-separated), or press enter to confirm.");
-      for (;;) {
-        const answer = await askLine(bold.cyan("│  > "));
-        if (answer === "") break;
-        for (const tok of answer.split(/[\s,]+/)) {
-          const n = Number(tok);
-          if (!Number.isInteger(n) || n < 1 || n > o.servers.length) continue;
-          const slug = o.servers[n - 1].slug;
-          if (chosen.has(slug)) chosen.delete(slug);
-          else chosen.add(slug);
-        }
-        console.log(dim("│  ") + chalk.green(`${chosen.size} selected: `) + dim([...chosen].join(", ")));
-        ({ rev } = await push(o, rev, { draft: { servers: [...chosen] } }));
+      const preferred = Math.max(0, shown.findIndex((c) => draft.clients[0] === c.id));
+      const a1 = interactive()
+        ? await pickOrWatch(o, rev, 2,
+            shown.map((c) => ({
+              label: c.label,
+              meta: c.detected ? t(AGENT_BADGE.detected, o.lang) : t(AGENT_BADGE.absent, o.lang),
+            })),
+            false, [preferred],
+            o.lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
+            (d) => Boolean(d.clients[0]) && d.clients[0] !== draft.clients[0])
+        : await askOrWatch(o, shown.length, preferred, rev, 2,
+            (d) => Boolean(d.clients[0]) && d.clients[0] !== draft.clients[0]);
+      let client: FlowClient;
+      if (a1.by === "page") {
+        // Answered in the browser. Say so rather than redrawing silently —
+        // seeing why the prompt moved on is the whole point.
+        client = shown.find((c) => c.id === a1.draft.clients[0]) ?? shown[preferred];
+        Object.assign(draft, a1.draft);
+        const s = await pull(o); if (s) rev = s.rev;
+        console.log("\n" + dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 已在页面中选择" : "↩ chosen in the page"));
+      } else {
+        client = shown[a1.index];
       }
-    }
-    draft.servers = [...chosen];
-    if (draft.servers.length === 0) {
-      console.log(dim("└─ ") + chalk.yellow(o.lang === "zh" ? "至少选一个" : "Pick at least one"));
-      return undefined;
-    }
-    console.log(dim("└─ ") + chalk.green(`${draft.servers.length} ✓`));
-    // Publish the choice but NOT the step: arriving at step 5 is what makes
-    // the page start the run by itself, and the user has not confirmed yet.
-    // Announcing the step here applied everything without being asked.
-    ({ rev } = await push(o, rev, { draft: { servers: draft.servers } }));
+      draft.clients = [client.id];
+      draft.install = client.detected ? [] : [client.id];
+      console.log(dim("└─ ") + chalk.green(client.label) + " ✓");
+      if (AGENT_NOTES[client.id]) say(t(AGENT_NOTES[client.id], o.lang), "   ");
+      ({ rev } = await push(o, rev, { step: 3, draft: { clients: draft.clients, install: draft.install } }));
 
-    // ── step 5: confirm ──
-    // Everything above was browsing and could be undone by closing the
-    // window. This is where the machine changes, so it asks for a word rather
-    // than a keystroke — enter alone is too easy to hit on the way past.
-    console.log(header(5, o.lang));
-    say(t(CONFIRM.heading, o.lang));
-    console.log(dim("│"));
-    const modeLabel = modes.find((m) => m.id === draft.llmMode)?.label ?? draft.llmMode;
-    console.log(`${dim("│")}   ${t(CONFIRM.agent, o.lang)}: ${chalk.bold(client.label)}`);
-    console.log(`${dim("│")}   ${t(CONFIRM.models, o.lang)}: ${chalk.bold(modeLabel)}`);
-    console.log(`${dim("│")}   ${t(CONFIRM.capabilities, o.lang)}: ${chalk.bold(String(draft.servers.length))}  ${dim(draft.servers.join(", "))}`);
-    console.log(dim("│"));
-    say(t(CONFIRM.ask, o.lang));
-    for (;;) {
-      const said = (await askLine(bold.cyan("│  > "))).toLowerCase();
-      if (["ok", "yes", "y", "是", "好"].includes(said)) break;
-      if (["n", "no", "否"].includes(said)) {
-        console.log(dim("└─ ") + chalk.yellow(t(CONFIRM.cancelled, o.lang)));
+      // ── step 3: models ──
+      console.log(header(3, o.lang));
+      say(`${t(STEP_MODELS.h2Prefix, o.lang)}${client.label}${t(STEP_MODELS.h2Suffix, o.lang)}`);
+      console.log(dim("│"));
+      // The copy carries {model}; the page swaps in an element its script
+      // fills, and here the name goes straight in.
+      const modelName = defaultModelsFor(client.id).model;
+      const brief = (x: { en: string; zh: string }) =>
+        plain(t(x, o.lang)).split("{model}").join(modelName);
+      const modes: Array<{ id: LlmMode; label: string; brief: string }> = client.detected
+        ? [
+            { id: "backup", label: t(STEP_MODELS.backup.name, o.lang), brief: "" },
+            { id: "switch", label: t(STEP_MODELS.switchIt.name, o.lang), brief: brief(STEP_MODELS.switchIt.brief) },
+            { id: "skip", label: t(STEP_MODELS.notNow.name, o.lang), brief: brief(STEP_MODELS.notNow.briefDetected) },
+          ]
+        : [
+            { id: "switch", label: t(STEP_MODELS.freshSwitch.name, o.lang), brief: brief(STEP_MODELS.freshSwitch.brief) },
+            { id: "skip", label: t(STEP_MODELS.notNow.name, o.lang), brief: brief(STEP_MODELS.notNow.briefFresh) },
+          ];
+      modes.forEach((m, i) => {
+        const rec = i === 0 ? dim(` (${t(STEP_MODELS.recommended, o.lang)})`) : "";
+        console.log(`${dim("│")}   ${bold(String(i + 1) + ")")} ${m.label}${rec}`);
+        if (m.brief) for (const l of wrap(m.brief, 68)) console.log(dim("│      ") + dim(l));
+      });
+      console.log(dim("│"));
+      const a2 = interactive()
+        ? await pickOrWatch(o, rev, 3,
+            modes.map((m, i) => ({
+              label: m.label + (i === 0 ? dim(` (${t(STEP_MODELS.recommended, o.lang)})`) : ""),
+            })),
+            false, [0],
+            o.lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
+            (d) => Boolean(d.llmMode) && d.llmMode !== draft.llmMode)
+        : await askOrWatch(o, modes.length, 0, rev, 3,
+            (d) => Boolean(d.llmMode) && d.llmMode !== draft.llmMode);
+      let mode = modes[0];
+      if (a2.by === "page") {
+        mode = modes.find((m) => m.id === a2.draft.llmMode) ?? modes[0];
+        Object.assign(draft, a2.draft);
+        const s = await pull(o); if (s) rev = s.rev;
+        console.log("\n" + dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 已在页面中选择" : "↩ chosen in the page"));
+      } else {
+        mode = modes[a2.index];
+      }
+      draft.llmMode = mode.id;
+      console.log(dim("└─ ") + chalk.green(mode.label) + " ✓");
+      ({ rev } = await push(o, rev, { step: 4, draft: { llmMode: draft.llmMode } }));
+
+      // ── step 4: capabilities ──
+      console.log(header(4, o.lang));
+      const totalTools = o.servers.reduce((n, s) => n + s.toolCount, 0);
+      const cats = [...new Set(o.servers.map((s) => s.category))];
+      say(fill(STEP_CAPS.counts, o.lang, {
+        areas: cats.length, servers: o.servers.length, tools: totalTools,
+      }));
+      console.log(dim("│"));
+      // Pull once more: the capability list is long, and a page open beside
+      // this one is the likelier place to have ticked through it.
+      const fresh = await pull(o);
+      if (fresh?.draft?.servers?.length) draft.servers = fresh.draft.servers;
+      if (fresh) rev = fresh.rev;
+      const chosen = new Set(draft.servers);
+      if (interactive()) {
+        const initial = o.servers.map((s, i) => (chosen.has(s.slug) ? i : -1)).filter((i) => i >= 0);
+        const a3 = await pickOrWatch(o, rev, 4,
+          o.servers.map((s) => ({
+            label: s.slug,
+            meta: `${s.toolCount} ${t(STEP_CAPS.toolsWord, o.lang)}`,
+          })),
+          true, initial,
+          o.lang === "zh"
+            ? "↑↓ 移动 · 空格勾选 · a 全选/全不选 · 回车确认"
+            : "↑↓ move · space to tick · a for all · enter to confirm",
+          (d) => (d.servers ?? []).join(",") !== [...chosen].join(","));
+        if (a3.by === "page") {
+          chosen.clear();
+          for (const slug of a3.draft.servers ?? []) chosen.add(slug);
+          const s2 = await pull(o); if (s2) rev = s2.rev;
+          console.log("\n" + dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 已在页面中选择" : "↩ chosen in the page"));
+        } else {
+          chosen.clear();
+          for (const i of a3.picked ?? []) chosen.add(o.servers[i].slug);
+        }
+      } else {
+        o.servers.forEach((s, i) => {
+          const mark = chosen.has(s.slug) ? chalk.green("[x]") : dim("[ ]");
+          console.log(`${dim("│")}  ${mark} ${bold(String(i + 1).padStart(2))}) ${s.slug.padEnd(24)} ${dim(String(s.toolCount) + " " + t(STEP_CAPS.toolsWord, o.lang))}`);
+        });
+        console.log(dim("│"));
+        say(o.lang === "zh"
+          ? "输入编号切换选中(空格分隔),直接回车确认。"
+          : "Type numbers to toggle (space-separated), or press enter to confirm.");
+        for (;;) {
+          const answer = await askLine(bold.cyan("│  > "));
+          if (answer === "") break;
+          for (const tok of answer.split(/[\s,]+/)) {
+            const n = Number(tok);
+            if (!Number.isInteger(n) || n < 1 || n > o.servers.length) continue;
+            const slug = o.servers[n - 1].slug;
+            if (chosen.has(slug)) chosen.delete(slug);
+            else chosen.add(slug);
+          }
+          console.log(dim("│  ") + chalk.green(`${chosen.size} selected: `) + dim([...chosen].join(", ")));
+          ({ rev } = await push(o, rev, { draft: { servers: [...chosen] } }));
+        }
+      }
+      draft.servers = [...chosen];
+      if (draft.servers.length === 0) {
+        console.log(dim("└─ ") + chalk.yellow(o.lang === "zh" ? "至少选一个" : "Pick at least one"));
         return undefined;
       }
-      console.log(dim("│  ") + chalk.yellow(t(CONFIRM.ask, o.lang)));
+      console.log(dim("└─ ") + chalk.green(`${draft.servers.length} ✓`));
+      // Publish the choice but NOT the step: arriving at step 5 is what makes
+      // the page start the run by itself, and the user has not confirmed yet.
+      // Announcing the step here applied everything without being asked.
+      ({ rev } = await push(o, rev, { draft: { servers: draft.servers } }));
+
+      // ── step 5: confirm ──
+      // Everything above was browsing and could be undone by closing the
+      // window. This is where the machine changes, so it asks for a word rather
+      // than a keystroke — enter alone is too easy to hit on the way past.
+      console.log(header(5, o.lang));
+      say(t(CONFIRM.heading, o.lang));
+      console.log(dim("│"));
+      const modeLabel = modes.find((m) => m.id === draft.llmMode)?.label ?? draft.llmMode;
+      console.log(`${dim("│")}   ${t(CONFIRM.agent, o.lang)}: ${chalk.bold(client.label)}`);
+      console.log(`${dim("│")}   ${t(CONFIRM.models, o.lang)}: ${chalk.bold(modeLabel)}`);
+      console.log(`${dim("│")}   ${t(CONFIRM.capabilities, o.lang)}: ${chalk.bold(String(draft.servers.length))}  ${dim(draft.servers.join(", "))}`);
+      console.log(dim("│"));
+      if (interactive()) {
+      const r = await pick<never>({
+        title: "",
+        choices: [
+          { label: chalk.bold(t(CONFIRM.goBack, o.lang)) },
+          { label: chalk.green.bold(t(CONFIRM.apply, o.lang)) },
+        ],
+        multi: false,
+        initial: [0],
+        hint: o.lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
+      });
+      confirmed = !r.aborted && r.picked?.[0] === 1 ? "go" : "again";
+      console.log(dim("└─ ") + (confirmed === "go"
+        ? chalk.green(t(CONFIRM.apply, o.lang) + " ✓")
+        : chalk.yellow(t(CONFIRM.backToEdit, o.lang))));
+    } else {
+      say(t(CONFIRM.ask, o.lang) + " — ok / n");
+      // Bounded, and empty means no. A closed pipe returns "" forever, and
+      // asking again each time printed the prompt down the screen until it
+      // ran into whatever came next. Three tries is a person mistyping; more
+      // than that is not a person.
+      let tries = 0;
+      for (;;) {
+        const said = (await askLine(bold.cyan("│  > "))).toLowerCase();
+        if (["ok", "yes", "y", "是", "好"].includes(said)) { confirmed = "go"; break; }
+        if (said === "" || ["n", "no", "否"].includes(said)) { confirmed = "again"; break; }
+        if (++tries >= 3) { confirmed = "again"; break; }
+        console.log(dim("│  ") + chalk.yellow("ok / n"));
+      }
+      console.log(dim("└─ ") + (confirmed === "go"
+        ? chalk.green("ok ✓")
+        : chalk.yellow(t(CONFIRM.backToEdit, o.lang))));
     }
-    console.log(dim("└─ ") + chalk.green("ok ✓"));
-    // Now the run may begin, and the page may show it.
-    await push(o, rev, { step: 5 });
+
+    if (confirmed === "again") continue;
+    break;
+    }
 
     return draft;
   } finally {

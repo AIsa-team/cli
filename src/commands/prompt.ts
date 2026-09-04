@@ -69,6 +69,25 @@ function enterRaw(): void {
 /** Put the terminal back the way a shell expects it. Safe to call twice. */
 export function restoreTerminal(): void {
   leaveRaw();
+  drain();
+}
+
+/**
+ * Throw away anything typed but not yet consumed.
+ *
+ * Switching between raw mode and readline leaves whatever was in flight for
+ * the other reader: the return that confirmed a picker arrived at the next
+ * readline as an empty line, which re-asked, which read the next stray byte —
+ * the prompt repeated down the screen and ran into the one after it.
+ */
+function drain(): void {
+  try {
+    while (process.stdin.read() !== null) {
+      /* discard */
+    }
+  } catch {
+    /* nothing buffered, or not readable — either is fine */
+  }
 }
 
 /** Can this terminal deliver arrow keys? */
@@ -143,21 +162,36 @@ function frame(o: RenderOptions): string[] {
   for (let i = o.offset; i < Math.min(o.offset + o.rows, o.choices.length); i++) {
     const c = o.choices[i];
     const here = i === o.cursor;
-    const mark = o.selected ? (o.selected.has(i) ? chalk.green("◉") : chalk.gray("◯")) : here ? chalk.cyan("▸") : " ";
+    // Loud on purpose. The first version used ◉/◯, which at a glance in a
+    // list of twenty-five is a smudge — you could not tell what you had
+    // picked without counting.
+    const mark = o.selected
+      ? (o.selected.has(i) ? chalk.green.bold("[✓]") : chalk.gray("[ ]"))
+      : here ? chalk.cyan.bold("▶") : " ";
     const body = truncate(c.label, width - 20);
     const meta = c.meta ? chalk.gray("  " + truncate(c.meta, 18)) : "";
     const row = `${mark} ${here ? chalk.bold(body) : body}${meta}`;
-    lines.push(chalk.gray("│ ") + (here ? chalk.bgHex("#f0efec").hex("#0d0d0b")(" " + row + " ") : " " + row));
+    lines.push(chalk.gray("│ ") + (here ? chalk.bgCyan.black(" " + row + " ") : " " + row));
   }
   if (o.choices.length > o.rows) {
     lines.push(chalk.gray(`│   ${o.offset + 1}–${Math.min(o.offset + o.rows, o.choices.length)} / ${o.choices.length}`));
   }
-  lines.push(chalk.gray("│  ") + chalk.gray(o.hint));
+  // The keys are the one thing a first-time reader has to see. Dimming them
+  // put the only instructions on the screen below everything else in
+  // contrast — exactly backwards.
+  lines.push(chalk.gray("│  ") + chalk.cyan.bold(o.hint));
   return lines;
 }
 
-/** Watch for a change made somewhere else while the picker is open. */
-export type Interrupt<T> = () => Promise<T | undefined>;
+/**
+ * Watch for a change made somewhere else while the picker is open.
+ *
+ * Given a signal that fires the moment the picker is done, because a watcher
+ * that outlives it never stops: each step left one behind, polling every 900ms
+ * for the life of the process — three steps, three pollers, still running long
+ * after the run had finished.
+ */
+export type Interrupt<T> = (signal: AbortSignal) => Promise<T | undefined>;
 
 export interface PickResult<T> {
   /** Indexes chosen here, or undefined when something else answered. */
@@ -203,11 +237,15 @@ export async function pick<T>(opts: {
 
   draw();
 
+  const watchdog = new AbortController();
+
   return await new Promise<PickResult<T>>((resolve) => {
     let done = false;
     const finish = (r: PickResult<T>) => {
       if (done) return;
       done = true;
+      // Before anything else: whoever is watching stops now.
+      watchdog.abort();
       stdin.off("data", onData);
       // Hand the terminal back the way a shell expects it: cooked, flowing,
       // no listener of ours left on it. Restoring the previous mode and
@@ -251,9 +289,14 @@ export async function pick<T>(opts: {
     stdin.on("data", onData);
 
     if (opts.watch) {
-      void opts.watch().then((v) => {
-        if (v !== undefined) finish({ interrupted: v });
-      });
+      void opts
+        .watch(watchdog.signal)
+        .then((v) => {
+          if (v !== undefined) finish({ interrupted: v });
+        })
+        .catch(() => {
+          /* aborted, which is the normal way out */
+        });
     }
   });
 }

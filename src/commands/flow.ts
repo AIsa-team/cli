@@ -539,9 +539,34 @@ export const CONFIRM = {
    * this is the point where files on the machine change, and a prompt you can
    * clear with a stray return is the wrong shape for it.
    */
-  ask: {
-    en: "Type ok to apply, or n to go back",
-    zh: "输入 ok 开始配置,输入 n 返回修改",
-  },
+  /**
+   * A picker rather than a typed word.
+   *
+   * Typing was the first shape, and it fought the arrow-key steps beside it:
+   * keys left in the buffer by the picker arrived at readline as empty lines,
+   * which re-asked, which read again — the prompt repeated down the screen
+   * and tangled with the one after it. One input method for the whole flow.
+   *
+   * The deliberateness is kept by where the cursor starts: on "go back", so
+   * a stray return changes nothing.
+   */
+  apply: { en: "Apply this — write it to my machine", zh: "开始配置 —— 写入这台机器" },
+  goBack: { en: "Go back and change something", zh: "返回修改" },
+  ask: { en: "Confirm", zh: "确认" },
   cancelled: { en: "Nothing was written.", zh: "什么都没有写入。" },
+  /** n means change something, not give up — the run is still yours. */
+  backToEdit: {
+    en: "Back to the start — your choices are kept.",
+    zh: "回到开头重新选 —— 刚才选的都还在。",
+  },
+};
+
+/** The last question: run something now, or hand the terminal back. */
+export const LAUNCH = {
+  question: { en: "What would you like to do now?", zh: "现在想做什么?" },
+  exit: { en: "Exit", zh: "退出" },
+  exitNote: {
+    en: "leave this terminal — the results page keeps working",
+    zh: "交还终端 —— 结果页仍然可用",
+  },
 };
