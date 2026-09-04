@@ -56,6 +56,7 @@ import { cacheClearAction, cachePathAction } from "./commands/cacheCmd.js";
 import { completionAction, completeAction } from "./commands/completionCmd.js";
 // Manifest
 import { manifestAction } from "./commands/manifest.js";
+import { serveResultsAction } from "./commands/serve-results.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function wrap(fn: (...args: any[]) => Promise<void>): (...args: any[]) => void {
@@ -684,6 +685,12 @@ cache
 
 // The whole tree as JSON. Agents get one shot at a top-level dump, and the
 // default help renders every subcommand as a bare `[options]`.
+// Hidden: started by `connect` when the user asks for the terminal back but
+// the results page should outlive it. Serves that one page and nothing else.
+program
+  .command("__serve-results <file>", { hidden: true })
+  .action(wrap(serveResultsAction));
+
 program
   .command("manifest [command...]")
   .description("Print commands, arguments and flags as JSON (for agents and scripts)")

@@ -47,6 +47,7 @@ import {
 import { renderT2Page } from "./connect-t2.js";
 import { runTerminalFlow, flowClients } from "./connect-terminal.js";
 import { pick, type Choice } from "./prompt.js";
+import { handOverResults, closeStaleResults } from "./serve-results.js";
 
 /**
  * Page templates. T1 is the original two-page flow (selection + live
@@ -1396,7 +1397,7 @@ machine except the OAuth you approve. The process exits when everything is conne
 }
 
 // ── page C: success + try-it-now examples ───────────────────────────────────
-function renderDone(
+export function renderDone(
   chosen: LiveServer[],
   clientIds: string[],
   steps: Step[],
@@ -2057,6 +2058,10 @@ export async function connectAction(options: {
   // update-check.ts), so this is a no-op network call on most invocations.
   const updateCheckP = checkForUpdate().catch(() => undefined);
 
+  // A page left over from a previous run describes a machine that has since
+  // changed. Close it before this run starts writing a new answer.
+  closeStaleResults();
+
   let live = options.force ? null : readRunLock();
   if (live && (await oldRunSettled(live.url))) {
     // It finished; its results page is just lingering. Nothing more will be
@@ -2458,11 +2463,37 @@ export async function connectAction(options: {
             // used to fall into the linger below and hold it for half an
             // hour, which is the one thing the word promises not to do.
             if (outcome === "chose-exit") {
-              log.note(
-                lang === "zh"
-                  ? "结果页已关闭 —— 随时可以再跑 aisa connect"
-                  : "the results page is closing — run aisa connect any time"
+              // Give the terminal back without taking the page with it: a
+              // detached copy takes over the same port and serves the results
+              // for what is left of the linger. The browser tab does not
+              // notice; the shell gets its prompt.
+              const handed = handOverResults(
+                {
+                  port,
+                  token,
+                  template,
+                  lang,
+                  keyed: Boolean(key),
+                  canInstall: supported(),
+                  servers,
+                  clients,
+                  chosenServers,
+                  chosenClients,
+                  state,
+                  until: Date.now() + LINGER_AFTER_DONE_MS,
+                },
+                () => srv.close()
               );
+              log.note(
+                handed
+                  ? lang === "zh"
+                    ? "结果页继续开着 30 分钟 —— 再跑 aisa connect 会重新开始"
+                    : "the results page stays up for 30 minutes — aisa connect starts fresh"
+                  : lang === "zh"
+                    ? "结果页已关闭 —— 随时可以再跑 aisa connect"
+                    : "the results page is closing — run aisa connect any time"
+              );
+              process.exit(failures > 0 ? 1 : 0);
             }
             srv.close();
             process.exit(failures > 0 ? 1 : 0);
