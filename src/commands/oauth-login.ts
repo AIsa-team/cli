@@ -7,6 +7,7 @@ import { setApiKey } from "../config.js";
 import { maskKey } from "../config.js";
 import { httpFetch } from "../utils/http.js";
 import { canOpenBrowser } from "../utils/browser.js";
+import { SIGNIN, t, type Lang } from "./flow.js";
 
 /**
  * `aisa login` without a key: sign in once in a browser, come back with the
@@ -106,21 +107,44 @@ function waitForCallback(port: number, expectedState: string): Promise<string> {
 }
 
 /** The paste-back path: read the redirect URL (or bare code) from stdin. */
-function waitForPaste(expectedState: string): Promise<string> {
+/**
+ * Read the redirect back from whoever has the browser.
+ *
+ * Takes the whole address, which is what a person copying from an address
+ * bar actually has — but also takes a bare code, because someone who reads
+ * the query string will pull out the interesting part instead, and refusing
+ * that would be pedantry.
+ */
+function waitForPaste(expectedState: string, lang: Lang): Promise<string> {
   return new Promise((resolve, reject) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
-    rl.question("Paste the full redirect URL from your browser: ", (answer) => {
+    rl.question(t(SIGNIN.prompt, lang), (answer) => {
       rl.close();
+      const raw = answer.trim().replace(/^["']|["']$/g, "");
+      let code: string | null = null;
+      let state: string | null = null;
       try {
-        const url = new URL(answer.trim());
-        const code = url.searchParams.get("code");
-        const state = url.searchParams.get("state");
-        if (!code) throw new Error("no code in that URL");
-        if (state !== expectedState) throw new Error("state mismatch — paste the URL from this sign-in, not an older one");
-        resolve(code);
-      } catch (e) {
-        reject(e instanceof Error ? e : new Error(String(e)));
+        const url = new URL(raw);
+        code = url.searchParams.get("code");
+        state = url.searchParams.get("state");
+      } catch {
+        // Not a URL. A query fragment, or the code on its own.
+        const params = new URLSearchParams(raw.replace(/^\?/, ""));
+        code = params.get("code") ?? (/^[A-Za-z0-9._~-]{8,}$/.test(raw) ? raw : null);
+        state = params.get("state");
       }
+      if (!code) {
+        reject(new Error(t(SIGNIN.badPaste, lang)));
+        return;
+      }
+      // A pasted bare code carries no state to check; a pasted URL does, and
+      // a mismatched one is an older sign-in that would fail confusingly at
+      // the token endpoint instead of here.
+      if (state !== null && state !== expectedState) {
+        reject(new Error("state mismatch — paste the address from this sign-in, not an older one"));
+        return;
+      }
+      resolve(code);
     });
   });
 }
@@ -137,7 +161,8 @@ function openBrowser(url: string): void {
  * any failure. `aisa login` wraps this with CLI messaging; `aisa connect`
  * runs it as its "Sign in to AIsa" step.
  */
-export async function mintCliKey(options: { open?: boolean } = {}): Promise<string> {
+export async function mintCliKey(options: { open?: boolean; lang?: Lang } = {}): Promise<string> {
+  const lang: Lang = options.lang ?? "en";
   // Unset means "work it out": a server has no browser to open and waiting
   // for a click on a machine with no screen is the worst way to find out.
   const useBrowser = options.open ?? canOpenBrowser();
@@ -147,7 +172,7 @@ export async function mintCliKey(options: { open?: boolean } = {}): Promise<stri
   const port = 10000 + Math.floor(Math.random() * 50_000);
   const redirectUri = `http://127.0.0.1:${port}/callback`;
 
-  info("Signing in to AIsa…");
+  info(t(SIGNIN.start, lang));
   const clientId = await registerClient(redirectUri);
 
   const verifier = b64url(randomBytes(32));
@@ -166,8 +191,8 @@ export async function mintCliKey(options: { open?: boolean } = {}): Promise<stri
 
   let code: string;
   if (useBrowser) {
-    info("Your browser will open — approve the sign-in there.");
-    console.log(`  If it does not open, visit:\n  ${authUrl.toString()}\n`);
+    info(t(SIGNIN.willOpen, lang));
+    console.log(`  ${t(SIGNIN.ifNot, lang)}\n  ${authUrl.toString()}\n`);
     openBrowser(authUrl.toString());
     code = await waitForCallback(port, state);
   } else {
@@ -178,10 +203,11 @@ export async function mintCliKey(options: { open?: boolean } = {}): Promise<stri
         `no browser here and no terminal to paste into — sign in on a machine that has one, or run: aisa login --key <key>\n  ${authUrl.toString()}`
       );
     }
-    console.log(`  This machine has no browser. Open this URL where you are:\n  ${authUrl.toString()}\n`);
-    console.log("  It ends on a 127.0.0.1 page that will not load — that is expected.");
-    console.log("  Copy that page's address from the bar and paste it below.\n");
-    code = await waitForPaste(state);
+    console.log(`  ${t(SIGNIN.here, lang)}\n`);
+    console.log(`  ${t(SIGNIN.step1, lang)}\n     ${authUrl.toString()}\n`);
+    console.log(`  ${t(SIGNIN.step2, lang)}\n`);
+    console.log(`  ${t(SIGNIN.step3, lang)}\n`);
+    code = await waitForPaste(state, lang);
   }
 
   const tokenRes = await httpFetch(`${AUTH_SERVER}/oauth/token`, {
@@ -224,7 +250,7 @@ export async function mintCliKey(options: { open?: boolean } = {}): Promise<stri
   return minted.key;
 }
 
-export async function oauthLogin(options: { open?: boolean } = {}): Promise<void> {
+export async function oauthLogin(options: { open?: boolean; lang?: Lang } = {}): Promise<void> {
   if (options.open === false && !process.stdin.isTTY) {
     error("--no-browser needs an interactive terminal to paste the redirect URL into.");
     hint("In scripts, use: aisa login --key <key>");

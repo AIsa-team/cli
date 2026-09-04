@@ -600,9 +600,38 @@ export const SURFACE = {
     en: "The browser view is not open here, so we will do this together in the terminal — the same questions, and it is very easy. Off we go.",
     zh: "这里没有开浏览器界面,我们就用命令行一起把它选完 —— 问题都一样,非常简单。这就开始。",
   },
-  consoleAlso: {
-    en: "that address still works from anywhere that can reach this port, if you would rather click",
-    zh: "如果你更想点鼠标,上面那个地址在任何能连到这个端口的地方都能打开",
+} as const;
+
+/**
+ * Signing in from a machine whose browser is somewhere else.
+ *
+ * Clerk offers authorization_code and refresh_token and nothing else — no
+ * device grant — so there is no "type this short code" flow to reach for.
+ * What there is works, but only if the person is told plainly that the last
+ * page is *supposed* to fail: they are being asked to copy an address out of
+ * a browser that is showing an error, which nobody does unless told to.
+ */
+export const SIGNIN = {
+  start: { en: "Signing in to AIsa…", zh: "正在登录 AIsa…" },
+  willOpen: { en: "Your browser will open — approve the sign-in there.", zh: "浏览器就要打开了 —— 在那里确认登录。" },
+  ifNot: { en: "If it does not open, visit:", zh: "如果没有自动打开,访问:" },
+  here: {
+    en: "This machine has no browser, so sign in on the one in front of you.",
+    zh: "这台机器上没有浏览器,请在你面前那台电脑上登录。",
+  },
+  step1: { en: "1. Open this address there:", zh: "1. 在那台电脑上打开这个地址:" },
+  step2: {
+    en: "2. Sign in. The browser will then land on a 127.0.0.1 page that cannot load — that is correct, and it is the last step.",
+    zh: "2. 登录。之后浏览器会跳到一个 127.0.0.1 的页面,打不开 —— 这是对的,而且这就是最后一步。",
+  },
+  step3: {
+    en: "3. Copy that failed page's address from the address bar, and paste it below.",
+    zh: "3. 把那个打不开的页面地址栏里的一整串复制下来,粘贴到下面。",
+  },
+  prompt: { en: "Paste it here: ", zh: "粘贴到这里: " },
+  badPaste: {
+    en: "that does not look like the redirect — it should contain code=",
+    zh: "这看起来不是那个跳转地址 —— 里面应该有 code=",
   },
 } as const;
 

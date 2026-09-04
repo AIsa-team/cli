@@ -533,6 +533,8 @@ interface RunInput {
   key: string | undefined;
   dryRun: boolean;
   llmMode: LlmMode;
+  /** The run's language — the sign-in prompt is the user's, not the log's. */
+  lang: Lang;
 }
 
 /**
@@ -624,7 +626,7 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
       if (input.dryRun) {
         ok("signin", "dry run — the browser approval would open here");
       } else {
-        key = await mintCliKey();
+        key = await mintCliKey({ lang: input.lang });
         ok("signin", "signed in — your CLI key is stored");
       }
     } catch (e) {
@@ -2226,7 +2228,7 @@ export async function connectAction(options: {
   if (live) {
     const mins = Math.max(1, Math.round((Date.now() - live.started) / 60_000));
     log.line("info", `A run from ${mins} minute${mins === 1 ? "" : "s"} ago is still open`, `pid ${live.pid}`);
-    console.log(`  ${chalk.cyan(live.url)}`);
+    if (withBrowserEarly()) console.log(`  ${chalk.cyan(live.url)}`);
     // Ask for it back rather than driving it from here. A run started in one
     // terminal and continued in another still prints everything after "start"
     // from the process that owns it — which, after an interrupt, has no
@@ -2327,6 +2329,16 @@ export async function connectAction(options: {
   const pageSeenP = new Promise<void>((r) => (pageSeen = r));
   /** Set when /apply came from the terminal rather than the page. */
   let drivenByTerminal = false;
+  /**
+   * Set the first time the page itself is served.
+   *
+   * Whether to keep the page alive past the terminal is not a question about
+   * this machine — it is a question about whether anyone is looking at it.
+   * Guessing from the environment gets both halves wrong: it would keep a
+   * page alive on a desktop where the tab was never opened, and throw one
+   * away on a server whose port someone had forwarded and was reading.
+   */
+  let pageOpened = false;
 
   let settled = false;
   // When this process intends to stop answering, and why. Both travel with
@@ -2355,6 +2367,7 @@ export async function connectAction(options: {
         res.writeHead(403).end("forbidden");
         return;
       }
+      pageOpened = true;
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(page());
       return;
     }
@@ -2597,6 +2610,7 @@ export async function connectAction(options: {
         key,
         dryRun: Boolean(options.dryRun),
         llmMode,
+        lang,
       }, log);
       const results = state.results;
       // Long since settled by now (fired at the top of connectAction) — this
@@ -2642,10 +2656,12 @@ export async function connectAction(options: {
           await pause(BEFORE_HANDOFF_MS);
           if (withBrowserEarly()) openBrowser(doneUrl);
           celebrate();
-          const until = new Date(Date.now() + LINGER_AFTER_DONE_MS);
-          log.note(
-            `the page stays up until ${until.getHours()}:${String(until.getMinutes()).padStart(2, "0")} — Ctrl-C to finish now`
-          );
+          if (withBrowserEarly()) {
+            const until = new Date(Date.now() + LINGER_AFTER_DONE_MS);
+            log.note(
+              `the page stays up until ${until.getHours()}:${String(until.getMinutes()).padStart(2, "0")} — Ctrl-C to finish now`
+            );
+          }
           // Last, so it is the line still on screen: everything else is what
           // happened, this is what to do next.
           summarise(log, {
@@ -2839,7 +2855,7 @@ export async function connectAction(options: {
       // to close, and taking it down was the one thing the page could not
       // recover from. Anything already being written is a different matter:
       // that work lives in this process and cannot be moved mid-flight.
-      if (state.phase === "selecting") {
+      if (state.phase === "selecting" && pageOpened) {
         const until = Date.now() + LINGER_AFTER_DONE_MS;
         if (
           handOverRun(
@@ -2892,10 +2908,15 @@ export async function connectAction(options: {
         log.note(t(SURFACE.urlOnly, lang));
       }
     } else {
+      // No address printed here on purpose. It is a 127.0.0.1 URL for a
+      // machine the reader is not sitting at: copied to their own computer
+      // it opens nothing, or worse, opens whatever they happen to be running
+      // on that port. Reaching it needs port forwarding, which is not
+      // something to put in front of someone who did not ask for it — and
+      // anyone who would do it already knows the port from the flag they
+      // passed. So the terminal simply gets on with the questions.
       log.section(t(SURFACE.consoleTitle, lang));
       log.line("info", t(SURFACE.consoleBody, lang));
-      console.log(`  ${chalk.cyan(pageUrl)}`);
-      log.note(t(SURFACE.consoleAlso, lang));
     }
   }
 
