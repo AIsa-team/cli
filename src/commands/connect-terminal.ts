@@ -182,9 +182,8 @@ async function askOrWatch(
   count: number,
   fallback: number,
   seenRev: number,
-  /** The step being asked, so moving past it counts as an answer. */
-  step: number,
-  changed: (d: Selection) => boolean
+  /** The step being asked; moving past it is what answers it. */
+  step: number
 ): Promise<Answer> {
   let stop = false;
 
@@ -205,11 +204,10 @@ async function askOrWatch(
       if (stop) return { by: "user", index: fallback };
       const s = await pull(o);
       if (!s || s.rev === seenRev || !s.draft) continue;
-      // Two ways the page can answer this step: change the value, or move
-      // past it. Watching only for a change meant a page whose default was
-      // already right — pressing Next without touching anything — left the
-      // terminal waiting on a question that had been settled.
-      if (changed(s.draft) || (s.currentStep ?? 0) > step) {
+      // Moving past the step is the only thing that answers it. Treating a
+      // changed value as the answer meant picking an agent in the page —
+      // without pressing Next — carried both sides straight to the next step.
+      if ((s.currentStep ?? 0) > step) {
         return { by: "page", draft: s.draft };
       }
     }
@@ -234,7 +232,6 @@ async function pickOrWatch(
   multi: boolean,
   initial: number[],
   hint: string,
-  changed: (d: Selection) => boolean,
   /**
    * Mirror a checklist instead of ending on its first change.
    *
@@ -247,8 +244,12 @@ async function pickOrWatch(
   live?: {
     /** Read the page's set as picker indexes, or undefined if it says nothing. */
     read: (d: Selection) => number[] | undefined;
-    /** Publish a local toggle. Resolves with the rev that write landed on. */
-    write: (indexes: number[]) => Promise<number>;
+    /**
+     * Publish a local toggle, for a checklist where the keystroke is itself
+     * the choice. A single-choice picker leaves this out: moving the cursor
+     * is not choosing, any more than hovering a radio button is.
+     */
+    write?: (indexes: number[]) => Promise<number>;
   }
 ): Promise<Answer> {
   // The two sides write to the same draft, so a poll that overtakes our own
@@ -265,11 +266,11 @@ async function pickOrWatch(
     multi,
     initial,
     hint,
-    onToggle: live
+    onToggle: live?.write
       ? (indexes) => {
           writing++;
           void live
-            .write(indexes)
+            .write!(indexes)
             .then((rev) => {
               floor = Math.max(floor, rev);
               shown = indexes.join(",");
@@ -290,11 +291,7 @@ async function pickOrWatch(
         const s = await pull(o);
         if (!s || s.rev === seenRev || !s.draft) continue;
         if ((s.currentStep ?? 0) > step) return s.draft;
-        if (!live) {
-          if (changed(s.draft)) return s.draft;
-          continue;
-        }
-        if (s.rev < floor) continue;
+        if (!live || s.rev < floor) continue;
         const indexes = live.read(s.draft);
         if (!indexes) continue;
         const next = indexes.join(",");
@@ -432,9 +429,13 @@ export async function runTerminalFlow(
             })),
             false, [preferred],
             o.lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
-            (d) => Boolean(d.clients[0]) && d.clients[0] !== draft.clients[0])
-        : await askOrWatch(o, shown.length, preferred, rev, 2,
-            (d) => Boolean(d.clients[0]) && d.clients[0] !== draft.clients[0]);
+            {
+              read: (d) => {
+                const i = shown.findIndex((c) => c.id === d.clients[0]);
+                return i < 0 ? undefined : [i];
+              },
+            })
+        : await askOrWatch(o, shown.length, preferred, rev, 2);
       let client: FlowClient;
       if (a1.by === "page") {
         // Answered in the browser. Say so rather than redrawing silently —
@@ -484,9 +485,13 @@ export async function runTerminalFlow(
             })),
             false, [0],
             o.lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
-            (d) => Boolean(d.llmMode) && d.llmMode !== draft.llmMode)
-        : await askOrWatch(o, modes.length, 0, rev, 3,
-            (d) => Boolean(d.llmMode) && d.llmMode !== draft.llmMode);
+            {
+              read: (d) => {
+                const i = modes.findIndex((m) => m.id === d.llmMode);
+                return i < 0 ? undefined : [i];
+              },
+            })
+        : await askOrWatch(o, modes.length, 0, rev, 3);
       let mode = modes[0];
       if (a2.by === "page") {
         mode = modes.find((m) => m.id === a2.draft.llmMode) ?? modes[0];
@@ -525,7 +530,6 @@ export async function runTerminalFlow(
           o.lang === "zh"
             ? "↑↓ 移动 · 空格勾选 · a 全选/全不选 · 回车确认"
             : "↑↓ move · space to tick · a for all · enter to confirm",
-          (d) => (d.servers ?? []).join(",") !== [...chosen].join(","),
           {
             read: (d) =>
               d.servers === undefined
