@@ -532,15 +532,20 @@ export async function runTerminalFlow(
       if (interactive()) {
       const r = await pick<never>({
         title: "",
+        // Applying is first and where the cursor starts. It was the other
+        // way round, to keep a stray return from writing anything — but by
+        // this point the summary above says exactly what will happen, and
+        // making the common answer cost two keystrokes is its own kind of
+        // wrong. Escape still leaves without applying.
         choices: [
-          { label: chalk.bold(t(CONFIRM.goBack, o.lang)) },
           { label: chalk.green.bold(t(CONFIRM.apply, o.lang)) },
+          { label: chalk.bold(t(CONFIRM.goBack, o.lang)) },
         ],
         multi: false,
         initial: [0],
         hint: o.lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
       });
-      confirmed = !r.aborted && r.picked?.[0] === 1 ? "go" : "again";
+      confirmed = !r.aborted && r.picked?.[0] === 0 ? "go" : "again";
       console.log(dim("└─ ") + (confirmed === "go"
         ? chalk.green(t(CONFIRM.apply, o.lang) + " ✓")
         : chalk.yellow(t(CONFIRM.backToEdit, o.lang))));
@@ -554,6 +559,10 @@ export async function runTerminalFlow(
       for (;;) {
         const said = (await askLine(bold.cyan("│  > "))).toLowerCase();
         if (["ok", "yes", "y", "是", "好"].includes(said)) { confirmed = "go"; break; }
+        // Empty means no here, unlike the picker above where enter on the
+        // highlighted row means yes. Deliberately different: with no
+        // terminal, an empty line is usually a closed pipe rather than
+        // someone agreeing, and EOF must not write to a machine.
         if (said === "" || ["n", "no", "否"].includes(said)) { confirmed = "again"; break; }
         if (++tries >= 3) { confirmed = "again"; break; }
         console.log(dim("│  ") + chalk.yellow("ok / n"));
