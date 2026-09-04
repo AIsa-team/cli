@@ -476,57 +476,99 @@ ${restChips}
     renderSteps();
     go(5);
     if (!ticker) ticker = setInterval(tick, 250);
-    poll();
   }
 
-  // Always on, whatever step this page is on and whether or not a run is in
-  // progress: being superseded can happen at any moment, and a tab that just
-  // stops answering with no explanation is the worst version of it.
-  setInterval(function () {
+  // ── one status poller ──
+  //
+  // There used to be three, two of them running at the same time during
+  // selecting, all asking this one endpoint for different reasons. None of
+  // them ever stopped: a tab left open on a server that had gone kept asking
+  // once a second for as long as the tab stayed open, and kept a live
+  // countdown on screen for a page nothing was behind.
+  //
+  // So: one request, every consumer reads the same answer, the interval
+  // slackens when nothing is happening, failures back off, and enough of
+  // them in a row is taken to mean the run is over.
+  var lastStatus = null;
+  var pollFails = 0, pollTimer = null, pollStopped = false;
+  var POLL_GIVE_UP = 8;
+
+  function pollDelay(s) {
+    if (!s) return Math.min(30000, 1000 * Math.pow(2, pollFails));
+    if (s.phase !== "done" && s.phase !== "failed") return 1000;
+    if (s.superseded) return 1000;
+    // Idle on the results: the countdown only has to be right while it is
+    // on screen, and half an hour at one request a second is 1800 of them.
+    var left = s.closingAt ? (s.closingAt - Date.now()) / 1000 : 0;
+    return left <= 90 ? 1000 : 5000;
+  }
+
+  function schedule(s) {
+    if (pollStopped) return;
+    pollTimer = setTimeout(pollOnce, pollDelay(s));
+  }
+
+  function giveUp() {
+    pollStopped = true;
+    if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+    // Say so rather than leaving a countdown ticking against nothing.
+    var box = $("#superseded");
+    if (box) {
+      box.style.display = "flex";
+      box.querySelector("h2").textContent = ${JSON.stringify(T(SUPERSEDED.expiringTitle))};
+      box.querySelector("p").textContent = ${JSON.stringify(T(SUPERSEDED.closed))};
+    }
+  }
+
+  function showClosing(s) {
+    if (!s.closingAt) return;
+    var left = Math.max(0, Math.ceil((s.closingAt - Date.now()) / 1000));
+    // Only in the last minute for a page that is simply timing out: a
+    // countdown running for half an hour is not a warning, it is furniture.
+    // Being superseded says so immediately, because that one is news.
+    if (!s.superseded && left > 60) return;
+    var box = $("#superseded");
+    box.style.display = "flex";
+    box.querySelector("h2").textContent = s.superseded
+      ? ${JSON.stringify(T(SUPERSEDED.title))}
+      : ${JSON.stringify(T(SUPERSEDED.expiringTitle))};
+    if (!s.superseded && !box.dataset.reworded) {
+      box.dataset.reworded = "1";
+      box.querySelector("p").innerHTML =
+        ${JSON.stringify(T(SUPERSEDED.expiringBody))} +
+        ' <b id="sscount"></b> ' + ${JSON.stringify(T(SUPERSEDED.seconds))} + ".";
+    }
+    var c = $("#sscount");
+    if (c) c.textContent = String(left);
+  }
+
+  function pollOnce() {
     fetch("/status?token=" + TOKEN)
-      .then(function (r) { return r.json(); })
+      .then(function (r) { if (!r.ok) throw 0; return r.json(); })
       .then(function (s) {
-        if (!s.closingAt) return;
-        var left = Math.max(0, Math.ceil((s.closingAt - Date.now()) / 1000));
-        // Only in the last minute for a page that is simply timing out: a
-        // countdown running for half an hour is not a warning, it is
-        // furniture. Being superseded says so immediately, because that one
-        // is news.
-        if (!s.superseded && left > 60) return;
-        var box = $("#superseded");
-        box.style.display = "flex";
-        box.querySelector("h2").textContent = s.superseded
-          ? ${JSON.stringify(T(SUPERSEDED.title))}
-          : ${JSON.stringify(T(SUPERSEDED.expiringTitle))};
-        if (!s.superseded && !box.dataset.reworded) {
-          box.dataset.reworded = "1";
-          box.querySelector("p").innerHTML =
-            ${JSON.stringify(T(SUPERSEDED.expiringBody))} +
-            ' <b id="sscount"></b> ' + ${JSON.stringify(T(SUPERSEDED.seconds))} + ".";
+        pollFails = 0;
+        lastStatus = s;
+        showClosing(s);
+        if (s.phase === "selecting") {
+          if (!locked) adopt(s);
+        } else {
+          phase = s.phase;
+          serverSteps = s.steps;
+          syncClientCard(s.steps);
+          // A run this page did not start: show the step being lived through.
+          if (!locked) enterProgress(s);
+          if (s.phase === "done" || s.phase === "failed") document.title = "✓ AIsa Connected";
         }
-        $("#sscount").textContent = String(left);
+        schedule(s);
       })
       .catch(function () {
-        // Once it has actually closed, say so rather than leaving a live
-        // countdown on a page nothing is behind any more.
-        var box = $("#superseded");
-        if (box && box.style.display === "flex") {
-          box.querySelector("p").textContent = ${JSON.stringify(T(SUPERSEDED.closed))};
-        }
+        // Unreachable, or answering with an error. Either way the thing this
+        // page was talking to is not there right now.
+        if (++pollFails >= POLL_GIVE_UP) { giveUp(); return; }
+        schedule(null);
       });
-  }, 1000);
-
-  var draftTimer = setInterval(function () {
-    if (locked) { clearInterval(draftTimer); return; }
-    fetch("/status?token=" + TOKEN)
-      .then(function (r) { return r.json(); })
-      .then(function (s) {
-        if (s.phase === "selecting") { adopt(s); return; }
-        clearInterval(draftTimer);
-        enterProgress(s);
-      })
-      .catch(function () {});
-  }, 1500);
+  }
+  pollOnce();
 
   function go(n) {
     if (n < 1 || n > 6 || n > unlocked) return;
@@ -770,18 +812,15 @@ ${restChips}
     lockSelections();
     fetch("/apply", { method: "POST", headers: { "content-type": "application/json", "x-connect-token": TOKEN }, body: JSON.stringify(body) })
       .then(function (r) { return r.json(); })
-      .then(function (d) { serverSteps = d.steps; shown = {}; lastFlip = 0; renderSteps(); ticker = setInterval(tick, 250); poll(); });
+      .then(function (d) { serverSteps = d.steps; shown = {}; lastFlip = 0; renderSteps(); if (!ticker) ticker = setInterval(tick, 250); })
+      .catch(function () {
+        // The run could not be started. Give the buttons back rather than
+        // leaving the page frozen on "Connecting…" with nothing behind it.
+        nextBtn.disabled = false;
+        nextBtn.innerHTML = (installing() ? "Install &amp; connect " : "Connect ") + ARROW;
+        navnote.textContent = ${JSON.stringify(T(SUPERSEDED.closed))};
+      });
   }
-  function poll() {
-    fetch("/status?token=" + TOKEN).then(function (r) { return r.json(); }).then(function (s) {
-      phase = s.phase; serverSteps = s.steps; lastStatus = s;
-      if (phase === "selecting") adopt(s);
-      syncClientCard(s.steps);
-      if (phase === "done" || phase === "failed") { document.title = "✓ AIsa Connected"; return; }
-      setTimeout(poll, 1000);
-    }).catch(function () { setTimeout(poll, 1500); });
-  }
-  var lastStatus = null;
   function syncClientCard(steps) {
     (steps || []).forEach(function (s) {
       if (s.id.indexOf("install:") !== 0 || s.state !== "ok") return;
@@ -951,7 +990,7 @@ ${restChips}
       unlocked = 6; renderSteps(); finish();
       syncClientCard(s.steps);
     } else {
-      unlocked = 5; renderSteps(); ticker = setInterval(tick, 250); poll();
+      unlocked = 5; renderSteps(); if (!ticker) ticker = setInterval(tick, 250);
     }
     return true;
   }
