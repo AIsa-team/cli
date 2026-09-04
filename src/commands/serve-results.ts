@@ -39,26 +39,41 @@ export function resultsPidPath(): string {
  * looking at now, and an older page still answering on some port only invites
  * reading a result that no longer describes this machine.
  */
-export function closeStaleResults(): void {
-  let rec: { pid?: number; until?: number };
+export async function closeStaleResults(): Promise<void> {
+  let rec: { pid?: number; port?: number; token?: string; until?: number };
   try {
     rec = JSON.parse(readFileSync(resultsPidPath(), "utf-8"));
   } catch {
     return;
+  }
+  const forget = () => {
+    try {
+      unlinkSync(resultsPidPath());
+    } catch {
+      /* nothing to remove */
+    }
+  };
+  if (!rec.pid || !rec.port || !rec.token) return forget();
+  // Prove it is ours before signalling it. SIGUSR1 terminates a process that
+  // has no handler for it, and a pid read out of a file left behind by a
+  // crash may belong to something else entirely by now. Answering on that
+  // port with that token is the only proof that counts.
+  try {
+    const res = await fetch(`http://127.0.0.1:${rec.port}/status?token=${rec.token}`, {
+      signal: AbortSignal.timeout(1_500),
+    });
+    if (!res.ok) return forget();
+  } catch {
+    return forget();
   }
   try {
     // SIGUSR1, not SIGTERM: killing it outright leaves whoever was reading
     // that tab staring at a page that stopped answering with no explanation.
     // The signal starts a countdown instead, and the page says what happened
     // and how long it has. The child removes its own record when it goes.
-    if (rec.pid) process.kill(rec.pid, "SIGUSR1");
+    process.kill(rec.pid, "SIGUSR1");
   } catch {
-    // Not there any more, so nothing is going to clean up after it.
-    try {
-      unlinkSync(resultsPidPath());
-    } catch {
-      /* nothing to remove */
-    }
+    forget();
   }
 }
 
@@ -116,9 +131,13 @@ export function handOverResults(h: ResultsHandover, closeParent: () => void): bo
     // `aisa connect` supersedes it, and two pages on one machine showing
     // different runs is worse than one that has closed.
     try {
-      writeFileSync(resultsPidPath(), JSON.stringify({ pid: child.pid, port: h.port, until: h.until }), {
-        mode: 0o600,
-      });
+      writeFileSync(
+        resultsPidPath(),
+        // The token travels with it so the next run can prove this record
+        // points at our page before it signals the pid inside.
+        JSON.stringify({ pid: child.pid, port: h.port, token: h.token, until: h.until }),
+        { mode: 0o600 }
+      );
     } catch {
       /* the child still runs; it just outlives its own record */
     }

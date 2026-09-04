@@ -230,11 +230,19 @@ async function askOrWatch(
   })();
 
   const watched = (async (): Promise<Answer> => {
+    let misses = 0;
     for (;;) {
       await new Promise((r) => setTimeout(r, 900));
       if (stop) return { by: "user", index: fallback };
       const s = await pull(o);
-      if (!s || s.rev === seenRev || !s.draft) continue;
+      if (!s) {
+        // Never resolves once it gives up, which is right: the typed answer
+        // is still coming and this side was never waiting on the page.
+        if (++misses >= WATCH_GIVE_UP) return await new Promise<Answer>(() => {});
+        continue;
+      }
+      misses = 0;
+      if (s.rev === seenRev || !s.draft) continue;
       // Moving past the step is the only thing that answers it. Treating a
       // changed value as the answer meant picking an agent in the page —
       // without pressing Next — carried both sides straight to the next step.
@@ -326,12 +334,21 @@ async function pickOrWatch(
         }
       : undefined,
     watch: async (signal, apply) => {
+      let misses = 0;
       while (!signal.aborted) {
         await new Promise((x) => setTimeout(x, 900));
         if (signal.aborted) return undefined;
         if (flushing || pending) continue;
         const s = await pull(o);
-        if (!s || s.rev === seenRev || !s.draft) continue;
+        if (!s) {
+          // Stop watching, keep the picker. The keyboard still answers this
+          // question — that is the whole point of the two sides being
+          // independent — so nothing here should end because a page went.
+          if (++misses >= WATCH_GIVE_UP) return undefined;
+          continue;
+        }
+        misses = 0;
+        if (s.rev === seenRev || !s.draft) continue;
         if ((s.currentStep ?? 0) > step) return s.draft;
         if (!live || s.rev < floor) continue;
         const indexes = live.read(s.draft);
@@ -383,6 +400,16 @@ async function push(
     return { rev };
   }
 }
+
+/**
+ * How many polls in a row may fail before the terminal stops watching.
+ *
+ * Not an error: the page is optional, and this side can finish the whole run
+ * on its own. But a watcher that keeps asking a port nothing is listening on,
+ * every 900ms for as long as the question is open, is spending the user's
+ * machine on a conversation that ended.
+ */
+const WATCH_GIVE_UP = 8;
 
 /** Read the shared draft, to pick up whatever the page did. */
 async function pull(

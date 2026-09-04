@@ -1902,14 +1902,41 @@ function handOverRun(h: RunHandover, closeParent: () => void): boolean {
  * still be mid-authorization. Unreachable (or any other phase) counts as
  * still active — the safe default when we cannot tell.
  */
-async function oldRunSettled(url: string): Promise<boolean> {
+interface RunProbe {
+  /** It answered, with our token, in the shape a run answers in. */
+  ours: boolean;
+  phase?: string;
+}
+
+/**
+ * Ask the recorded address whether our run is really there.
+ *
+ * A pid in a file is not proof: pids are reused, and this one is about to be
+ * sent SIGUSR1 or SIGUSR2 — both of which terminate a process that has no
+ * handler for them. Signalling on the strength of a stale lock is how a tool
+ * kills something that has nothing to do with it. An answer on that port,
+ * with that token, is proof; nothing else is.
+ */
+async function probeRun(url: string): Promise<RunProbe> {
   try {
     const u = new URL(url);
     const token = u.searchParams.get("token") ?? "";
+    if (!token) return { ours: false };
     const res = await fetch(`${u.origin}/status?token=${token}`, { signal: AbortSignal.timeout(2_000) });
-    if (!res.ok) return false;
+    if (!res.ok) return { ours: false };
     const data = (await res.json()) as { phase?: string };
-    return data.phase === "done" || data.phase === "failed";
+    return typeof data.phase === "string" ? { ours: true, phase: data.phase } : { ours: false };
+  } catch {
+    return { ours: false };
+  }
+}
+
+/** Signal a run, but only once it has proved it is the run we recorded. */
+async function askRunTo(lock: RunLock, signal: "SIGUSR1" | "SIGUSR2"): Promise<boolean> {
+  if (!(await probeRun(lock.url)).ours) return false;
+  try {
+    process.kill(lock.pid, signal);
+    return true;
   } catch {
     return false;
   }
@@ -2155,23 +2182,29 @@ export async function connectAction(options: {
   // A page left over from a previous run describes a machine that has since
   // changed. Close it before this run starts writing a new answer. A resumed
   // run is that same page carrying on, so it closes nothing.
-  if (!detached) closeStaleResults();
+  if (!detached) await closeStaleResults();
 
   // --force means "start over", not "run two of these". The page that was
   // open is about to describe a machine someone else is changing, so it is
   // told to stand down the same way a finished one is.
   if (options.force && !resumed) {
     const previous = readRunLock();
-    if (previous) {
-      try {
-        process.kill(previous.pid, "SIGUSR1");
-      } catch {
-        /* already gone */
-      }
-    }
+    if (previous) await askRunTo(previous, "SIGUSR1");
   }
   let live: RunLock | null = options.force || resumed ? null : readRunLock();
-  if (live && (await oldRunSettled(live.url))) {
+  if (live) {
+    // A lock whose address does not answer is a lock left behind — by a
+    // crash, a kill, a machine that slept through its own timers. Nothing is
+    // there to reopen or to signal, so it is not a live run.
+    const probe = await probeRun(live.url);
+    if (!probe.ours) {
+      log.record(`stale run lock for pid ${live.pid} — its address does not answer`);
+      live = null;
+    } else if (probe.phase === "done" || probe.phase === "failed") {
+      live = { ...live, settled: true } as RunLock & { settled: true };
+    }
+  }
+  if (live && (live as RunLock & { settled?: boolean }).settled) {
     // It finished; its results page is just lingering. Nothing more will be
     // written there, so there is nothing to protect against — proceed as if
     // no lock existed. This process's own writeRunLock (below) takes over
@@ -2181,11 +2214,7 @@ export async function connectAction(options: {
     // Its page is still up and still describes this machine as it was. Ask it
     // to tell its reader that a newer run has started, rather than letting
     // two pages disagree about what is configured here.
-    try {
-      process.kill(live.pid, "SIGUSR1");
-    } catch {
-      /* already gone, which is the same outcome */
-    }
+    await askRunTo(live, "SIGUSR1");
     live = null;
   }
   if (live) {
@@ -2203,14 +2232,13 @@ export async function connectAction(options: {
     } catch {
       /* nothing left over */
     }
-    try {
-      process.kill(live.pid, "SIGUSR2");
+    if (await askRunTo(live, "SIGUSR2")) {
+      // Bounded: it either writes the file within a moment or it is busy,
+      // and busy is an answer too.
       for (let i = 0; i < 30 && !took; i++) {
         await new Promise((r) => setTimeout(r, 100));
         took = readHandover(returnPath());
       }
-    } catch {
-      /* it went away on its own, which the fallback below handles */
     }
     if (took) {
       log.note("picking up where that run left off");
@@ -2475,6 +2503,17 @@ export async function connectAction(options: {
         res.writeHead(400).end();
         return;
       }
+      // Once only. Both surfaces reach step 5, and the page starts by itself
+      // on arriving there — so the terminal confirming and the page adopting
+      // that step can both call this within the same second. Running it twice
+      // means installing twice and writing the same config twice, which the
+      // timing alone was keeping rare rather than impossible.
+      if (state.phase !== "selecting") {
+        res
+          .writeHead(200, { "content-type": "application/json" })
+          .end(JSON.stringify({ started: false, already: true, steps: state.steps }));
+        return;
+      }
       // Who started this decides whether there is an animation to wait for.
       drivenByTerminal = req.headers["x-connect-source"] === "terminal";
       chosenServers = servers.filter((s) => body.servers?.includes(s.slug));
@@ -2656,7 +2695,20 @@ export async function connectAction(options: {
               );
               process.exit(failures > 0 ? 1 : 0);
             }
-            srv.close();
+            // Coming out of an agent session is not a reason to close the
+            // page: the line above promised it until a stated time, and a
+            // reader who goes back to that tab should find it, not a dead
+            // port. Same handover as Exit.
+            handOverResults(
+              {
+                port, token, template, lang,
+                keyed: Boolean(key),
+                canInstall: supported(),
+                servers, clients, chosenServers, chosenClients, state,
+                until: Date.now() + LINGER_AFTER_DONE_MS,
+              },
+              () => srv.close()
+            );
             process.exit(failures > 0 ? 1 : 0);
           } else {
             // Nothing to offer, or it would not start: leave the page up for
@@ -2836,17 +2888,31 @@ export async function connectAction(options: {
     if (picked) {
       // Hand the terminal's answers to the same endpoint the page posts to,
       // so there is one apply path and not a second one that can drift.
-      await httpFetch(`http://127.0.0.1:${port}/apply?token=${token}`, {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-connect-source": "terminal" },
-        body: JSON.stringify({
-          servers: picked.servers,
-          clients: picked.clients,
-          install: picked.install,
-          llmMode: picked.llmMode,
-        }),
-        timeoutMs: 15_000,
-      }).catch(() => undefined);
+      try {
+        const res = await httpFetch(`http://127.0.0.1:${port}/apply?token=${token}`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-connect-source": "terminal" },
+          body: JSON.stringify({
+            servers: picked.servers,
+            clients: picked.clients,
+            install: picked.install,
+            llmMode: picked.llmMode,
+          }),
+          timeoutMs: 15_000,
+        });
+        const body = (await res.json()) as { started?: boolean; already?: boolean };
+        if (body.already) {
+          // The page got there first — its run is the one that counts, and
+          // it is already on screen. Nothing to do but say so.
+          log.line("info", "Already being configured", "the page started this run");
+        }
+      } catch (e) {
+        // Swallowing this printed nothing at all and returned the prompt as
+        // if the work had been done.
+        log.line("fail", "Could not start the configuration", (e as Error).message);
+        log.note("nothing was written — run aisa connect again");
+        process.exitCode = 1;
+      }
     }
   }
 }
