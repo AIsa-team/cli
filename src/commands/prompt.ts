@@ -120,7 +120,11 @@ function decode(data: string): Keys {
     down: data === "[B" || data === "j",
     space: data === " ",
     enter: data === "\r" || data === "\n",
-    abort: data === "" || data === "",
+    // Ctrl-C only. A bare Escape used to land here too, and "abort" meant
+    // the caller took the highlighted row as the answer — so both keys
+    // quietly agreed to whatever the cursor happened to be on. Escape now
+    // does nothing, which is also what it does in the page.
+    abort: data === "",
     all: data === "a",
     digit: /^[0-9]$/.test(data) ? Number(data) : undefined,
   };
@@ -288,7 +292,20 @@ export async function pick<T>(opts: {
 
     const onData = (data: string) => {
       const k = decode(data);
-      if (k.abort) return finish({ aborted: true });
+      if (k.abort) {
+        // Raw mode swallows the interrupt — the terminal driver hands Ctrl-C
+        // over as a byte instead of a signal, so nothing above this ever
+        // heard it. Put the terminal back and deliver it, which is what the
+        // person pressing it asked for.
+        // Deliberately never resolves: the caller would print "you chose X"
+        // for whatever the cursor was on, which is not what happened. The
+        // interrupt is on its way and every handler for it exits.
+        watchdog.abort();
+        stdin.off("data", onData);
+        leaveRaw();
+        process.kill(process.pid, "SIGINT");
+        return;
+      }
       const moved = () => {
         draw();
         if (!opts.multi) opts.onToggle?.([cursor]);
