@@ -257,8 +257,30 @@ async function pickOrWatch(
   // un-ticks itself half a second later. Ignore anything older than our last
   // write, and anything at all while one is in flight.
   let floor = seenRev;
-  let writing = 0;
   let shown = initial.join(",");
+
+  // Holding an arrow key down produces a keystroke every few milliseconds,
+  // and one request each would put the page behind the terminal rather than
+  // beside it. Only the latest selection is worth sending, so a move made
+  // while a write is in flight replaces the one waiting for it.
+  let pending: number[] | undefined;
+  let flushing = false;
+  const flush = async (): Promise<void> => {
+    if (flushing || !live?.write) return;
+    flushing = true;
+    try {
+      while (pending) {
+        const next = pending;
+        pending = undefined;
+        floor = Math.max(floor, await live.write(next));
+        shown = next.join(",");
+      }
+    } catch {
+      /* the page falls behind; this terminal still finishes the run */
+    } finally {
+      flushing = false;
+    }
+  };
 
   const r = await pick<Selection>({
     title: "",
@@ -268,26 +290,15 @@ async function pickOrWatch(
     hint,
     onToggle: live?.write
       ? (indexes) => {
-          writing++;
-          void live
-            .write!(indexes)
-            .then((rev) => {
-              floor = Math.max(floor, rev);
-              shown = indexes.join(",");
-            })
-            .catch(() => {
-              /* the page falls behind; this terminal still finishes the run */
-            })
-            .finally(() => {
-              writing--;
-            });
+          pending = indexes;
+          void flush();
         }
       : undefined,
     watch: async (signal, apply) => {
       while (!signal.aborted) {
         await new Promise((x) => setTimeout(x, 900));
         if (signal.aborted) return undefined;
-        if (writing > 0) continue;
+        if (flushing || pending) continue;
         const s = await pull(o);
         if (!s || s.rev === seenRev || !s.draft) continue;
         if ((s.currentStep ?? 0) > step) return s.draft;
@@ -434,6 +445,13 @@ export async function runTerminalFlow(
                 const i = shown.findIndex((c) => c.id === d.clients[0]);
                 return i < 0 ? undefined : [i];
               },
+              write: async ([i]) => {
+                const c = shown[i];
+                ({ rev } = await push(o, rev, {
+                  draft: { clients: [c.id], install: c.detected ? [] : [c.id] },
+                }));
+                return rev;
+              },
             })
         : await askOrWatch(o, shown.length, preferred, rev, 2);
       let client: FlowClient;
@@ -489,6 +507,10 @@ export async function runTerminalFlow(
               read: (d) => {
                 const i = modes.findIndex((m) => m.id === d.llmMode);
                 return i < 0 ? undefined : [i];
+              },
+              write: async ([i]) => {
+                ({ rev } = await push(o, rev, { draft: { llmMode: modes[i].id } }));
+                return rev;
               },
             })
         : await askOrWatch(o, modes.length, 0, rev, 3);

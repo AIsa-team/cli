@@ -234,7 +234,14 @@ export async function pick<T>(opts: {
   cursor?: number;
   hint: string;
   watch?: Interrupt<T>;
-  /** Called after every local toggle, so the other side can follow along. */
+  /**
+   * Called whenever the local selection changes, so the other side can follow.
+   *
+   * On a checklist that is a tick; on a single choice it is the cursor
+   * itself, which is the only way this terminal has of saying "this one" —
+   * it is painted as chosen, so treating the move as a hover left the page
+   * showing nothing while the terminal plainly showed something.
+   */
   onToggle?: (indexes: number[]) => void;
 }): Promise<PickResult<T>> {
   const selected = new Set(opts.initial ?? []);
@@ -282,8 +289,12 @@ export async function pick<T>(opts: {
     const onData = (data: string) => {
       const k = decode(data);
       if (k.abort) return finish({ aborted: true });
-      if (k.up) { cursor = (cursor - 1 + opts.choices.length) % opts.choices.length; draw(); return; }
-      if (k.down) { cursor = (cursor + 1) % opts.choices.length; draw(); return; }
+      const moved = () => {
+        draw();
+        if (!opts.multi) opts.onToggle?.([cursor]);
+      };
+      if (k.up) { cursor = (cursor - 1 + opts.choices.length) % opts.choices.length; moved(); return; }
+      if (k.down) { cursor = (cursor + 1) % opts.choices.length; moved(); return; }
       if (opts.multi && k.all) {
         if (selected.size === opts.choices.length) selected.clear();
         else opts.choices.forEach((_, i) => selected.add(i));
@@ -295,7 +306,7 @@ export async function pick<T>(opts: {
         // Numbers still work: muscle memory from the version this replaces,
         // and the only way to reach item 12 in one keystroke.
         const i = k.digit === 0 ? 9 : k.digit - 1;
-        if (i < opts.choices.length) { cursor = i; draw(); }
+        if (i < opts.choices.length) { cursor = i; moved(); }
         return;
       }
       if (opts.multi && k.space) {
