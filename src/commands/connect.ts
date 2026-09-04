@@ -32,7 +32,7 @@ import { run, runSync, QUICK_TIMEOUT_MS } from "../utils/exec.js";
 import { httpFetch } from "../utils/http.js";
 import { Journal } from "../utils/journal.js";
 import { checkForUpdate } from "../utils/update-check.js";
-import { resolveLang, LANGS, LAUNCH, t, type Lang } from "./flow.js";
+import { resolveLang, LANGS, LAUNCH, SURFACE, t, type Lang } from "./flow.js";
 import { VERSION } from "../constants.js";
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -2877,17 +2877,25 @@ export async function connectAction(options: {
   // carries the whole run. Neither case needs telling in advance.
   const withBrowser = options.open !== false && canOpenBrowser();
   if (!options.headless && !detached) {
-    log.section("Open this page to choose");
-    console.log(`  ${chalk.cyan(pageUrl)}`);
-    if (withBrowser) {
-      log.note("opening your browser… (or answer here — both stay in step)");
-      openBrowser(pageUrl);
-    } else if (options.open === false) {
-      log.note("open the URL above, or answer here — both stay in step");
+    // Two surfaces, introduced in whichever order this machine can offer
+    // them. A box with a browser is shown the page first; a box without one
+    // is told what it is doing instead — by name, as a mode, not as a
+    // shortfall — and the address stays available underneath for anyone who
+    // would rather forward a port and click.
+    if (withBrowser || options.open === false) {
+      log.section(t(SURFACE.pageTitle, lang));
+      console.log(`  ${chalk.cyan(pageUrl)}`);
+      if (withBrowser) {
+        log.note(t(SURFACE.opening, lang));
+        openBrowser(pageUrl);
+      } else {
+        log.note(t(SURFACE.urlOnly, lang));
+      }
     } else {
-      // Saying "opening your browser…" on a machine with none is a small
-      // lie that costs the reader a minute of waiting for a window.
-      log.note("no browser on this machine — answer here, or forward the port and open it where you are");
+      log.section(t(SURFACE.consoleTitle, lang));
+      log.line("info", t(SURFACE.consoleBody, lang));
+      console.log(`  ${chalk.cyan(pageUrl)}`);
+      log.note(t(SURFACE.consoleAlso, lang));
     }
   }
 

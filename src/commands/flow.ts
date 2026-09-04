@@ -575,6 +575,37 @@ export const LAUNCH = {
 };
 
 /** Shown on a page a newer run has taken over. */
+/**
+ * How a run introduces the two surfaces it is about to use.
+ *
+ * The console case used to lead with what was missing — "no browser on this
+ * machine" — which reads like a fault report for something that is not a
+ * fault at all. A server without a desktop is a perfectly ordinary place to
+ * run this, and the terminal is a first-class way through the flow, not a
+ * consolation. So it is introduced as a mode, by name, and the sentence
+ * after it gets on with the work.
+ */
+export const SURFACE = {
+  pageTitle: { en: "Open this page to choose", zh: "打开这个页面来选择" },
+  opening: {
+    en: "opening your browser… (or answer here — both stay in step)",
+    zh: "正在打开浏览器…(也可以直接在这里回答 —— 两边始终同步)",
+  },
+  urlOnly: {
+    en: "open the URL above, or answer here — both stay in step",
+    zh: "打开上面的地址,或者直接在这里回答 —— 两边始终同步",
+  },
+  consoleTitle: { en: "Console mode", zh: "控制台模式" },
+  consoleBody: {
+    en: "The browser view is not open here, so we will do this together in the terminal — the same questions, and it is very easy. Off we go.",
+    zh: "这里没有开浏览器界面,我们就用命令行一起把它选完 —— 问题都一样,非常简单。这就开始。",
+  },
+  consoleAlso: {
+    en: "that address still works from anywhere that can reach this port, if you would rather click",
+    zh: "如果你更想点鼠标,上面那个地址在任何能连到这个端口的地方都能打开",
+  },
+} as const;
+
 export const SUPERSEDED = {
   title: { en: "A newer setup is running", zh: "已有新的配置在运行" },
   /** The other way a page ends: nobody replaced it, its time ran out. */
