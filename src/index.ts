@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { VERSION, DEFAULT_VIDEO_MODEL } from "./constants.js";
 
 // Auth
@@ -605,6 +605,9 @@ program
   .option("--force", "Start a new run even if another one is still open")
   .option("--lang <lang>", "Page and terminal language: en or zh (default: your system locale)")
   .option("--headless", "Answer in the terminal only — no page, no browser")
+  // Hidden: how a run that was interrupted at the terminal picks itself back
+  // up in a detached process, so the page it opened keeps working.
+  .addOption(new Option("--resume <file>").hideHelp())
   .action(wrap(connectAction));
 
 program

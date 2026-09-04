@@ -33,7 +33,7 @@ import { Journal } from "../utils/journal.js";
 import { checkForUpdate } from "../utils/update-check.js";
 import { resolveLang, LANGS, LAUNCH, t, type Lang } from "./flow.js";
 import { VERSION } from "../constants.js";
-import { readFileSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, unlinkSync, mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import {
   RED, RED_CTA, INK, PAPER, I, LOGO, CATEGORY_ICON, EXAMPLES, FILE_CLIENT_LABELS, CLIENT_LOGOS,
@@ -47,7 +47,8 @@ import {
 import { renderT2Page } from "./connect-t2.js";
 import { runTerminalFlow, flowClients } from "./connect-terminal.js";
 import { pick, type Choice } from "./prompt.js";
-import { handOverResults, closeStaleResults } from "./serve-results.js";
+import { handOverResults, closeStaleResults, SUPERSEDE_GRACE_MS } from "./serve-results.js";
+import { restoreTerminal } from "./prompt.js";
 
 /**
  * Page templates. T1 is the original two-page flow (selection + live
@@ -1810,6 +1811,78 @@ function clearRunLock(): void {
 }
 
 /**
+ * Everything a run needs to carry on without the terminal that started it.
+ *
+ * Ctrl-C used to take the page down with the process, which is only correct
+ * if the page were an accessory to the terminal. It is not — it is the other
+ * half of the same run, and the person pressing Ctrl-C is asking for their
+ * shell back, not for their browser tab to die. So the run moves to a
+ * detached process holding the same port, the same token and the same draft,
+ * and the tab does not notice.
+ */
+interface RunHandover {
+  port: number;
+  token: string;
+  lang: Lang;
+  template: "t1" | "t2";
+  dryRun: boolean;
+  servers: LiveServer[];
+  clients: ClientInfo[];
+  state: RunState;
+  /** Absolute epoch ms after which the resumed process gives up. */
+  until: number;
+}
+
+function readHandover(file: string): RunHandover | null {
+  try {
+    const h = JSON.parse(readFileSync(file, "utf-8")) as RunHandover;
+    try {
+      unlinkSync(file);
+    } catch {
+      /* it served its purpose either way */
+    }
+    return h.port && h.token ? h : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Move the live run to a process the shell is not waiting on.
+ *
+ * The port has to be released before the child reaches for it, so the caller
+ * closes the server first; the child retries while the socket finishes
+ * closing. Returns false if the child could not be started, which the caller
+ * must treat as "the page is going away" rather than promising otherwise.
+ */
+function handOverRun(h: RunHandover, closeParent: () => void): boolean {
+  let file: string;
+  try {
+    file = join(mkdtempSync(join(tmpdir(), "aisa-run-")), "handover.json");
+    writeFileSync(file, JSON.stringify(h), { mode: 0o600 });
+  } catch {
+    return false;
+  }
+  closeParent();
+  try {
+    const child = spawn(process.execPath, [process.argv[1], "connect", "--resume", file], {
+      detached: true,
+      stdio: "ignore",
+      env: process.env,
+    });
+    child.unref();
+    return true;
+  } catch {
+    try {
+      unlinkSync(file);
+    } catch {
+      /* nothing to clean up */
+    }
+    return false;
+  }
+}
+
+/**
  * The lock only needs to keep a second run out while the first one is
  * genuinely doing something — writing configs, waiting on a browser OAuth
  * round. Once it settles into "done" or "failed" it is just a results page
@@ -2039,30 +2112,51 @@ export async function connectAction(options: {
   force?: boolean;
   lang?: string;
   headless?: boolean;
+  resume?: string;
 }): Promise<void> {
-  const template = resolveTemplate(options.template);
+  // A run that was handed over at the terminal. Everything it needs was
+  // written down by the process that had it, so this one asks nobody: no
+  // manifest fetch, no client probe, no browser, no terminal flow — it
+  // exists only to keep answering the page that is already open.
+  const resumed = options.resume ? readHandover(options.resume) : null;
+  if (options.resume && !resumed) return;
+  const template = resumed ? resumed.template : resolveTemplate(options.template);
   // One language for both surfaces. Reading it here rather than in the page
   // is the point: a language the browser chose alone would leave the terminal
   // in English while the page is in Chinese.
-  let lang = resolveLang(options.lang, getConfig("lang") as string | undefined);
+  let lang = resumed ? resumed.lang : resolveLang(options.lang, getConfig("lang") as string | undefined);
 
   // One run at a time. A second one would serve a second page against the
   // same machine — two plans writing the same config files — so point the
   // user at the page that is already open instead. --force overrides for the
   // rare case where the first run is wedged.
-  const log = new Journal();
+  const log = new Journal(Boolean(resumed));
   log.section(`AIsa connect · v${VERSION}`);
   log.line("info", "Machine", `${process.platform} ${process.arch} · node ${process.versions.node}`);
   // Fired now so it has the whole run — often minutes, while the user picks
   // servers in the browser — to resolve. Cached and throttled (see
   // update-check.ts), so this is a no-op network call on most invocations.
-  const updateCheckP = checkForUpdate().catch(() => undefined);
+  const updateCheckP = resumed ? Promise.resolve(undefined) : checkForUpdate().catch(() => undefined);
 
   // A page left over from a previous run describes a machine that has since
-  // changed. Close it before this run starts writing a new answer.
-  closeStaleResults();
+  // changed. Close it before this run starts writing a new answer. A resumed
+  // run is that same page carrying on, so it closes nothing.
+  if (!resumed) closeStaleResults();
 
-  let live = options.force ? null : readRunLock();
+  // --force means "start over", not "run two of these". The page that was
+  // open is about to describe a machine someone else is changing, so it is
+  // told to stand down the same way a finished one is.
+  if (options.force && !resumed) {
+    const previous = readRunLock();
+    if (previous) {
+      try {
+        process.kill(previous.pid, "SIGUSR1");
+      } catch {
+        /* already gone */
+      }
+    }
+  }
+  let live = options.force || resumed ? null : readRunLock();
   if (live && (await oldRunSettled(live.url))) {
     // It finished; its results page is just lingering. Nothing more will be
     // written there, so there is nothing to protect against — proceed as if
@@ -2070,6 +2164,14 @@ export async function connectAction(options: {
     // the file once its server is up.
     const mins = Math.max(1, Math.round((Date.now() - live.started) / 60_000));
     log.line("info", `An earlier run finished ${mins} minute${mins === 1 ? "" : "s"} ago`, "starting a new one");
+    // Its page is still up and still describes this machine as it was. Ask it
+    // to tell its reader that a newer run has started, rather than letting
+    // two pages disagree about what is configured here.
+    try {
+      process.kill(live.pid, "SIGUSR1");
+    } catch {
+      /* already gone, which is the same outcome */
+    }
     live = null;
   }
   if (live) {
@@ -2079,18 +2181,51 @@ export async function connectAction(options: {
     log.note("reopening that page — it keeps your progress");
     log.command("aisa connect --force", "start over instead");
     if (options.open !== false) openBrowser(live.url);
+    // The page is one half of that run; this terminal can be the other.
+    // Returning here left the user holding a browser tab and a shell prompt,
+    // which is the dependency this whole design is meant to remove.
+    const u = new URL(live.url);
+    const liveToken = u.searchParams.get("token") ?? "";
+    const canAsk = options.headless || (process.stdin.isTTY && process.stdout.isTTY);
+    if (liveToken && canAsk) {
+      try {
+        const picked = await runTerminalFlow({
+          baseUrl: u.origin,
+          token: liveToken,
+          lang,
+          servers: await fetchLiveServers(),
+          clients: flowClients(detectClients(), supported()),
+          headless: Boolean(options.headless),
+        });
+        if (picked) {
+          await httpFetch(`${u.origin}/apply?token=${liveToken}`, {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-connect-source": "terminal" },
+            body: JSON.stringify({
+              servers: picked.servers,
+              clients: picked.clients,
+              install: picked.install,
+              llmMode: picked.llmMode,
+            }),
+            timeoutMs: 15_000,
+          }).catch(() => undefined);
+        }
+      } catch {
+        // Whatever went wrong here, that run is still answering its page.
+      }
+    }
     return;
   }
   let servers: LiveServer[];
   try {
-    servers = await fetchLiveServers();
+    servers = resumed ? resumed.servers : await fetchLiveServers();
   } catch (e) {
     log.line("fail", "Could not read the MCP manifest", (e as Error).message);
     log.note("check your network and try again");
     process.exitCode = 1;
     return;
   }
-  const clients = detectClients();
+  const clients = resumed ? resumed.clients : detectClients();
   // Rehearsal aid: in a dry run, pretend the listed clients are present so a
   // page can be reviewed for a client this machine does not have. Never
   // honoured outside --dry-run, where it could only mislead.
@@ -2110,7 +2245,7 @@ export async function connectAction(options: {
 
   // One random token per run: the page and every endpoint require it, so
   // another local process cannot drive this server blind.
-  const token = randomBytes(16).toString("hex");
+  const token = resumed ? resumed.token : randomBytes(16).toString("hex");
   // Rendered per request, not once at startup: the language picker changes
   // `lang` and reloads, and a page built before that would come back in the
   // language the user just switched away from.
@@ -2119,7 +2254,7 @@ export async function connectAction(options: {
       ? renderT2Page(servers, clients, token, Boolean(key), supported(), !isInstalled("aisa"), "start", lang)
       : renderPage(servers, clients, token, Boolean(key), supported());
 
-  const state: RunState = {
+  const state: RunState = resumed ? resumed.state : {
     phase: "selecting",
     results: [],
     auth: {},
@@ -2149,11 +2284,21 @@ export async function connectAction(options: {
   let drivenByTerminal = false;
 
   let settled = false;
-  const idle = setTimeout(() => {
-    if (settled) return;
-    error("No response from the browser in 10 minutes — giving up.");
-    process.exit(1);
-  }, IDLE_TIMEOUT_MS);
+  // When this process intends to stop answering, and why. Both travel with
+  // /status so the page can say so before the tab goes quiet on its own.
+  let closesAt = resumed ? resumed.until : Date.now() + IDLE_TIMEOUT_MS;
+  let supersededUntil: number | undefined;
+  // A handed-over run answers to nobody but the page, and the page was
+  // promised a window rather than ten quiet minutes — so it runs out its
+  // clock instead, silently, because nothing is watching this stdout.
+  const idle = setTimeout(
+    () => {
+      if (settled) return;
+      if (!resumed) error("No response from the browser in 10 minutes — giving up.");
+      process.exit(resumed ? 0 : 1);
+    },
+    resumed ? Math.max(1_000, resumed.until - Date.now()) : IDLE_TIMEOUT_MS
+  );
 
   const srv = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
@@ -2173,7 +2318,12 @@ export async function connectAction(options: {
         res.writeHead(403).end();
         return;
       }
-      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(state));
+      // Same two fields the handed-over results server publishes, so the
+      // page's countdown does not care which process is answering it.
+      const closingAt = supersededUntil ?? closesAt;
+      res
+        .writeHead(200, { "content-type": "application/json" })
+        .end(JSON.stringify({ ...state, closingAt, superseded: Boolean(supersededUntil) }));
       return;
     }
     if (req.method === "GET" && url.pathname === "/done") {
@@ -2500,6 +2650,7 @@ export async function connectAction(options: {
           } else {
             // Nothing to offer, or it would not start: leave the page up for
             // someone who is still reading it.
+            closesAt = Date.now() + LINGER_AFTER_DONE_MS;
             setTimeout(() => {
               srv.close();
               process.exit(failures > 0 ? 1 : 0);
@@ -2537,7 +2688,28 @@ export async function connectAction(options: {
   });
 
   await new Promise<void>((resolve) => {
-    srv.listen(options.port ? Number(options.port) : 0, "127.0.0.1", resolve);
+    if (!resumed) {
+      srv.listen(options.port ? Number(options.port) : 0, "127.0.0.1", resolve);
+      return;
+    }
+    // The process we came from has just closed its listener; a socket takes
+    // a moment to let go, so keep asking rather than giving the page a dead
+    // port on the strength of one failed attempt.
+    let attempt = 0;
+    const tryListen = () => {
+      const onError = () => {
+        if (++attempt >= 20) {
+          process.exit(1);
+        }
+        setTimeout(tryListen, 150);
+      };
+      srv.once("error", onError);
+      srv.listen(resumed.port, "127.0.0.1", () => {
+        srv.off("error", onError);
+        resolve();
+      });
+    };
+    tryListen();
   });
   const addr = srv.address();
   port = typeof addr === "object" && addr ? addr.port : 0;
@@ -2545,9 +2717,52 @@ export async function connectAction(options: {
   // Publish the address for a second invocation, and take it back on every
   // way out: normal exit, Ctrl-C, or an unhandled crash.
   writeRunLock(pageUrl);
-  process.once("exit", clearRunLock);
+  // A newer run asks this one to stand down. Killing it outright would leave
+  // whoever is reading that tab with a page that simply stopped answering,
+  // which is the thing the countdown exists to prevent — so it is a request,
+  // not a kill, and the page has a minute to say what happened.
+  process.on("SIGUSR1", () => {
+    if (supersededUntil) return;
+    supersededUntil = Date.now() + SUPERSEDE_GRACE_MS;
+    setTimeout(() => {
+      srv.close();
+      process.exit(0);
+    }, SUPERSEDE_GRACE_MS).unref?.();
+    setTimeout(() => process.exit(0), SUPERSEDE_GRACE_MS + 2_000);
+  });
+  let handedOver = false;
+  process.once("exit", () => {
+    // The lock now belongs to whoever is still serving that page.
+    if (!handedOver) clearRunLock();
+  });
   for (const sig of ["SIGINT", "SIGTERM"] as const) {
     process.once(sig, () => {
+      // This handler is registered before the picker's, and only one of them
+      // gets to exit — so put the terminal back before leaving, or the shell
+      // that asked for control back gets it with no echo.
+      restoreTerminal();
+      // Ctrl-C asks for the shell back. It does not ask for the browser tab
+      // to close, and taking it down was the one thing the page could not
+      // recover from. Anything already being written is a different matter:
+      // that work lives in this process and cannot be moved mid-flight.
+      if (state.phase === "selecting" && !resumed) {
+        const until = Date.now() + LINGER_AFTER_DONE_MS;
+        if (
+          handOverRun(
+            { port, token, lang, template, dryRun: Boolean(options.dryRun), servers, clients, state, until },
+            () => srv.close()
+          )
+        ) {
+          handedOver = true;
+          console.log("");
+          log.line("info", "Terminal released", "the page carries on without it");
+          console.log(`  ${chalk.cyan(pageUrl)}`);
+          log.note(`open for another ${Math.round(LINGER_AFTER_DONE_MS / 60_000)} minutes`);
+          log.command("aisa connect", "come back to it");
+          console.log("");
+          process.exit(0);
+        }
+      }
       clearRunLock();
       process.exit(130);
     });
@@ -2562,7 +2777,7 @@ export async function connectAction(options: {
   // a fallback: on a machine with no browser, printing a localhost URL is a
   // dead end, and both surfaces share one draft so either can be used —
   // together, or on its own.
-  if (!options.headless) {
+  if (!options.headless && !resumed) {
     log.section("Open this page to choose");
     console.log(`  ${chalk.cyan(pageUrl)}`);
     if (options.open === false) {
@@ -2573,7 +2788,7 @@ export async function connectAction(options: {
     }
   }
 
-  if (options.headless || (process.stdin.isTTY && process.stdout.isTTY)) {
+  if (!resumed && (options.headless || (process.stdin.isTTY && process.stdout.isTTY))) {
     const picked = await runTerminalFlow({
       baseUrl: `http://127.0.0.1:${port}`,
       token,
