@@ -99,14 +99,6 @@ export class Journal {
   }
 
   /**
-   * The last thing a run says. Everything above is what happened; these are
-   * the commands worth remembering, so they get a rule above them, an arrow
-   * each and the brightest ink on the screen — a reader who scrolled away
-   * and came back should land on them. One entry is the common case; a
-   * fresh install or a new wrapper command earns a second line above the
-   * standing "run this again" one, most useful first.
-   */
-  /**
    * A ruled line on its own, for a moment that deserves separating from
    * whatever an agent session just left on the screen.
    */
@@ -115,6 +107,17 @@ export class Journal {
     this.emit("", `\n${chalk.gray(line)}`, `\n${line}`);
   }
 
+  /**
+   * The last thing a run says. Everything above is what happened; these are
+   * the commands worth remembering, so they get a rule above them, an arrow
+   * each and the brightest ink on the screen — a reader who scrolled away
+   * and came back should land on them. One entry is the common case; a
+   * fresh install or a new wrapper command earns a second line above the
+   * standing "run this again" one, most useful first.
+     *
+   * A blank line closes it, so the shell prompt that follows is not stuck to
+   * the last thing we asked the reader to remember.
+   */
   encore(items: Array<{ cmd: string; why: string }>): void {
     const width = Math.min(70, Math.max(...items.map((i) => i.cmd.length + i.why.length + 8)));
     const rule = "─".repeat(width);
@@ -126,6 +129,7 @@ export class Journal {
         `👉 ${cmd}  ${why}`
       );
     }
+    this.emit("", "", "");
   }
 
   /** Log-only: detail worth having in a bug report, noise in a terminal. */
