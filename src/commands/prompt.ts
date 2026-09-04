@@ -199,7 +199,18 @@ function frame(o: RenderOptions): string[] {
  * for the life of the process — three steps, three pollers, still running long
  * after the run had finished.
  */
-export type Interrupt<T> = (signal: AbortSignal) => Promise<T | undefined>;
+export type Interrupt<T> = (
+  signal: AbortSignal,
+  /**
+   * Repaint with a selection made elsewhere, without ending the picker.
+   *
+   * A checklist is not answered by its first tick. Treating every change in
+   * the page as the answer closed this picker on the first box ticked over
+   * there and moved the run on; a person ticking their way down twenty-five
+   * servers should see the ✓ marks arrive here and keep going.
+   */
+  apply: (indexes: number[]) => void
+) => Promise<T | undefined>;
 
 export interface PickResult<T> {
   /** Indexes chosen here, or undefined when something else answered. */
@@ -223,12 +234,16 @@ export async function pick<T>(opts: {
   cursor?: number;
   hint: string;
   watch?: Interrupt<T>;
+  /** Called after every local toggle, so the other side can follow along. */
+  onToggle?: (indexes: number[]) => void;
 }): Promise<PickResult<T>> {
   const selected = new Set(opts.initial ?? []);
   let cursor = opts.cursor ?? (opts.initial?.[0] ?? 0);
   let offset = 0;
   const rows = viewport(opts.choices.length, 10);
   let printed = 0;
+
+  const sorted = () => [...selected].sort((a, b) => a - b);
 
   const draw = () => {
     if (cursor < offset) offset = cursor;
@@ -273,6 +288,7 @@ export async function pick<T>(opts: {
         if (selected.size === opts.choices.length) selected.clear();
         else opts.choices.forEach((_, i) => selected.add(i));
         draw();
+        opts.onToggle?.(sorted());
         return;
       }
       if (k.digit !== undefined) {
@@ -286,11 +302,12 @@ export async function pick<T>(opts: {
         if (selected.has(cursor)) selected.delete(cursor);
         else selected.add(cursor);
         draw();
+        opts.onToggle?.(sorted());
         return;
       }
       if (k.enter) {
         if (!opts.multi) return finish({ picked: [cursor] });
-        return finish({ picked: [...selected].sort((a, b) => a - b) });
+        return finish({ picked: sorted() });
       }
     };
 
@@ -298,7 +315,13 @@ export async function pick<T>(opts: {
 
     if (opts.watch) {
       void opts
-        .watch(watchdog.signal)
+        .watch(watchdog.signal, (indexes) => {
+          if (done) return;
+          selected.clear();
+          for (const i of indexes) if (i >= 0 && i < opts.choices.length) selected.add(i);
+          if (!opts.multi && indexes.length) cursor = indexes[0];
+          draw();
+        })
         .then((v) => {
           if (v !== undefined) finish({ interrupted: v });
         })
