@@ -184,9 +184,14 @@ export async function serveResultsAction(file: string): Promise<void> {
       return;
     }
     if (req.method === "GET" && url.pathname === "/status") {
+      // One field, whatever the reason. A page that is about to stop
+      // answering should say so whether a newer run took over or the half
+      // hour simply ran out — the second was silent, which is the same
+      // unexplained dead tab the first one was fixed to avoid.
+      const closingAt = supersededUntil ?? h.until;
       res
         .writeHead(200, { "content-type": "application/json" })
-        .end(JSON.stringify({ ...h.state, supersededUntil }));
+        .end(JSON.stringify({ ...h.state, closingAt, superseded: Boolean(supersededUntil) }));
       return;
     }
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/done")) {

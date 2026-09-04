@@ -577,6 +577,12 @@ export const LAUNCH = {
 /** Shown on a page a newer run has taken over. */
 export const SUPERSEDED = {
   title: { en: "A newer setup is running", zh: "已有新的配置在运行" },
+  /** The other way a page ends: nobody replaced it, its time ran out. */
+  expiringTitle: { en: "This page is about to close", zh: "本页面即将关闭" },
+  expiringBody: {
+    en: "The run that opened it has finished. Nothing here needs you any more; the page closes in",
+    zh: "打开它的那次运行已经结束,这里没有需要你做的事了。本窗口将在",
+  },
   body: {
     en: "You started <b>aisa connect</b> again, and this page describes the run before it. It closes in",
     zh: "你又运行了一次 <b>aisa connect</b>,这个页面显示的是上一次的结果。本窗口将在",

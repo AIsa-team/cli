@@ -486,9 +486,24 @@ ${restChips}
     fetch("/status?token=" + TOKEN)
       .then(function (r) { return r.json(); })
       .then(function (s) {
-        if (!s.supersededUntil) return;
-        var left = Math.max(0, Math.ceil((s.supersededUntil - Date.now()) / 1000));
-        $("#superseded").style.display = "flex";
+        if (!s.closingAt) return;
+        var left = Math.max(0, Math.ceil((s.closingAt - Date.now()) / 1000));
+        // Only in the last minute for a page that is simply timing out: a
+        // countdown running for half an hour is not a warning, it is
+        // furniture. Being superseded says so immediately, because that one
+        // is news.
+        if (!s.superseded && left > 60) return;
+        var box = $("#superseded");
+        box.style.display = "flex";
+        box.querySelector("h2").textContent = s.superseded
+          ? ${JSON.stringify(T(SUPERSEDED.title))}
+          : ${JSON.stringify(T(SUPERSEDED.expiringTitle))};
+        if (!s.superseded && !box.dataset.reworded) {
+          box.dataset.reworded = "1";
+          box.querySelector("p").innerHTML =
+            ${JSON.stringify(T(SUPERSEDED.expiringBody))} +
+            ' <b id="sscount"></b> ' + ${JSON.stringify(T(SUPERSEDED.seconds))} + ".";
+        }
         $("#sscount").textContent = String(left);
       })
       .catch(function () {
