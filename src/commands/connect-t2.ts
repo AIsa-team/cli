@@ -7,7 +7,7 @@ import {
   STEP_AGENT, AGENT_ORDER, agentRank, AGENT_BADGE, AGENT_SIDE_TITLES,
   AGENT_NOTES, AGENT_HAVE_NOTES, installOffer, t, fill, type Lang, LANGS, LANG_LABEL, NAV,
   STEP_TITLES, STEP_WELCOME, STEP_MODELS, STEP_CAPS, STEP_INSTALL, STEP_DONE,
-  FILE_MODEL_NOTE, FILE_MODEL_FALLBACK, BACKUP_COPY, CATEGORY_BLURB, runtimeCopy, NEXT_WORD,
+  FILE_MODEL_NOTE, FILE_MODEL_FALLBACK, BACKUP_COPY, CATEGORY_BLURB, runtimeCopy, NEXT_WORD, SUPERSEDED,
 } from "./flow.js";
 import {
   RED,
@@ -310,6 +310,10 @@ ${restChips}
 
   const body = `
 <div class="wrap">
+<div id="superseded" class="ssup" style="display:none"><div class="ssbox">
+  <h2>${T(SUPERSEDED.title)}</h2>
+  <p>${T(SUPERSEDED.body)} <b id="sscount">60</b> ${T(SUPERSEDED.seconds)}.</p>
+</div></div>
 <nav class="rail">
   <div class="railhead">${LOGO_INK}<span>Connect</span></div>
   <div class="railsteps">${rail}</div>
@@ -474,6 +478,28 @@ ${restChips}
     if (!ticker) ticker = setInterval(tick, 250);
     poll();
   }
+
+  // Always on, whatever step this page is on and whether or not a run is in
+  // progress: being superseded can happen at any moment, and a tab that just
+  // stops answering with no explanation is the worst version of it.
+  setInterval(function () {
+    fetch("/status?token=" + TOKEN)
+      .then(function (r) { return r.json(); })
+      .then(function (s) {
+        if (!s.supersededUntil) return;
+        var left = Math.max(0, Math.ceil((s.supersededUntil - Date.now()) / 1000));
+        $("#superseded").style.display = "flex";
+        $("#sscount").textContent = String(left);
+      })
+      .catch(function () {
+        // Once it has actually closed, say so rather than leaving a live
+        // countdown on a page nothing is behind any more.
+        var box = $("#superseded");
+        if (box && box.style.display === "flex") {
+          box.querySelector("p").textContent = ${JSON.stringify(T(SUPERSEDED.closed))};
+        }
+      });
+  }, 1000);
 
   var draftTimer = setInterval(function () {
     if (locked) { clearInterval(draftTimer); return; }
@@ -975,6 +1001,13 @@ function shellT2(title: string, body: string): string {
      stay readable on a wide screen. */
   .main { display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
   .content { width: 100%; max-width: 980px; }
+  .ssup { position: fixed; inset: 0; background: rgba(13,13,11,.72); z-index: 99;
+    display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  .ssbox { background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 1.8rem 2rem; max-width: 30rem; box-shadow: 0 18px 50px rgba(0,0,0,.25); }
+  .ssbox h2 { margin: 0 0 .6rem; font-size: 1.15rem; }
+  .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
+  .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
   .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
   .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);

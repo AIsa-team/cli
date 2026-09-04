@@ -162,16 +162,24 @@ function frame(o: RenderOptions): string[] {
   for (let i = o.offset; i < Math.min(o.offset + o.rows, o.choices.length); i++) {
     const c = o.choices[i];
     const here = i === o.cursor;
-    // Loud on purpose. The first version used ◉/◯, which at a glance in a
-    // list of twenty-five is a smudge — you could not tell what you had
-    // picked without counting.
-    const mark = o.selected
-      ? (o.selected.has(i) ? chalk.green.bold("[✓]") : chalk.gray("[ ]"))
-      : here ? chalk.cyan.bold("▶") : " ";
+    const on = Boolean(o.selected?.has(i));
+    // Four states, four looks. Before this, "where I am" and "what I picked"
+    // were drawn the same way — a cyan bar for the cursor and a green tick
+    // inside it — so on the row you were standing on there was no telling
+    // whether it was ticked. Chosen is a filled green bar; the cursor alone
+    // is an outline; the rest recede.
+    const mark = o.selected ? (on ? "✓" : " ") : here ? "▶" : " ";
     const body = truncate(c.label, width - 20);
-    const meta = c.meta ? chalk.gray("  " + truncate(c.meta, 18)) : "";
-    const row = `${mark} ${here ? chalk.bold(body) : body}${meta}`;
-    lines.push(chalk.gray("│ ") + (here ? chalk.bgCyan.black(" " + row + " ") : " " + row));
+    const meta = c.meta ? "  " + truncate(c.meta, 18) : "";
+    const row = ` ${mark} ${body}${meta} `;
+
+    let painted: string;
+    if (on && here) painted = chalk.bgGreen.black.bold(row);
+    else if (on) painted = chalk.green.bold(row);
+    else if (here) painted = chalk.bgWhite.black(row);
+    else painted = " " + mark + " " + body + chalk.gray(meta) + " ";
+
+    lines.push(chalk.gray("│") + painted);
   }
   if (o.choices.length > o.rows) {
     lines.push(chalk.gray(`│   ${o.offset + 1}–${Math.min(o.offset + o.rows, o.choices.length)} / ${o.choices.length}`));

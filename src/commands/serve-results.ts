@@ -47,16 +47,23 @@ export function closeStaleResults(): void {
     return;
   }
   try {
-    if (rec.pid) process.kill(rec.pid, "SIGTERM");
+    // SIGUSR1, not SIGTERM: killing it outright leaves whoever was reading
+    // that tab staring at a page that stopped answering with no explanation.
+    // The signal starts a countdown instead, and the page says what happened
+    // and how long it has. The child removes its own record when it goes.
+    if (rec.pid) process.kill(rec.pid, "SIGUSR1");
   } catch {
-    /* already gone, which is the same outcome */
-  }
-  try {
-    unlinkSync(resultsPidPath());
-  } catch {
-    /* nothing to remove */
+    // Not there any more, so nothing is going to clean up after it.
+    try {
+      unlinkSync(resultsPidPath());
+    } catch {
+      /* nothing to remove */
+    }
   }
 }
+
+/** How long a superseded page stays readable before it closes. */
+export const SUPERSEDE_GRACE_MS = 60 * 1000;
 
 /** Everything the done page needs, and nothing else. */
 export interface ResultsHandover {
@@ -177,7 +184,9 @@ export async function serveResultsAction(file: string): Promise<void> {
       return;
     }
     if (req.method === "GET" && url.pathname === "/status") {
-      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(h.state));
+      res
+        .writeHead(200, { "content-type": "application/json" })
+        .end(JSON.stringify({ ...h.state, supersededUntil }));
       return;
     }
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/done")) {
@@ -202,6 +211,21 @@ export async function serveResultsAction(file: string): Promise<void> {
   });
 
   if (!(await listenWithRetry(srv, h.port))) return;
+
+  // Set when a newer run takes over. The page reads it from /status and shows
+  // the countdown; this process closes when it runs out.
+  let supersededUntil: number | undefined;
+  process.on("SIGUSR1", () => {
+    if (supersededUntil) return;
+    supersededUntil = Date.now() + SUPERSEDE_GRACE_MS;
+    setTimeout(() => {
+      srv.close();
+      process.exit(0);
+    }, SUPERSEDE_GRACE_MS).unref?.();
+    // Nothing else keeps this alive once the original deadline passes, so
+    // hold it open for the grace period explicitly.
+    setTimeout(() => process.exit(0), SUPERSEDE_GRACE_MS + 2_000);
+  });
 
   const forget = () => {
     try {

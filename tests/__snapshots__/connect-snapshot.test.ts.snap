@@ -45,6 +45,13 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
      stay readable on a wide screen. */
   .main { display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
   .content { width: 100%; max-width: 980px; }
+  .ssup { position: fixed; inset: 0; background: rgba(13,13,11,.72); z-index: 99;
+    display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  .ssbox { background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 1.8rem 2rem; max-width: 30rem; box-shadow: 0 18px 50px rgba(0,0,0,.25); }
+  .ssbox h2 { margin: 0 0 .6rem; font-size: 1.15rem; }
+  .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
+  .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
   .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
   .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
@@ -287,6 +294,10 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
 </style></head><body>
 
 <div class="wrap">
+<div id="superseded" class="ssup" style="display:none"><div class="ssbox">
+  <h2>A newer setup is running</h2>
+  <p>You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
+</div></div>
 <nav class="rail">
   <div class="railhead"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g clip-path="url(#clip0_383_646)">
@@ -609,6 +620,28 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
     if (!ticker) ticker = setInterval(tick, 250);
     poll();
   }
+
+  // Always on, whatever step this page is on and whether or not a run is in
+  // progress: being superseded can happen at any moment, and a tab that just
+  // stops answering with no explanation is the worst version of it.
+  setInterval(function () {
+    fetch("/status?token=" + TOKEN)
+      .then(function (r) { return r.json(); })
+      .then(function (s) {
+        if (!s.supersededUntil) return;
+        var left = Math.max(0, Math.ceil((s.supersededUntil - Date.now()) / 1000));
+        $("#superseded").style.display = "flex";
+        $("#sscount").textContent = String(left);
+      })
+      .catch(function () {
+        // Once it has actually closed, say so rather than leaving a live
+        // countdown on a page nothing is behind any more.
+        var box = $("#superseded");
+        if (box && box.style.display === "flex") {
+          box.querySelector("p").textContent = "This page has closed. The newer run has its own.";
+        }
+      });
+  }, 1000);
 
   var draftTimer = setInterval(function () {
     if (locked) { clearInterval(draftTimer); return; }
@@ -1108,6 +1141,13 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
      stay readable on a wide screen. */
   .main { display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
   .content { width: 100%; max-width: 980px; }
+  .ssup { position: fixed; inset: 0; background: rgba(13,13,11,.72); z-index: 99;
+    display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  .ssbox { background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 1.8rem 2rem; max-width: 30rem; box-shadow: 0 18px 50px rgba(0,0,0,.25); }
+  .ssbox h2 { margin: 0 0 .6rem; font-size: 1.15rem; }
+  .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
+  .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
   .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
   .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
@@ -1350,6 +1390,10 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
 </style></head><body>
 
 <div class="wrap">
+<div id="superseded" class="ssup" style="display:none"><div class="ssbox">
+  <h2>A newer setup is running</h2>
+  <p>You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
+</div></div>
 <nav class="rail">
   <div class="railhead"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g clip-path="url(#clip0_383_646)">
@@ -1660,6 +1704,28 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
     if (!ticker) ticker = setInterval(tick, 250);
     poll();
   }
+
+  // Always on, whatever step this page is on and whether or not a run is in
+  // progress: being superseded can happen at any moment, and a tab that just
+  // stops answering with no explanation is the worst version of it.
+  setInterval(function () {
+    fetch("/status?token=" + TOKEN)
+      .then(function (r) { return r.json(); })
+      .then(function (s) {
+        if (!s.supersededUntil) return;
+        var left = Math.max(0, Math.ceil((s.supersededUntil - Date.now()) / 1000));
+        $("#superseded").style.display = "flex";
+        $("#sscount").textContent = String(left);
+      })
+      .catch(function () {
+        // Once it has actually closed, say so rather than leaving a live
+        // countdown on a page nothing is behind any more.
+        var box = $("#superseded");
+        if (box && box.style.display === "flex") {
+          box.querySelector("p").textContent = "This page has closed. The newer run has its own.";
+        }
+      });
+  }, 1000);
 
   var draftTimer = setInterval(function () {
     if (locked) { clearInterval(draftTimer); return; }
@@ -2159,6 +2225,13 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
      stay readable on a wide screen. */
   .main { display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
   .content { width: 100%; max-width: 980px; }
+  .ssup { position: fixed; inset: 0; background: rgba(13,13,11,.72); z-index: 99;
+    display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  .ssbox { background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 1.8rem 2rem; max-width: 30rem; box-shadow: 0 18px 50px rgba(0,0,0,.25); }
+  .ssbox h2 { margin: 0 0 .6rem; font-size: 1.15rem; }
+  .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
+  .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
   .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
   .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
@@ -2401,6 +2474,10 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
 </style></head><body>
 
 <div class="wrap">
+<div id="superseded" class="ssup" style="display:none"><div class="ssbox">
+  <h2>A newer setup is running</h2>
+  <p>You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
+</div></div>
 <nav class="rail">
   <div class="railhead"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g clip-path="url(#clip0_383_646)">
@@ -2711,6 +2788,28 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
     if (!ticker) ticker = setInterval(tick, 250);
     poll();
   }
+
+  // Always on, whatever step this page is on and whether or not a run is in
+  // progress: being superseded can happen at any moment, and a tab that just
+  // stops answering with no explanation is the worst version of it.
+  setInterval(function () {
+    fetch("/status?token=" + TOKEN)
+      .then(function (r) { return r.json(); })
+      .then(function (s) {
+        if (!s.supersededUntil) return;
+        var left = Math.max(0, Math.ceil((s.supersededUntil - Date.now()) / 1000));
+        $("#superseded").style.display = "flex";
+        $("#sscount").textContent = String(left);
+      })
+      .catch(function () {
+        // Once it has actually closed, say so rather than leaving a live
+        // countdown on a page nothing is behind any more.
+        var box = $("#superseded");
+        if (box && box.style.display === "flex") {
+          box.querySelector("p").textContent = "This page has closed. The newer run has its own.";
+        }
+      });
+  }, 1000);
 
   var draftTimer = setInterval(function () {
     if (locked) { clearInterval(draftTimer); return; }
@@ -3210,6 +3309,13 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
      stay readable on a wide screen. */
   .main { display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
   .content { width: 100%; max-width: 980px; }
+  .ssup { position: fixed; inset: 0; background: rgba(13,13,11,.72); z-index: 99;
+    display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  .ssbox { background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 1.8rem 2rem; max-width: 30rem; box-shadow: 0 18px 50px rgba(0,0,0,.25); }
+  .ssbox h2 { margin: 0 0 .6rem; font-size: 1.15rem; }
+  .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
+  .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
   .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
   .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
@@ -3452,6 +3558,10 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
 </style></head><body>
 
 <div class="wrap">
+<div id="superseded" class="ssup" style="display:none"><div class="ssbox">
+  <h2>A newer setup is running</h2>
+  <p>You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
+</div></div>
 <nav class="rail">
   <div class="railhead"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g clip-path="url(#clip0_383_646)">
@@ -3774,6 +3884,28 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
     if (!ticker) ticker = setInterval(tick, 250);
     poll();
   }
+
+  // Always on, whatever step this page is on and whether or not a run is in
+  // progress: being superseded can happen at any moment, and a tab that just
+  // stops answering with no explanation is the worst version of it.
+  setInterval(function () {
+    fetch("/status?token=" + TOKEN)
+      .then(function (r) { return r.json(); })
+      .then(function (s) {
+        if (!s.supersededUntil) return;
+        var left = Math.max(0, Math.ceil((s.supersededUntil - Date.now()) / 1000));
+        $("#superseded").style.display = "flex";
+        $("#sscount").textContent = String(left);
+      })
+      .catch(function () {
+        // Once it has actually closed, say so rather than leaving a live
+        // countdown on a page nothing is behind any more.
+        var box = $("#superseded");
+        if (box && box.style.display === "flex") {
+          box.querySelector("p").textContent = "This page has closed. The newer run has its own.";
+        }
+      });
+  }, 1000);
 
   var draftTimer = setInterval(function () {
     if (locked) { clearInterval(draftTimer); return; }
@@ -4273,6 +4405,13 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
      stay readable on a wide screen. */
   .main { display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
   .content { width: 100%; max-width: 980px; }
+  .ssup { position: fixed; inset: 0; background: rgba(13,13,11,.72); z-index: 99;
+    display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  .ssbox { background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 1.8rem 2rem; max-width: 30rem; box-shadow: 0 18px 50px rgba(0,0,0,.25); }
+  .ssbox h2 { margin: 0 0 .6rem; font-size: 1.15rem; }
+  .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
+  .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
   .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
   .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
@@ -4515,6 +4654,10 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
 </style></head><body>
 
 <div class="wrap">
+<div id="superseded" class="ssup" style="display:none"><div class="ssbox">
+  <h2>A newer setup is running</h2>
+  <p>You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
+</div></div>
 <nav class="rail">
   <div class="railhead"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g clip-path="url(#clip0_383_646)">
@@ -4837,6 +4980,28 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
     if (!ticker) ticker = setInterval(tick, 250);
     poll();
   }
+
+  // Always on, whatever step this page is on and whether or not a run is in
+  // progress: being superseded can happen at any moment, and a tab that just
+  // stops answering with no explanation is the worst version of it.
+  setInterval(function () {
+    fetch("/status?token=" + TOKEN)
+      .then(function (r) { return r.json(); })
+      .then(function (s) {
+        if (!s.supersededUntil) return;
+        var left = Math.max(0, Math.ceil((s.supersededUntil - Date.now()) / 1000));
+        $("#superseded").style.display = "flex";
+        $("#sscount").textContent = String(left);
+      })
+      .catch(function () {
+        // Once it has actually closed, say so rather than leaving a live
+        // countdown on a page nothing is behind any more.
+        var box = $("#superseded");
+        if (box && box.style.display === "flex") {
+          box.querySelector("p").textContent = "This page has closed. The newer run has its own.";
+        }
+      });
+  }, 1000);
 
   var draftTimer = setInterval(function () {
     if (locked) { clearInterval(draftTimer); return; }

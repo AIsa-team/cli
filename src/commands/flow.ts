@@ -573,3 +573,17 @@ export const LAUNCH = {
     zh: "回到命令提示符 —— 同时关闭结果页",
   },
 };
+
+/** Shown on a page a newer run has taken over. */
+export const SUPERSEDED = {
+  title: { en: "A newer setup is running", zh: "已有新的配置在运行" },
+  body: {
+    en: "You started <b>aisa connect</b> again, and this page describes the run before it. It closes in",
+    zh: "你又运行了一次 <b>aisa connect</b>,这个页面显示的是上一次的结果。本窗口将在",
+  },
+  seconds: { en: "seconds", zh: "秒后关闭" },
+  closed: {
+    en: "This page has closed. The newer run has its own.",
+    zh: "本页面已关闭。新的运行有它自己的页面。",
+  },
+};
