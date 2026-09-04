@@ -266,7 +266,10 @@ export async function installAgent(id: string): Promise<InstallOutcome> {
       npmCommand && command !== npmCommand
         ? npmCommand
         : installer.npmPackage
-          ? `npm uninstall -g ${installer.npmPackage} >/dev/null 2>&1; ${npmCommand ?? command}`
+          // Retry over the top, never after removing what is there. See the
+          // note further down: the uninstall half of this cost a user their
+          // working install when the reinstall could not reach the registry.
+          ? npmCommand ?? command
           : undefined;
     if (!fallback) {
       return {
@@ -289,11 +292,20 @@ export async function installAgent(id: string): Promise<InstallOutcome> {
 
   let probe = probeBinary(installer.binary);
   if (!probe.ok && probe.onPath && installer.npmPackage) {
-    // The binary exists but cannot start — npm's optional-dependency bug
-    // leaves exactly this (package installed, platform binary missing, exit 0
-    // all the way). The reliable remedy is a clean uninstall + reinstall, so
-    // a broken npm install gets exactly one.
-    await runShell(`npm uninstall -g ${installer.npmPackage}; ${npmCommand ?? command}`);
+    // The binary exists but did not start. npm's optional-dependency bug
+    // leaves exactly this — package installed, platform binary missing — and
+    // reinstalling over the top fixes it.
+    //
+    // 🔴 What this must never do again is uninstall first. `probeBinary`
+    // reports a timeout the same way it reports a broken install, so a slow
+    // start on a loaded machine was enough to condemn a working tool; the
+    // uninstall then succeeded, the reinstall failed on a flaky download, and
+    // the user was left with nothing where their agent used to be. Observed
+    // on 2026-08-25 against a working `claude`, more than once.
+    //
+    // Installing over an existing copy is what npm does anyway. If it fails,
+    // the user still has what they had.
+    await runShell(npmCommand ?? command);
     probe = probeBinary(installer.binary);
   }
   if (!probe.ok) {
