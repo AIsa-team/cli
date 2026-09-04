@@ -6,6 +6,7 @@ import { error, hint, info, success } from "../utils/display.js";
 import { setApiKey } from "../config.js";
 import { maskKey } from "../config.js";
 import { httpFetch } from "../utils/http.js";
+import { canOpenBrowser } from "../utils/browser.js";
 
 /**
  * `aisa login` without a key: sign in once in a browser, come back with the
@@ -20,11 +21,13 @@ import { httpFetch } from "../utils/http.js";
  *      and store the key — the token itself is then dropped. One secret on
  *      disk, and it is the one that does not expire in a day.
  *
- * Headless machines get the paste-back variant (--no-browser): the URL is
- * printed, the user authorizes on any machine, the redirect to 127.0.0.1
- * fails to load there — and that is fine, because the code is in the URL,
- * which the user pastes back here. PKCE needs the verifier, not a reachable
- * callback.
+ * A machine with no browser of its own takes the paste-back variant, and it
+ * is chosen for the user rather than asked for: the URL is printed, the user
+ * authorizes wherever they are sitting, the redirect to 127.0.0.1 fails to
+ * load there — and that is fine, because the code is in the URL, which they
+ * paste back here. PKCE needs the verifier, not a reachable callback, and
+ * the verifier never left this machine. What travels through the clipboard
+ * is a one-time code, not a key.
  */
 
 const AUTH_SERVER = "https://clerk.aisa.one";
@@ -59,9 +62,22 @@ async function registerClient(redirectUri: string): Promise<string> {
 }
 
 /** Wait for the authorization code on the loopback port. */
+/** How long to hold a loopback callback open before giving up on it. */
+const CALLBACK_TIMEOUT_MS = 5 * 60 * 1000;
+
 function waitForCallback(port: number, expectedState: string): Promise<string> {
   return new Promise((resolve, reject) => {
+    // A browser we opened may never come back — it was never opened at all,
+    // the tab was closed, the machine has no screen. Waiting for that with
+    // no deadline is a hang, and a hang is the one failure that tells the
+    // user nothing.
+    const giveUp = setTimeout(() => {
+      srv.close();
+      reject(new Error("no response from the browser after 5 minutes — try: aisa login --no-browser"));
+    }, CALLBACK_TIMEOUT_MS);
+    giveUp.unref?.();
     const srv = createServer((req, res) => {
+      clearTimeout(giveUp);
       const url = new URL(req.url ?? "/", `http://127.0.0.1:${port}`);
       if (url.pathname !== "/callback") {
         res.writeHead(404).end();
@@ -82,7 +98,10 @@ function waitForCallback(port: number, expectedState: string): Promise<string> {
       resolve(code);
     });
     srv.listen(port, "127.0.0.1");
-    srv.on("error", reject);
+    srv.on("error", (e) => {
+      clearTimeout(giveUp);
+      reject(e);
+    });
   });
 }
 
@@ -119,7 +138,9 @@ function openBrowser(url: string): void {
  * runs it as its "Sign in to AIsa" step.
  */
 export async function mintCliKey(options: { open?: boolean } = {}): Promise<string> {
-  const useBrowser = options.open !== false;
+  // Unset means "work it out": a server has no browser to open and waiting
+  // for a click on a machine with no screen is the worst way to find out.
+  const useBrowser = options.open ?? canOpenBrowser();
 
   // Loopback port first: the redirect URI has to be registered before the
   // browser opens, and Clerk requires an exact match.
@@ -150,8 +171,16 @@ export async function mintCliKey(options: { open?: boolean } = {}): Promise<stri
     openBrowser(authUrl.toString());
     code = await waitForCallback(port, state);
   } else {
-    console.log(`  Open this URL on any machine and sign in:\n  ${authUrl.toString()}\n`);
-    console.log("  The browser will end on a 127.0.0.1 page that fails to load — that is expected.");
+    if (!process.stdin.isTTY) {
+      // Nothing to open and nowhere to paste. Say so now rather than sitting
+      // on a callback that cannot arrive.
+      throw new Error(
+        `no browser here and no terminal to paste into — sign in on a machine that has one, or run: aisa login --key <key>\n  ${authUrl.toString()}`
+      );
+    }
+    console.log(`  This machine has no browser. Open this URL where you are:\n  ${authUrl.toString()}\n`);
+    console.log("  It ends on a 127.0.0.1 page that will not load — that is expected.");
+    console.log("  Copy that page's address from the bar and paste it below.\n");
     code = await waitForPaste(state);
   }
 

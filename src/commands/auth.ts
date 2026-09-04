@@ -12,8 +12,13 @@ export async function loginAction(options: { key?: string; browser?: boolean }):
     return;
   }
   // No key given: the browser sign-in is the front door, not an error.
+  //
+  // `--no-browser` leaves `browser` false; not passing it leaves it true,
+  // and passing that on as an explicit "yes" overrode the machine's own read
+  // of whether it has a browser at all — which is how a server ended up
+  // waiting for a click. Only the false case is the user speaking.
   const { oauthLogin } = await import("./oauth-login.js");
-  await oauthLogin({ open: options.browser });
+  await oauthLogin(options.browser === false ? { open: false } : {});
 }
 
 export function logoutAction(): void {

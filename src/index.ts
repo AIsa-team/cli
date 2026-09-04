@@ -81,7 +81,7 @@ program
   .command("login")
   .description("Sign in to AIsa — browser sign-in by default, or --key to paste one")
   .option("--key <key>", "API key (skips the browser sign-in)")
-  .option("--no-browser", "Print the sign-in URL and paste the redirect back (SSH/headless)")
+  .option("--no-browser", "Print the sign-in URL and paste the redirect back (detected on its own over SSH)")
   .action(wrap(loginAction));
 
 program
@@ -604,7 +604,7 @@ program
   .option("--template <id>", "Page template: t2 (guided steps, default) or t1 (classic two-page)")
   .option("--force", "Start a new run even if another one is still open")
   .option("--lang <lang>", "Page and terminal language: en or zh (default: your system locale)")
-  .option("--headless", "Answer in the terminal only — no page, no browser")
+  .option("--headless", "Skip the page entirely (a machine without a browser is detected on its own)")
   // Hidden: how a run that was interrupted at the terminal picks itself back
   // up in a detached process, so the page it opened keeps working.
   .addOption(new Option("--resume <file>").hideHelp())

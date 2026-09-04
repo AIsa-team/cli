@@ -24,6 +24,7 @@ import {
 } from "./llm-config.js";
 import { writeClaudeAisaSettings, installWrappers } from "./wrappers.js";
 import { mintCliKey } from "./oauth-login.js";
+import { canOpenBrowser } from "../utils/browser.js";
 import { vscodeDetected, vscodeUserDir, writeVSCodeLLM, writeVSCodeMCP, installVSCodeExtension, launchVSCode, VSCODE_MODELS } from "./vscode.js";
 import { formatMicrosUSD } from "./account.js";
 import { apiRequest } from "../api.js";
@@ -623,7 +624,7 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
       if (input.dryRun) {
         ok("signin", "dry run — the browser approval would open here");
       } else {
-        key = await mintCliKey({ open: true });
+        key = await mintCliKey();
         ok("signin", "signed in — your CLI key is stored");
       }
     } catch (e) {
@@ -730,7 +731,7 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
         detail: "opening console.aisa.one/api-keys — copy a key from there…",
       });
       await pause(BEFORE_HANDOFF_MS);
-      openBrowser(CONSOLE_KEYS_URL);
+      if (withBrowserEarly()) openBrowser(CONSOLE_KEYS_URL);
       setStep(state, "llm", {
         state: "skip",
         detail:
@@ -1756,6 +1757,11 @@ function launchCursor(dir: string): boolean {
   return false;
 }
 
+/** The same question the run asks itself, for the places that ask early. */
+function withBrowserEarly(): boolean {
+  return canOpenBrowser();
+}
+
 function openBrowser(url: string): void {
   const cmd =
     process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
@@ -2251,7 +2257,7 @@ export async function connectAction(options: {
       // cannot move, so point at the page that is doing it and stay out.
       log.note("reopening that page — it is still working");
       log.command("aisa connect --force", "start over instead");
-      if (options.open !== false) openBrowser(live.url);
+      if (withBrowserEarly()) openBrowser(live.url);
       return;
     }
   }
@@ -2634,7 +2640,7 @@ export async function connectAction(options: {
             await Promise.race([pageSeenP, pause(PAGE_SEEN_TIMEOUT_MS)]);
           }
           await pause(BEFORE_HANDOFF_MS);
-          openBrowser(doneUrl);
+          if (withBrowserEarly()) openBrowser(doneUrl);
           celebrate();
           const until = new Date(Date.now() + LINGER_AFTER_DONE_MS);
           log.note(
@@ -2865,14 +2871,23 @@ export async function connectAction(options: {
   // a fallback: on a machine with no browser, printing a localhost URL is a
   // dead end, and both surfaces share one draft so either can be used —
   // together, or on its own.
+  // Whether a browser opens is a property of the machine, not a mode the
+  // user should have to name. On a box that has one it opens; on a box that
+  // does not, the URL is printed for whoever can reach it and the terminal
+  // carries the whole run. Neither case needs telling in advance.
+  const withBrowser = options.open !== false && canOpenBrowser();
   if (!options.headless && !detached) {
     log.section("Open this page to choose");
     console.log(`  ${chalk.cyan(pageUrl)}`);
-    if (options.open === false) {
-      log.note("open the URL above, or answer here — both stay in step");
-    } else {
+    if (withBrowser) {
       log.note("opening your browser… (or answer here — both stay in step)");
       openBrowser(pageUrl);
+    } else if (options.open === false) {
+      log.note("open the URL above, or answer here — both stay in step");
+    } else {
+      // Saying "opening your browser…" on a machine with none is a small
+      // lie that costs the reader a minute of waiting for a window.
+      log.note("no browser on this machine — answer here, or forward the port and open it where you are");
     }
   }
 
