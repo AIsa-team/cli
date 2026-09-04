@@ -1892,14 +1892,24 @@ function looksLikeARealSession(code: number | null, ranForMs: number): boolean {
  * still running. Returns whether that happened, so the caller can skip the
  * linger and hand the terminal straight back.
  */
+/**
+ * What the last question ended in.
+ *
+ * `chose-exit` is not the same as `nothing-to-offer`: one is the user asking
+ * for the terminal back, the other is there being no question to ask. Both
+ * used to return false, so picking "Exit" — which says it hands the terminal
+ * back — dropped into the thirty-minute linger and held it.
+ */
+type LaunchOutcome = "ran-agent" | "chose-exit" | "nothing-to-offer";
+
 async function offerLaunch(
   log: Journal,
   clientId: string,
   llmMode: LlmMode,
   lang: Lang
-): Promise<boolean> {
+): Promise<LaunchOutcome> {
   const choices = launchChoices(clientId, llmMode);
-  if (choices.length === 0 || !process.stdin.isTTY || !process.stdout.isTTY) return false;
+  if (choices.length === 0 || !process.stdin.isTTY || !process.stdout.isTTY) return "nothing-to-offer";
 
   // Arrow keys, like every other choice in this flow. Typing a number here
   // while the six steps before it were driven with arrows is a change of
@@ -1922,7 +1932,7 @@ async function offerLaunch(
   const picked = choices[idx];
   if (!picked) {
     log.record("asked what to run next — chose to exit");
-    return false;
+    return "chose-exit";
   }
   log.record(`asked what to run next — chose ${picked.cmd}`);
   console.log(chalk.gray(`\nStarting ${picked.cmd}… exit it normally to come back here.\n`));
@@ -1939,18 +1949,21 @@ async function offerLaunch(
       `${picked.cmd} exited right away`,
       code === null ? "could not start it" : `exit code ${code}`
     );
-    return false;
+    return "nothing-to-offer";
   }
 
   // A real session happened. Say so, then repeat the one thing worth
   // repeating — everything printed before this got scrolled away by
   // whatever just filled the screen.
-  console.log(chalk.bold.green(`\n🎉 That was ${picked.cmd}, running on AIsa. Nice.`));
+  // Ruled and spaced, because whatever just ran filled the screen and this
+  // line has to be findable in what it left behind.
+  log.rule();
+  console.log(chalk.bold.green(`🎉 That was ${picked.cmd}, running on AIsa. Nice.`));
   log.encore([
     { cmd: picked.cmd, why: picked.desc },
     { cmd: "aisa connect", why: "run this any time — configure servers, switch models, connect another agent" },
   ]);
-  return true;
+  return "ran-agent";
 }
 
 /**
@@ -2438,14 +2451,24 @@ export async function connectAction(options: {
             ...(primary ? [{ cmd: primary.cmd, why: primary.desc }] : []),
             { cmd: "aisa connect", why: "run this any time — configure servers, switch models, connect another agent" },
           ]);
-          const usedAgent = await offerLaunch(log, chosenClients[0], llmMode, lang);
-          if (usedAgent) {
-            // They were just inside a real agent session — that is the
-            // strongest possible "done" signal. Hand the terminal straight
-            // back instead of sitting on the linger timer.
+          const outcome = await offerLaunch(log, chosenClients[0], llmMode, lang);
+          if (outcome === "ran-agent" || outcome === "chose-exit") {
+            // Either they just came out of a real session, or they asked for
+            // the terminal back. "Exit" says it hands the terminal back; it
+            // used to fall into the linger below and hold it for half an
+            // hour, which is the one thing the word promises not to do.
+            if (outcome === "chose-exit") {
+              log.note(
+                lang === "zh"
+                  ? "结果页已关闭 —— 随时可以再跑 aisa connect"
+                  : "the results page is closing — run aisa connect any time"
+              );
+            }
             srv.close();
             process.exit(failures > 0 ? 1 : 0);
           } else {
+            // Nothing to offer, or it would not start: leave the page up for
+            // someone who is still reading it.
             setTimeout(() => {
               srv.close();
               process.exit(failures > 0 ? 1 : 0);

@@ -106,6 +106,15 @@ export class Journal {
    * fresh install or a new wrapper command earns a second line above the
    * standing "run this again" one, most useful first.
    */
+  /**
+   * A ruled line on its own, for a moment that deserves separating from
+   * whatever an agent session just left on the screen.
+   */
+  rule(): void {
+    const line = "\u2500".repeat(70);
+    this.emit("", `\n${chalk.gray(line)}`, `\n${line}`);
+  }
+
   encore(items: Array<{ cmd: string; why: string }>): void {
     const width = Math.min(70, Math.max(...items.map((i) => i.cmd.length + i.why.length + 8)));
     const rule = "─".repeat(width);

@@ -565,8 +565,11 @@ export const CONFIRM = {
 export const LAUNCH = {
   question: { en: "What would you like to do now?", zh: "现在想做什么?" },
   exit: { en: "Exit", zh: "退出" },
+  /** Says what it does: the page goes with it. Claiming the page survives
+   *  was true only while the process lingered, which is what made Exit feel
+   *  broken — it did not exit. */
   exitNote: {
-    en: "leave this terminal — the results page keeps working",
-    zh: "交还终端 —— 结果页仍然可用",
+    en: "back to your prompt — closes the results page",
+    zh: "回到命令提示符 —— 同时关闭结果页",
   },
 };
