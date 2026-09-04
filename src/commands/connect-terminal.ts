@@ -1,8 +1,21 @@
 import * as readline from "node:readline/promises";
 import chalk from "chalk";
 import {
-  STEP_TITLES, STEP_WELCOME, STEP_AGENT, STEP_MODELS, STEP_CAPS, agentRank,
-  AGENT_BADGE, AGENT_NOTES, CONFIRM, t, fill, type Lang,
+  AGENT_BADGE,
+  AGENT_NOTES,
+  BACKUP_COPY,
+  CONFIRM,
+  FILE_MODEL_FALLBACK,
+  FILE_MODEL_NOTE,
+  STEP_AGENT,
+  STEP_CAPS,
+  STEP_MODELS,
+  STEP_TITLES,
+  STEP_WELCOME,
+  agentRank,
+  fill,
+  t,
+  type Lang,
 } from "./flow.js";
 import type { ClientInfo, LlmMode, Selection } from "./connect-shared.js";
 import { INSTALLERS } from "./install.js";
@@ -25,6 +38,24 @@ export function flowClients(clients: ClientInfo[], canInstall: boolean): FlowCli
     installable: !c.detected && Boolean(INSTALLERS[c.id]) && canInstall,
     command: INSTALLERS[c.id]?.command,
   }));
+}
+
+/**
+ * The model options for an agent, by the rule the page already applies.
+ *
+ * There are three shapes over there and the terminal offered one, so half
+ * the agents were asked a question the page does not ask them. A CLI agent
+ * yet to be installed chooses between switching and not; an installed one
+ * can also keep its own model and put AIsa beside it. VS Code cannot switch:
+ * Copilot's models can be joined, not replaced. An app configured through a
+ * file is not asked at all — there is nothing here to point at a model, so
+ * it gets the note the page shows instead of a menu.
+ */
+function modelChoices(client: FlowClient): LlmMode[] {
+  if (client.kind === "cli") {
+    return client.detected ? ["backup", "switch", "skip"] : ["switch", "skip"];
+  }
+  return client.id === "vscode" ? ["backup", "skip"] : [];
 }
 
 /**
@@ -480,51 +511,69 @@ export async function runTerminalFlow(
       const modelName = defaultModelsFor(client.id).model;
       const brief = (x: { en: string; zh: string }) =>
         plain(t(x, o.lang)).split("{model}").join(modelName);
-      const modes: Array<{ id: LlmMode; label: string; brief: string }> = client.detected
-        ? [
-            { id: "backup", label: t(STEP_MODELS.backup.name, o.lang), brief: "" },
-            { id: "switch", label: t(STEP_MODELS.switchIt.name, o.lang), brief: brief(STEP_MODELS.switchIt.brief) },
-            { id: "skip", label: t(STEP_MODELS.notNow.name, o.lang), brief: brief(STEP_MODELS.notNow.briefDetected) },
-          ]
-        : [
-            { id: "switch", label: t(STEP_MODELS.freshSwitch.name, o.lang), brief: brief(STEP_MODELS.freshSwitch.brief) },
-            { id: "skip", label: t(STEP_MODELS.notNow.name, o.lang), brief: brief(STEP_MODELS.notNow.briefFresh) },
-          ];
-      modes.forEach((m, i) => {
-        const rec = i === 0 ? dim(` (${t(STEP_MODELS.recommended, o.lang)})`) : "";
-        console.log(`${dim("│")}   ${bold(String(i + 1) + ")")} ${m.label}${rec}`);
-        if (m.brief) for (const l of wrap(m.brief, 68)) console.log(dim("│      ") + dim(l));
-      });
-      console.log(dim("│"));
-      const a2 = interactive()
-        ? await pickOrWatch(o, rev, 3,
-            modes.map((m, i) => ({
-              label: m.label + (i === 0 ? dim(` (${t(STEP_MODELS.recommended, o.lang)})`) : ""),
-            })),
-            false, [0],
-            o.lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
-            {
-              read: (d) => {
-                const i = modes.findIndex((m) => m.id === d.llmMode);
-                return i < 0 ? undefined : [i];
-              },
-              write: async ([i]) => {
-                ({ rev } = await push(o, rev, { draft: { llmMode: modes[i].id } }));
-                return rev;
-              },
-            })
-        : await askOrWatch(o, modes.length, 0, rev, 3);
-      let mode = modes[0];
-      if (a2.by === "page") {
-        mode = modes.find((m) => m.id === a2.draft.llmMode) ?? modes[0];
-        Object.assign(draft, a2.draft);
-        const s = await pull(o); if (s) rev = s.rev;
-        console.log("\n" + dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 已在页面中选择" : "↩ chosen in the page"));
+      const unpicked = !client.detected;
+      const copy: Record<LlmMode, { label: string; brief: string }> = {
+        backup: {
+          label: t(STEP_MODELS.backup.name, o.lang),
+          // The page fills this tile with the agent's own backup wording;
+          // leaving it blank here described the recommended option in no
+          // words at all.
+          brief: BACKUP_COPY[client.id] ? brief(BACKUP_COPY[client.id]) : "",
+        },
+        switch: unpicked
+          ? { label: t(STEP_MODELS.freshSwitch.name, o.lang), brief: brief(STEP_MODELS.freshSwitch.brief) }
+          : { label: t(STEP_MODELS.switchIt.name, o.lang), brief: brief(STEP_MODELS.switchIt.brief) },
+        skip: {
+          label: t(STEP_MODELS.notNow.name, o.lang),
+          brief: brief(unpicked ? STEP_MODELS.notNow.briefFresh : STEP_MODELS.notNow.briefDetected),
+        },
+      };
+      const modes = modelChoices(client).map((id) => ({ id, ...copy[id] }));
+      let mode = modes[0] ?? { id: "backup" as LlmMode, ...copy.backup };
+
+      if (modes.length === 0) {
+        // Nothing to choose. Say why in the page's own words and move on,
+        // rather than offering a menu it does not offer.
+        for (const l of wrap(brief(FILE_MODEL_NOTE[client.id] ?? FILE_MODEL_FALLBACK), 68)) {
+          console.log(dim("│  ") + dim(l));
+        }
+        console.log(dim("└─ ") + dim(o.lang === "zh" ? "这一步没有要选的" : "nothing to choose here"));
       } else {
-        mode = modes[a2.index];
+        modes.forEach((m, i) => {
+          const rec = i === 0 ? dim(` (${t(STEP_MODELS.recommended, o.lang)})`) : "";
+          console.log(`${dim("│")}   ${bold(String(i + 1) + ")")} ${m.label}${rec}`);
+          if (m.brief) for (const l of wrap(m.brief, 68)) console.log(dim("│      ") + dim(l));
+        });
+        console.log(dim("│"));
+        const a2 = interactive()
+          ? await pickOrWatch(o, rev, 3,
+              modes.map((m, i) => ({
+                label: m.label + (i === 0 ? dim(` (${t(STEP_MODELS.recommended, o.lang)})`) : ""),
+              })),
+              false, [0],
+              o.lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
+              {
+                read: (d) => {
+                  const i = modes.findIndex((m) => m.id === d.llmMode);
+                  return i < 0 ? undefined : [i];
+                },
+                write: async ([i]) => {
+                  ({ rev } = await push(o, rev, { draft: { llmMode: modes[i].id } }));
+                  return rev;
+                },
+              })
+          : await askOrWatch(o, modes.length, 0, rev, 3);
+        if (a2.by === "page") {
+          mode = modes.find((m) => m.id === a2.draft.llmMode) ?? modes[0];
+          Object.assign(draft, a2.draft);
+          const s = await pull(o); if (s) rev = s.rev;
+          console.log("\n" + dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 已在页面中选择" : "↩ chosen in the page"));
+        } else {
+          mode = modes[a2.index];
+        }
+        console.log(dim("└─ ") + chalk.green(mode.label) + " ✓");
       }
       draft.llmMode = mode.id;
-      console.log(dim("└─ ") + chalk.green(mode.label) + " ✓");
       ({ rev } = await push(o, rev, { step: 4, draft: { llmMode: draft.llmMode } }));
 
       // ── step 4: capabilities ──
