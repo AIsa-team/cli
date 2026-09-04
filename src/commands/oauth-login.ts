@@ -8,6 +8,7 @@ import { maskKey } from "../config.js";
 import { httpFetch } from "../utils/http.js";
 import { canOpenBrowser } from "../utils/browser.js";
 import { SIGNIN, t, type Lang } from "./flow.js";
+import { renderSignInPage } from "./signin-page.js";
 
 /**
  * `aisa login` without a key: sign in once in a browser, come back with the
@@ -32,6 +33,19 @@ import { SIGNIN, t, type Lang } from "./flow.js";
  */
 
 const AUTH_SERVER = "https://clerk.aisa.one";
+/**
+ * Where the sign-in lands when the browser is on a different machine.
+ *
+ * A page that does one thing: show the one-time code so it can be carried
+ * back by hand. The loopback redirect below is better whenever it can be
+ * used — the CLI catches the code itself and nobody copies anything — but it
+ * only works when the browser and this process share a machine.
+ *
+ * This address is a published contract. Every released CLI that names it
+ * keeps sending users there, so it is not to be changed; a new one would
+ * have to be added alongside.
+ */
+const HOSTED_REDIRECT = "https://aisa.one/cli/auth";
 const MINT_URL = "https://api.aisa.one/v1/keys/mint";
 
 const b64url = (buf: Buffer): string =>
@@ -66,7 +80,7 @@ async function registerClient(redirectUri: string): Promise<string> {
 /** How long to hold a loopback callback open before giving up on it. */
 const CALLBACK_TIMEOUT_MS = 5 * 60 * 1000;
 
-function waitForCallback(port: number, expectedState: string): Promise<string> {
+function waitForCallback(port: number, expectedState: string, lang: Lang): Promise<string> {
   return new Promise((resolve, reject) => {
     // A browser we opened may never come back — it was never opened at all,
     // the tab was closed, the machine has no screen. Waiting for that with
@@ -87,14 +101,19 @@ function waitForCallback(port: number, expectedState: string): Promise<string> {
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");
       if (!code || state !== expectedState) {
-        res.writeHead(400, { "content-type": "text/html" }).end("<h3>Sign-in failed — return to the terminal.</h3>");
+        res
+          .writeHead(400, { "content-type": "text/html; charset=utf-8" })
+          .end(renderSignInPage(false, lang));
         srv.close();
         reject(new Error("authorization was denied or the response was malformed"));
         return;
       }
+      // charset matters more than it looks: without it a browser in a Chinese
+      // locale decodes this as GBK and the em dash arrives as mojibake, which
+      // is what the last version of this line actually did.
       res
-        .writeHead(200, { "content-type": "text/html" })
-        .end("<h3>Signed in — you can close this tab and return to the terminal.</h3>");
+        .writeHead(200, { "content-type": "text/html; charset=utf-8" })
+        .end(renderSignInPage(true, lang));
       srv.close();
       resolve(code);
     });
@@ -166,11 +185,16 @@ export async function mintCliKey(options: { open?: boolean; lang?: Lang } = {}):
   // Unset means "work it out": a server has no browser to open and waiting
   // for a click on a machine with no screen is the worst way to find out.
   const useBrowser = options.open ?? canOpenBrowser();
+  // Unset means "work it out": a server has no browser to open and waiting
+  // for a click on a machine with no screen is the worst way to find out.
 
-  // Loopback port first: the redirect URI has to be registered before the
-  // browser opens, and Clerk requires an exact match.
-  const port = 10000 + Math.floor(Math.random() * 50_000);
-  const redirectUri = `http://127.0.0.1:${port}/callback`;
+
+  // The redirect has to be registered before the browser opens, and Clerk
+  // matches it exactly — so which of the two it is has to be settled here,
+  // before anything else happens. A loopback port is only worth taking when
+  // this process is the one that will catch the redirect.
+  const port = useBrowser ? 10000 + Math.floor(Math.random() * 50_000) : 0;
+  const redirectUri = useBrowser ? `http://127.0.0.1:${port}/callback` : HOSTED_REDIRECT;
 
   info(t(SIGNIN.start, lang));
   const clientId = await registerClient(redirectUri);
@@ -194,7 +218,7 @@ export async function mintCliKey(options: { open?: boolean; lang?: Lang } = {}):
     info(t(SIGNIN.willOpen, lang));
     console.log(`  ${t(SIGNIN.ifNot, lang)}\n  ${authUrl.toString()}\n`);
     openBrowser(authUrl.toString());
-    code = await waitForCallback(port, state);
+    code = await waitForCallback(port, state, lang);
   } else {
     if (!process.stdin.isTTY) {
       // Nothing to open and nowhere to paste. Say so now rather than sitting

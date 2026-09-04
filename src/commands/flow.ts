@@ -621,17 +621,32 @@ export const SIGNIN = {
   },
   step1: { en: "1. Open this address there:", zh: "1. 在那台电脑上打开这个地址:" },
   step2: {
-    en: "2. Sign in. The browser will then land on a 127.0.0.1 page that cannot load — that is correct, and it is the last step.",
-    zh: "2. 登录。之后浏览器会跳到一个 127.0.0.1 的页面,打不开 —— 这是对的,而且这就是最后一步。",
+    en: "2. Sign in. A page then shows you a short block of text — press Copy.",
+    zh: "2. 登录。之后会出现一个页面,上面有一小段文字 —— 点「复制」。",
   },
-  step3: {
-    en: "3. Copy that failed page's address from the address bar, and paste it below.",
-    zh: "3. 把那个打不开的页面地址栏里的一整串复制下来,粘贴到下面。",
-  },
+  step3: { en: "3. Paste it below.", zh: "3. 粘贴到下面。" },
   prompt: { en: "Paste it here: ", zh: "粘贴到这里: " },
   badPaste: {
     en: "that does not look like the redirect — it should contain code=",
     zh: "这看起来不是那个跳转地址 —— 里面应该有 code=",
+  },
+} as const;
+
+/** What the browser is told when a sign-in lands back on this machine. */
+export const SIGNIN_PAGE = {
+  ok: {
+    title: { en: "Signed in", zh: "登录成功" },
+    body: {
+      en: "Your key has been created on the machine you started from. You can close this tab.",
+      zh: "key 已经在你发起登录的那台机器上生成好了。可以关掉这个标签页了。",
+    },
+  },
+  failed: {
+    title: { en: "Sign-in was not completed", zh: "登录没有完成" },
+    body: {
+      en: "Nothing was changed. Return to your terminal and try again.",
+      zh: "什么都没有改动。回到终端重新试一次。",
+    },
   },
 } as const;
 
