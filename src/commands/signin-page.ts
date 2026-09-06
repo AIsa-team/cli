@@ -20,11 +20,33 @@
 
 export type SignInOutcome = "ok" | "failed" | "expired";
 
-const COPY: Record<SignInOutcome, { kicker: string; title: string; body: string }> = {
+interface Outcome {
+  kicker: string;
+  title: string;
+  body: string;
+  cta?: { href: string; label: string; note: string };
+}
+
+const COPY: Record<SignInOutcome, Outcome> = {
   ok: {
     kicker: "SIGNED IN",
     title: "You're all set",
     body: "Your key was created on the machine you started from — it never travelled through this browser. You can close this tab.",
+    /**
+     * The one moment a link to the console is welcome rather than in the way.
+     *
+     * The thing they came to do is done, the tab is about to be closed
+     * anyway, and they have just acquired an account they have probably
+     * never looked at. Anywhere earlier in the flow this would be a
+     * distraction; here it is the only thing left to offer. Carries the
+     * same source parameter the CLI's other console links use, so the
+     * traffic can be told apart from someone typing the address.
+     */
+    cta: {
+      href: "https://console.aisa.one?source=aisa_cli_signin",
+      label: "Open your console",
+      note: "Usage, spending and API keys live there.",
+    },
   },
   failed: {
     kicker: "NOT COMPLETED",
@@ -73,9 +95,17 @@ export function renderSignInPage(outcome: SignInOutcome): string {
   h1{font-size:34px;line-height:1.25;margin:0 0 16px;letter-spacing:-.021em;font-weight:650}
   p{margin:0;font-size:18px;color:var(--dim);max-width:32em}
   code{font-family:var(--mono);font-size:16px;color:var(--fg)}
+  .cta{margin-top:36px;padding-top:28px;border-top:1px solid var(--line);
+    display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .cta a{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;
+    border-radius:10px;padding:15px 30px;font-weight:600;font-size:16px;letter-spacing:.01em}
+  .cta a:hover{filter:brightness(1.07)}
+  .cta span{font-size:15px;color:var(--faint)}
   @media (max-width:760px){
     body{padding:32px 20px} .wrap{width:100%}
     h1{font-size:27px} p{font-size:16.5px}
+    .cta{flex-direction:column;align-items:flex-start;gap:12px}
+    .cta a{width:100%;text-align:center}
   }
 </style>
 </head>
@@ -84,6 +114,12 @@ export function renderSignInPage(outcome: SignInOutcome): string {
     <div class="tick"><span>${good ? "✓" : "!"}</span><b>${c.kicker}</b></div>
     <h1>${c.title}</h1>
     <p>${c.body}</p>
+    ${c.cta
+      ? `<div class="cta">
+      <a href="${c.cta.href}" rel="noopener">${c.cta.label}</a>
+      <span>${c.cta.note}</span>
+    </div>`
+      : ""}
   </div>
 </body>
 </html>`;
