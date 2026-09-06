@@ -23,7 +23,9 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
      the space above and below them is equal at any window height. */
   .rail { border-right: 1px solid var(--line); padding: 1.6rem 2.2rem; position: sticky; top: 0;
     height: 100vh; display: flex; flex-direction: column; }
-  .railhead { display: flex; align-items: flex-end; gap: .6rem; color: var(--ink); padding: 0 .6rem; }
+  .railhead { display: flex; align-items: flex-end; gap: .6rem; color: var(--ink); padding: 0 .6rem;
+    text-decoration: none; transition: opacity .15s ease; }
+  .railhead:hover { opacity: .72; }
   .railhead svg { width: 89px; height: auto; display: block; }
   .railhead span { font-weight: 600; font-size: 1.28rem; line-height: 1; color: var(--muted); padding-bottom: 4px; }
   /* Sits a little above centre: the gap below is noticeably larger than the gap above. */
@@ -53,11 +55,24 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
   .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
   .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
-  .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
-  .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
-    padding: .3rem .72rem; border-radius: 999px; line-height: 1.4; }
-  .langpick .lang:hover { color: var(--ink); }
-  .langpick .lang.on { background: var(--ink); color: #fff; }
+  .more { position: relative; display: inline-flex; }
+  .morebtn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+    border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--muted); cursor: pointer; }
+  .morebtn:hover, .morebtn[aria-expanded="true"] { color: var(--ink); border-color: var(--muted); }
+  .moremenu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
+    display: flex; flex-direction: column; min-width: 132px; padding: 4px;
+    border: 1px solid var(--line); border-radius: 10px; background: #fff;
+    box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+  .moremenu[hidden] { display: none; }
+  /* No border of its own — the menu already draws one, and a box inside a
+     box is the shape nothing else on this page has. A row here is text that
+     lights up under the cursor. */
+  .moremenu .lang { display: flex; justify-content: space-between; align-items: center;
+    border: 0; background: none; cursor: pointer; font: inherit; font-size: .86rem;
+    color: var(--muted); text-align: left; padding: 8px 10px; border-radius: 6px; line-height: 1.4; }
+  .moremenu .lang:hover { background: var(--paper); color: var(--ink); }
+  .moremenu .lang.on { color: var(--ink); font-weight: 600; }
+  .moremenu .lang.on::after { content: "✓"; opacity: .55; font-weight: 400; }
   .topnav .ghost { padding: .65rem 1.3rem; font-size: 1rem; }
   .pane { display: none; animation: fade .25s ease; }
   .pane.show { display: block; }
@@ -299,7 +314,7 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
   <p>You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
 </div></div>
 <nav class="rail">
-  <div class="railhead"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <a class="railhead" href="https://aisa.one/?source=aisa_cli_connect" target="_blank" rel="noopener"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g clip-path="url(#clip0_383_646)">
 <path d="M131.82 19.3201C134.536 19.0359 138.411 19.8123 140.541 21.5465C143.1 23.6295 143.798 25.5303 144.214 28.6185L137.348 28.6269C136.931 25.9579 135.016 24.9636 132.471 24.9612C130.729 24.9281 128.542 25.5621 128.561 27.671C128.575 29.1596 129.725 29.7727 130.962 30.2626C132.595 30.9098 134.332 31.2902 136.021 31.7531C136.917 32.0003 137.803 32.2832 138.677 32.6009C142.115 33.8805 144.392 36.0809 144.438 39.9316C144.472 41.9722 143.674 43.939 142.227 45.3784C139.874 47.7669 136.365 48.4599 133.144 48.4843C128.189 48.4747 122.897 46.1258 121.279 41.0789C121.081 40.4629 120.987 39.7484 120.89 39.1043C123.046 39.0106 125.925 39.0947 128.135 39.1013C128.668 41.8472 131.083 42.9942 133.72 42.8507C134.919 42.7853 136.131 42.4903 136.976 41.5805C137.837 40.6536 137.796 39.0112 136.735 38.2486C136.048 37.7408 135.2 37.4698 134.402 37.1824C130.863 35.9261 126.904 35.6958 123.935 33.1945C120.9 30.6374 120.867 25.7519 123.437 22.853C125.616 20.3955 128.638 19.5072 131.82 19.3201ZM175.324 20.642C175.261 24.238 175.317 28.4508 175.317 32.0615L175.327 48.2658C173.199 48.3411 170.631 48.2731 168.467 48.2737C168.478 46.963 168.476 45.4421 168.46 44.1314C168.311 44.3023 168.138 44.5396 167.996 44.7234L167.978 44.7435C165.94 47.0297 163.358 48.2988 160.328 48.4618C152.689 48.8723 147.739 42.9526 147.282 35.7245C146.805 28.1634 150.863 21.1881 158.918 20.7303C159.364 20.6713 160.338 20.709 160.803 20.7589C164.132 21.1164 166.375 22.4476 168.467 24.9757C168.523 23.7793 168.462 21.88 168.484 20.6404L175.324 20.642ZM165.691 28.1474C164.239 27.027 162.409 26.5146 160.586 26.7185C160.58 26.7195 160.572 26.7207 160.565 26.7217C151.212 28.0278 152.662 43.2707 162.146 42.4672C162.159 42.4652 162.173 42.4629 162.186 42.4609C166.956 41.866 169.045 37.4817 168.421 33.1347C168.136 31.1445 167.302 29.3886 165.691 28.1474Z" fill="currentColor"/>
 <path d="M78.0289 13.5267C80.6702 13.5267 83.5754 13.5364 86.2127 13.5354C86.5222 14.5265 87.0571 15.8691 87.4172 16.8669L89.8901 23.7404L98.8048 48.5169L91.3698 48.5249C91.2837 48.1226 90.9557 47.3326 90.8194 46.8917C90.3085 45.2375 89.5697 43.4991 89.1018 41.8495H86.1714L75.1161 41.8472C74.3126 44.1997 73.6136 46.2007 72.8134 48.5292C70.578 48.5344 67.6979 48.5348 65.4658 48.5348C67.0587 44.0868 67.8658 41.8125 69.0723 38.4674L74.7844 22.5834L76.9855 16.4448C77.2399 15.7423 77.8755 14.1862 78.0289 13.5267ZM82.0944 21.6837C80.3256 26.4589 78.7575 31.4495 77.0142 36.2634L87.1713 36.2683C86.7585 35.0365 82.2554 21.8714 82.0944 21.6837Z" fill="#F76918"/>
@@ -311,7 +326,7 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
 <rect width="175.328" height="59.3984" fill="white"/>
 </clipPath>
 </defs>
-</svg><span>Connect</span></div>
+</svg><span>Connect</span></a>
   <div class="railsteps"><button type="button" class="rstep" data-step="1">
   <span class="rn">1</span><span class="rt"><span class="rtitle">Welcome</span><span class="rsub">What you are about to get</span></span></button><button type="button" class="rstep" data-step="2">
   <span class="rn">2</span><span class="rt"><span class="rtitle">Your agent</span><span class="rsub">Pick the tool to connect</span></span></button><button type="button" class="rstep" data-step="3">
@@ -322,7 +337,10 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
 </nav>
 <section class="main">
 <div class="content">
-  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button><div class="langpick"><button type="button" class="lang on" data-lang="en">EN</button><button type="button" class="lang" data-lang="zh">中文</button></div></div>
+  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button><div class="more">
+  <button type="button" class="morebtn" id="morebtn" aria-haspopup="true" aria-expanded="false" aria-label="Menu"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5h16M4 12h16M4 19h16"/></svg></button>
+  <div class="moremenu" id="moremenu" hidden><button type="button" class="lang on" data-lang="en">EN</button><button type="button" class="lang" data-lang="zh">中文</button></div>
+</div></div>
   <div class="pane" data-pane="1">
 <h1>One connection. <em>Every major model</em>, live data and skills — inside the agent you already use.</h1>
 <p class="lede">AIsa is the capability layer for AI agents: one account, one key, and your coding agent can reach the best models <b>and</b> the real world. Setting it up takes about a minute and nothing here is irreversible.</p>
@@ -514,6 +532,28 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
   // Switching reloads: the page is rendered by the CLI, so the new language
   // arrives the same way the first one did. Storing it first means the
   // terminal picks it up too.
+  // The menu: opens on click, closes on the next click anywhere else or on
+  // Escape. Nothing here is destructive, so it does not need to be modal —
+  // it needs to get out of the way, which is the opposite requirement.
+  (function () {
+    var btn = $("#morebtn"), menu = $("#moremenu");
+    if (!btn || !menu) return;
+    function setOpen(on) {
+      menu.hidden = !on;
+      btn.setAttribute("aria-expanded", on ? "true" : "false");
+    }
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      setOpen(menu.hidden);
+    });
+    document.addEventListener("click", function (e) {
+      if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) setOpen(false);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !menu.hidden) setOpen(false);
+    });
+  })();
+
   $$(".lang").forEach(function (b) {
     b.addEventListener("click", function () {
       if (b.classList.contains("on")) return;
@@ -1179,7 +1219,9 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
      the space above and below them is equal at any window height. */
   .rail { border-right: 1px solid var(--line); padding: 1.6rem 2.2rem; position: sticky; top: 0;
     height: 100vh; display: flex; flex-direction: column; }
-  .railhead { display: flex; align-items: flex-end; gap: .6rem; color: var(--ink); padding: 0 .6rem; }
+  .railhead { display: flex; align-items: flex-end; gap: .6rem; color: var(--ink); padding: 0 .6rem;
+    text-decoration: none; transition: opacity .15s ease; }
+  .railhead:hover { opacity: .72; }
   .railhead svg { width: 89px; height: auto; display: block; }
   .railhead span { font-weight: 600; font-size: 1.28rem; line-height: 1; color: var(--muted); padding-bottom: 4px; }
   /* Sits a little above centre: the gap below is noticeably larger than the gap above. */
@@ -1209,11 +1251,24 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
   .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
   .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
-  .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
-  .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
-    padding: .3rem .72rem; border-radius: 999px; line-height: 1.4; }
-  .langpick .lang:hover { color: var(--ink); }
-  .langpick .lang.on { background: var(--ink); color: #fff; }
+  .more { position: relative; display: inline-flex; }
+  .morebtn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+    border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--muted); cursor: pointer; }
+  .morebtn:hover, .morebtn[aria-expanded="true"] { color: var(--ink); border-color: var(--muted); }
+  .moremenu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
+    display: flex; flex-direction: column; min-width: 132px; padding: 4px;
+    border: 1px solid var(--line); border-radius: 10px; background: #fff;
+    box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+  .moremenu[hidden] { display: none; }
+  /* No border of its own — the menu already draws one, and a box inside a
+     box is the shape nothing else on this page has. A row here is text that
+     lights up under the cursor. */
+  .moremenu .lang { display: flex; justify-content: space-between; align-items: center;
+    border: 0; background: none; cursor: pointer; font: inherit; font-size: .86rem;
+    color: var(--muted); text-align: left; padding: 8px 10px; border-radius: 6px; line-height: 1.4; }
+  .moremenu .lang:hover { background: var(--paper); color: var(--ink); }
+  .moremenu .lang.on { color: var(--ink); font-weight: 600; }
+  .moremenu .lang.on::after { content: "✓"; opacity: .55; font-weight: 400; }
   .topnav .ghost { padding: .65rem 1.3rem; font-size: 1rem; }
   .pane { display: none; animation: fade .25s ease; }
   .pane.show { display: block; }
@@ -1455,7 +1510,7 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
   <p>You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
 </div></div>
 <nav class="rail">
-  <div class="railhead"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <a class="railhead" href="https://aisa.one/?source=aisa_cli_connect" target="_blank" rel="noopener"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g clip-path="url(#clip0_383_646)">
 <path d="M131.82 19.3201C134.536 19.0359 138.411 19.8123 140.541 21.5465C143.1 23.6295 143.798 25.5303 144.214 28.6185L137.348 28.6269C136.931 25.9579 135.016 24.9636 132.471 24.9612C130.729 24.9281 128.542 25.5621 128.561 27.671C128.575 29.1596 129.725 29.7727 130.962 30.2626C132.595 30.9098 134.332 31.2902 136.021 31.7531C136.917 32.0003 137.803 32.2832 138.677 32.6009C142.115 33.8805 144.392 36.0809 144.438 39.9316C144.472 41.9722 143.674 43.939 142.227 45.3784C139.874 47.7669 136.365 48.4599 133.144 48.4843C128.189 48.4747 122.897 46.1258 121.279 41.0789C121.081 40.4629 120.987 39.7484 120.89 39.1043C123.046 39.0106 125.925 39.0947 128.135 39.1013C128.668 41.8472 131.083 42.9942 133.72 42.8507C134.919 42.7853 136.131 42.4903 136.976 41.5805C137.837 40.6536 137.796 39.0112 136.735 38.2486C136.048 37.7408 135.2 37.4698 134.402 37.1824C130.863 35.9261 126.904 35.6958 123.935 33.1945C120.9 30.6374 120.867 25.7519 123.437 22.853C125.616 20.3955 128.638 19.5072 131.82 19.3201ZM175.324 20.642C175.261 24.238 175.317 28.4508 175.317 32.0615L175.327 48.2658C173.199 48.3411 170.631 48.2731 168.467 48.2737C168.478 46.963 168.476 45.4421 168.46 44.1314C168.311 44.3023 168.138 44.5396 167.996 44.7234L167.978 44.7435C165.94 47.0297 163.358 48.2988 160.328 48.4618C152.689 48.8723 147.739 42.9526 147.282 35.7245C146.805 28.1634 150.863 21.1881 158.918 20.7303C159.364 20.6713 160.338 20.709 160.803 20.7589C164.132 21.1164 166.375 22.4476 168.467 24.9757C168.523 23.7793 168.462 21.88 168.484 20.6404L175.324 20.642ZM165.691 28.1474C164.239 27.027 162.409 26.5146 160.586 26.7185C160.58 26.7195 160.572 26.7207 160.565 26.7217C151.212 28.0278 152.662 43.2707 162.146 42.4672C162.159 42.4652 162.173 42.4629 162.186 42.4609C166.956 41.866 169.045 37.4817 168.421 33.1347C168.136 31.1445 167.302 29.3886 165.691 28.1474Z" fill="currentColor"/>
 <path d="M78.0289 13.5267C80.6702 13.5267 83.5754 13.5364 86.2127 13.5354C86.5222 14.5265 87.0571 15.8691 87.4172 16.8669L89.8901 23.7404L98.8048 48.5169L91.3698 48.5249C91.2837 48.1226 90.9557 47.3326 90.8194 46.8917C90.3085 45.2375 89.5697 43.4991 89.1018 41.8495H86.1714L75.1161 41.8472C74.3126 44.1997 73.6136 46.2007 72.8134 48.5292C70.578 48.5344 67.6979 48.5348 65.4658 48.5348C67.0587 44.0868 67.8658 41.8125 69.0723 38.4674L74.7844 22.5834L76.9855 16.4448C77.2399 15.7423 77.8755 14.1862 78.0289 13.5267ZM82.0944 21.6837C80.3256 26.4589 78.7575 31.4495 77.0142 36.2634L87.1713 36.2683C86.7585 35.0365 82.2554 21.8714 82.0944 21.6837Z" fill="#F76918"/>
@@ -1467,7 +1522,7 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
 <rect width="175.328" height="59.3984" fill="white"/>
 </clipPath>
 </defs>
-</svg><span>Connect</span></div>
+</svg><span>Connect</span></a>
   <div class="railsteps"><button type="button" class="rstep" data-step="1">
   <span class="rn">1</span><span class="rt"><span class="rtitle">Welcome</span><span class="rsub">What you are about to get</span></span></button><button type="button" class="rstep" data-step="2">
   <span class="rn">2</span><span class="rt"><span class="rtitle">Your agent</span><span class="rsub">Pick the tool to connect</span></span></button><button type="button" class="rstep" data-step="3">
@@ -1478,7 +1533,10 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
 </nav>
 <section class="main">
 <div class="content">
-  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button><div class="langpick"><button type="button" class="lang on" data-lang="en">EN</button><button type="button" class="lang" data-lang="zh">中文</button></div></div>
+  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button><div class="more">
+  <button type="button" class="morebtn" id="morebtn" aria-haspopup="true" aria-expanded="false" aria-label="Menu"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5h16M4 12h16M4 19h16"/></svg></button>
+  <div class="moremenu" id="moremenu" hidden><button type="button" class="lang on" data-lang="en">EN</button><button type="button" class="lang" data-lang="zh">中文</button></div>
+</div></div>
   <div class="pane" data-pane="1">
 <h1>One connection. <em>Every major model</em>, live data and skills — inside the agent you already use.</h1>
 <p class="lede">AIsa is the capability layer for AI agents: one account, one key, and your coding agent can reach the best models <b>and</b> the real world. Setting it up takes about a minute and nothing here is irreversible.</p>
@@ -1658,6 +1716,28 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
   // Switching reloads: the page is rendered by the CLI, so the new language
   // arrives the same way the first one did. Storing it first means the
   // terminal picks it up too.
+  // The menu: opens on click, closes on the next click anywhere else or on
+  // Escape. Nothing here is destructive, so it does not need to be modal —
+  // it needs to get out of the way, which is the opposite requirement.
+  (function () {
+    var btn = $("#morebtn"), menu = $("#moremenu");
+    if (!btn || !menu) return;
+    function setOpen(on) {
+      menu.hidden = !on;
+      btn.setAttribute("aria-expanded", on ? "true" : "false");
+    }
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      setOpen(menu.hidden);
+    });
+    document.addEventListener("click", function (e) {
+      if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) setOpen(false);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !menu.hidden) setOpen(false);
+    });
+  })();
+
   $$(".lang").forEach(function (b) {
     b.addEventListener("click", function () {
       if (b.classList.contains("on")) return;
@@ -2323,7 +2403,9 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
      the space above and below them is equal at any window height. */
   .rail { border-right: 1px solid var(--line); padding: 1.6rem 2.2rem; position: sticky; top: 0;
     height: 100vh; display: flex; flex-direction: column; }
-  .railhead { display: flex; align-items: flex-end; gap: .6rem; color: var(--ink); padding: 0 .6rem; }
+  .railhead { display: flex; align-items: flex-end; gap: .6rem; color: var(--ink); padding: 0 .6rem;
+    text-decoration: none; transition: opacity .15s ease; }
+  .railhead:hover { opacity: .72; }
   .railhead svg { width: 89px; height: auto; display: block; }
   .railhead span { font-weight: 600; font-size: 1.28rem; line-height: 1; color: var(--muted); padding-bottom: 4px; }
   /* Sits a little above centre: the gap below is noticeably larger than the gap above. */
@@ -2353,11 +2435,24 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
   .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
   .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
-  .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
-  .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
-    padding: .3rem .72rem; border-radius: 999px; line-height: 1.4; }
-  .langpick .lang:hover { color: var(--ink); }
-  .langpick .lang.on { background: var(--ink); color: #fff; }
+  .more { position: relative; display: inline-flex; }
+  .morebtn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+    border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--muted); cursor: pointer; }
+  .morebtn:hover, .morebtn[aria-expanded="true"] { color: var(--ink); border-color: var(--muted); }
+  .moremenu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
+    display: flex; flex-direction: column; min-width: 132px; padding: 4px;
+    border: 1px solid var(--line); border-radius: 10px; background: #fff;
+    box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+  .moremenu[hidden] { display: none; }
+  /* No border of its own — the menu already draws one, and a box inside a
+     box is the shape nothing else on this page has. A row here is text that
+     lights up under the cursor. */
+  .moremenu .lang { display: flex; justify-content: space-between; align-items: center;
+    border: 0; background: none; cursor: pointer; font: inherit; font-size: .86rem;
+    color: var(--muted); text-align: left; padding: 8px 10px; border-radius: 6px; line-height: 1.4; }
+  .moremenu .lang:hover { background: var(--paper); color: var(--ink); }
+  .moremenu .lang.on { color: var(--ink); font-weight: 600; }
+  .moremenu .lang.on::after { content: "✓"; opacity: .55; font-weight: 400; }
   .topnav .ghost { padding: .65rem 1.3rem; font-size: 1rem; }
   .pane { display: none; animation: fade .25s ease; }
   .pane.show { display: block; }
@@ -2599,7 +2694,7 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
   <p>You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
 </div></div>
 <nav class="rail">
-  <div class="railhead"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <a class="railhead" href="https://aisa.one/?source=aisa_cli_connect" target="_blank" rel="noopener"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g clip-path="url(#clip0_383_646)">
 <path d="M131.82 19.3201C134.536 19.0359 138.411 19.8123 140.541 21.5465C143.1 23.6295 143.798 25.5303 144.214 28.6185L137.348 28.6269C136.931 25.9579 135.016 24.9636 132.471 24.9612C130.729 24.9281 128.542 25.5621 128.561 27.671C128.575 29.1596 129.725 29.7727 130.962 30.2626C132.595 30.9098 134.332 31.2902 136.021 31.7531C136.917 32.0003 137.803 32.2832 138.677 32.6009C142.115 33.8805 144.392 36.0809 144.438 39.9316C144.472 41.9722 143.674 43.939 142.227 45.3784C139.874 47.7669 136.365 48.4599 133.144 48.4843C128.189 48.4747 122.897 46.1258 121.279 41.0789C121.081 40.4629 120.987 39.7484 120.89 39.1043C123.046 39.0106 125.925 39.0947 128.135 39.1013C128.668 41.8472 131.083 42.9942 133.72 42.8507C134.919 42.7853 136.131 42.4903 136.976 41.5805C137.837 40.6536 137.796 39.0112 136.735 38.2486C136.048 37.7408 135.2 37.4698 134.402 37.1824C130.863 35.9261 126.904 35.6958 123.935 33.1945C120.9 30.6374 120.867 25.7519 123.437 22.853C125.616 20.3955 128.638 19.5072 131.82 19.3201ZM175.324 20.642C175.261 24.238 175.317 28.4508 175.317 32.0615L175.327 48.2658C173.199 48.3411 170.631 48.2731 168.467 48.2737C168.478 46.963 168.476 45.4421 168.46 44.1314C168.311 44.3023 168.138 44.5396 167.996 44.7234L167.978 44.7435C165.94 47.0297 163.358 48.2988 160.328 48.4618C152.689 48.8723 147.739 42.9526 147.282 35.7245C146.805 28.1634 150.863 21.1881 158.918 20.7303C159.364 20.6713 160.338 20.709 160.803 20.7589C164.132 21.1164 166.375 22.4476 168.467 24.9757C168.523 23.7793 168.462 21.88 168.484 20.6404L175.324 20.642ZM165.691 28.1474C164.239 27.027 162.409 26.5146 160.586 26.7185C160.58 26.7195 160.572 26.7207 160.565 26.7217C151.212 28.0278 152.662 43.2707 162.146 42.4672C162.159 42.4652 162.173 42.4629 162.186 42.4609C166.956 41.866 169.045 37.4817 168.421 33.1347C168.136 31.1445 167.302 29.3886 165.691 28.1474Z" fill="currentColor"/>
 <path d="M78.0289 13.5267C80.6702 13.5267 83.5754 13.5364 86.2127 13.5354C86.5222 14.5265 87.0571 15.8691 87.4172 16.8669L89.8901 23.7404L98.8048 48.5169L91.3698 48.5249C91.2837 48.1226 90.9557 47.3326 90.8194 46.8917C90.3085 45.2375 89.5697 43.4991 89.1018 41.8495H86.1714L75.1161 41.8472C74.3126 44.1997 73.6136 46.2007 72.8134 48.5292C70.578 48.5344 67.6979 48.5348 65.4658 48.5348C67.0587 44.0868 67.8658 41.8125 69.0723 38.4674L74.7844 22.5834L76.9855 16.4448C77.2399 15.7423 77.8755 14.1862 78.0289 13.5267ZM82.0944 21.6837C80.3256 26.4589 78.7575 31.4495 77.0142 36.2634L87.1713 36.2683C86.7585 35.0365 82.2554 21.8714 82.0944 21.6837Z" fill="#F76918"/>
@@ -2611,7 +2706,7 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
 <rect width="175.328" height="59.3984" fill="white"/>
 </clipPath>
 </defs>
-</svg><span>Connect</span></div>
+</svg><span>Connect</span></a>
   <div class="railsteps"><button type="button" class="rstep" data-step="1">
   <span class="rn">1</span><span class="rt"><span class="rtitle">Welcome</span><span class="rsub">What you are about to get</span></span></button><button type="button" class="rstep" data-step="2">
   <span class="rn">2</span><span class="rt"><span class="rtitle">Your agent</span><span class="rsub">Pick the tool to connect</span></span></button><button type="button" class="rstep" data-step="3">
@@ -2622,7 +2717,10 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
 </nav>
 <section class="main">
 <div class="content">
-  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button><div class="langpick"><button type="button" class="lang on" data-lang="en">EN</button><button type="button" class="lang" data-lang="zh">中文</button></div></div>
+  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button><div class="more">
+  <button type="button" class="morebtn" id="morebtn" aria-haspopup="true" aria-expanded="false" aria-label="Menu"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5h16M4 12h16M4 19h16"/></svg></button>
+  <div class="moremenu" id="moremenu" hidden><button type="button" class="lang on" data-lang="en">EN</button><button type="button" class="lang" data-lang="zh">中文</button></div>
+</div></div>
   <div class="pane" data-pane="1">
 <h1>One connection. <em>Every major model</em>, live data and skills — inside the agent you already use.</h1>
 <p class="lede">AIsa is the capability layer for AI agents: one account, one key, and your coding agent can reach the best models <b>and</b> the real world. Setting it up takes about a minute and nothing here is irreversible.</p>
@@ -2802,6 +2900,28 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
   // Switching reloads: the page is rendered by the CLI, so the new language
   // arrives the same way the first one did. Storing it first means the
   // terminal picks it up too.
+  // The menu: opens on click, closes on the next click anywhere else or on
+  // Escape. Nothing here is destructive, so it does not need to be modal —
+  // it needs to get out of the way, which is the opposite requirement.
+  (function () {
+    var btn = $("#morebtn"), menu = $("#moremenu");
+    if (!btn || !menu) return;
+    function setOpen(on) {
+      menu.hidden = !on;
+      btn.setAttribute("aria-expanded", on ? "true" : "false");
+    }
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      setOpen(menu.hidden);
+    });
+    document.addEventListener("click", function (e) {
+      if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) setOpen(false);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !menu.hidden) setOpen(false);
+    });
+  })();
+
   $$(".lang").forEach(function (b) {
     b.addEventListener("click", function () {
       if (b.classList.contains("on")) return;
@@ -3467,7 +3587,9 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
      the space above and below them is equal at any window height. */
   .rail { border-right: 1px solid var(--line); padding: 1.6rem 2.2rem; position: sticky; top: 0;
     height: 100vh; display: flex; flex-direction: column; }
-  .railhead { display: flex; align-items: flex-end; gap: .6rem; color: var(--ink); padding: 0 .6rem; }
+  .railhead { display: flex; align-items: flex-end; gap: .6rem; color: var(--ink); padding: 0 .6rem;
+    text-decoration: none; transition: opacity .15s ease; }
+  .railhead:hover { opacity: .72; }
   .railhead svg { width: 89px; height: auto; display: block; }
   .railhead span { font-weight: 600; font-size: 1.28rem; line-height: 1; color: var(--muted); padding-bottom: 4px; }
   /* Sits a little above centre: the gap below is noticeably larger than the gap above. */
@@ -3497,11 +3619,24 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
   .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
   .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
-  .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
-  .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
-    padding: .3rem .72rem; border-radius: 999px; line-height: 1.4; }
-  .langpick .lang:hover { color: var(--ink); }
-  .langpick .lang.on { background: var(--ink); color: #fff; }
+  .more { position: relative; display: inline-flex; }
+  .morebtn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+    border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--muted); cursor: pointer; }
+  .morebtn:hover, .morebtn[aria-expanded="true"] { color: var(--ink); border-color: var(--muted); }
+  .moremenu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
+    display: flex; flex-direction: column; min-width: 132px; padding: 4px;
+    border: 1px solid var(--line); border-radius: 10px; background: #fff;
+    box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+  .moremenu[hidden] { display: none; }
+  /* No border of its own — the menu already draws one, and a box inside a
+     box is the shape nothing else on this page has. A row here is text that
+     lights up under the cursor. */
+  .moremenu .lang { display: flex; justify-content: space-between; align-items: center;
+    border: 0; background: none; cursor: pointer; font: inherit; font-size: .86rem;
+    color: var(--muted); text-align: left; padding: 8px 10px; border-radius: 6px; line-height: 1.4; }
+  .moremenu .lang:hover { background: var(--paper); color: var(--ink); }
+  .moremenu .lang.on { color: var(--ink); font-weight: 600; }
+  .moremenu .lang.on::after { content: "✓"; opacity: .55; font-weight: 400; }
   .topnav .ghost { padding: .65rem 1.3rem; font-size: 1rem; }
   .pane { display: none; animation: fade .25s ease; }
   .pane.show { display: block; }
@@ -3743,7 +3878,7 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
   <p>You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
 </div></div>
 <nav class="rail">
-  <div class="railhead"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <a class="railhead" href="https://aisa.one/?source=aisa_cli_connect" target="_blank" rel="noopener"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g clip-path="url(#clip0_383_646)">
 <path d="M131.82 19.3201C134.536 19.0359 138.411 19.8123 140.541 21.5465C143.1 23.6295 143.798 25.5303 144.214 28.6185L137.348 28.6269C136.931 25.9579 135.016 24.9636 132.471 24.9612C130.729 24.9281 128.542 25.5621 128.561 27.671C128.575 29.1596 129.725 29.7727 130.962 30.2626C132.595 30.9098 134.332 31.2902 136.021 31.7531C136.917 32.0003 137.803 32.2832 138.677 32.6009C142.115 33.8805 144.392 36.0809 144.438 39.9316C144.472 41.9722 143.674 43.939 142.227 45.3784C139.874 47.7669 136.365 48.4599 133.144 48.4843C128.189 48.4747 122.897 46.1258 121.279 41.0789C121.081 40.4629 120.987 39.7484 120.89 39.1043C123.046 39.0106 125.925 39.0947 128.135 39.1013C128.668 41.8472 131.083 42.9942 133.72 42.8507C134.919 42.7853 136.131 42.4903 136.976 41.5805C137.837 40.6536 137.796 39.0112 136.735 38.2486C136.048 37.7408 135.2 37.4698 134.402 37.1824C130.863 35.9261 126.904 35.6958 123.935 33.1945C120.9 30.6374 120.867 25.7519 123.437 22.853C125.616 20.3955 128.638 19.5072 131.82 19.3201ZM175.324 20.642C175.261 24.238 175.317 28.4508 175.317 32.0615L175.327 48.2658C173.199 48.3411 170.631 48.2731 168.467 48.2737C168.478 46.963 168.476 45.4421 168.46 44.1314C168.311 44.3023 168.138 44.5396 167.996 44.7234L167.978 44.7435C165.94 47.0297 163.358 48.2988 160.328 48.4618C152.689 48.8723 147.739 42.9526 147.282 35.7245C146.805 28.1634 150.863 21.1881 158.918 20.7303C159.364 20.6713 160.338 20.709 160.803 20.7589C164.132 21.1164 166.375 22.4476 168.467 24.9757C168.523 23.7793 168.462 21.88 168.484 20.6404L175.324 20.642ZM165.691 28.1474C164.239 27.027 162.409 26.5146 160.586 26.7185C160.58 26.7195 160.572 26.7207 160.565 26.7217C151.212 28.0278 152.662 43.2707 162.146 42.4672C162.159 42.4652 162.173 42.4629 162.186 42.4609C166.956 41.866 169.045 37.4817 168.421 33.1347C168.136 31.1445 167.302 29.3886 165.691 28.1474Z" fill="currentColor"/>
 <path d="M78.0289 13.5267C80.6702 13.5267 83.5754 13.5364 86.2127 13.5354C86.5222 14.5265 87.0571 15.8691 87.4172 16.8669L89.8901 23.7404L98.8048 48.5169L91.3698 48.5249C91.2837 48.1226 90.9557 47.3326 90.8194 46.8917C90.3085 45.2375 89.5697 43.4991 89.1018 41.8495H86.1714L75.1161 41.8472C74.3126 44.1997 73.6136 46.2007 72.8134 48.5292C70.578 48.5344 67.6979 48.5348 65.4658 48.5348C67.0587 44.0868 67.8658 41.8125 69.0723 38.4674L74.7844 22.5834L76.9855 16.4448C77.2399 15.7423 77.8755 14.1862 78.0289 13.5267ZM82.0944 21.6837C80.3256 26.4589 78.7575 31.4495 77.0142 36.2634L87.1713 36.2683C86.7585 35.0365 82.2554 21.8714 82.0944 21.6837Z" fill="#F76918"/>
@@ -3755,7 +3890,7 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
 <rect width="175.328" height="59.3984" fill="white"/>
 </clipPath>
 </defs>
-</svg><span>Connect</span></div>
+</svg><span>Connect</span></a>
   <div class="railsteps"><button type="button" class="rstep" data-step="1">
   <span class="rn">1</span><span class="rt"><span class="rtitle">Welcome</span><span class="rsub">What you are about to get</span></span></button><button type="button" class="rstep" data-step="2">
   <span class="rn">2</span><span class="rt"><span class="rtitle">Your agent</span><span class="rsub">Pick the tool to connect</span></span></button><button type="button" class="rstep" data-step="3">
@@ -3766,7 +3901,10 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
 </nav>
 <section class="main">
 <div class="content">
-  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button><div class="langpick"><button type="button" class="lang on" data-lang="en">EN</button><button type="button" class="lang" data-lang="zh">中文</button></div></div>
+  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button><div class="more">
+  <button type="button" class="morebtn" id="morebtn" aria-haspopup="true" aria-expanded="false" aria-label="Menu"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5h16M4 12h16M4 19h16"/></svg></button>
+  <div class="moremenu" id="moremenu" hidden><button type="button" class="lang on" data-lang="en">EN</button><button type="button" class="lang" data-lang="zh">中文</button></div>
+</div></div>
   <div class="pane" data-pane="1">
 <h1>One connection. <em>Every major model</em>, live data and skills — inside the agent you already use.</h1>
 <p class="lede">AIsa is the capability layer for AI agents: one account, one key, and your coding agent can reach the best models <b>and</b> the real world. Setting it up takes about a minute and nothing here is irreversible.</p>
@@ -3958,6 +4096,28 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
   // Switching reloads: the page is rendered by the CLI, so the new language
   // arrives the same way the first one did. Storing it first means the
   // terminal picks it up too.
+  // The menu: opens on click, closes on the next click anywhere else or on
+  // Escape. Nothing here is destructive, so it does not need to be modal —
+  // it needs to get out of the way, which is the opposite requirement.
+  (function () {
+    var btn = $("#morebtn"), menu = $("#moremenu");
+    if (!btn || !menu) return;
+    function setOpen(on) {
+      menu.hidden = !on;
+      btn.setAttribute("aria-expanded", on ? "true" : "false");
+    }
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      setOpen(menu.hidden);
+    });
+    document.addEventListener("click", function (e) {
+      if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) setOpen(false);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !menu.hidden) setOpen(false);
+    });
+  })();
+
   $$(".lang").forEach(function (b) {
     b.addEventListener("click", function () {
       if (b.classList.contains("on")) return;
@@ -4623,7 +4783,9 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
      the space above and below them is equal at any window height. */
   .rail { border-right: 1px solid var(--line); padding: 1.6rem 2.2rem; position: sticky; top: 0;
     height: 100vh; display: flex; flex-direction: column; }
-  .railhead { display: flex; align-items: flex-end; gap: .6rem; color: var(--ink); padding: 0 .6rem; }
+  .railhead { display: flex; align-items: flex-end; gap: .6rem; color: var(--ink); padding: 0 .6rem;
+    text-decoration: none; transition: opacity .15s ease; }
+  .railhead:hover { opacity: .72; }
   .railhead svg { width: 89px; height: auto; display: block; }
   .railhead span { font-weight: 600; font-size: 1.28rem; line-height: 1; color: var(--muted); padding-bottom: 4px; }
   /* Sits a little above centre: the gap below is noticeably larger than the gap above. */
@@ -4653,11 +4815,24 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
   .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
   .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
-  .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
-  .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
-    padding: .3rem .72rem; border-radius: 999px; line-height: 1.4; }
-  .langpick .lang:hover { color: var(--ink); }
-  .langpick .lang.on { background: var(--ink); color: #fff; }
+  .more { position: relative; display: inline-flex; }
+  .morebtn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+    border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--muted); cursor: pointer; }
+  .morebtn:hover, .morebtn[aria-expanded="true"] { color: var(--ink); border-color: var(--muted); }
+  .moremenu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
+    display: flex; flex-direction: column; min-width: 132px; padding: 4px;
+    border: 1px solid var(--line); border-radius: 10px; background: #fff;
+    box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+  .moremenu[hidden] { display: none; }
+  /* No border of its own — the menu already draws one, and a box inside a
+     box is the shape nothing else on this page has. A row here is text that
+     lights up under the cursor. */
+  .moremenu .lang { display: flex; justify-content: space-between; align-items: center;
+    border: 0; background: none; cursor: pointer; font: inherit; font-size: .86rem;
+    color: var(--muted); text-align: left; padding: 8px 10px; border-radius: 6px; line-height: 1.4; }
+  .moremenu .lang:hover { background: var(--paper); color: var(--ink); }
+  .moremenu .lang.on { color: var(--ink); font-weight: 600; }
+  .moremenu .lang.on::after { content: "✓"; opacity: .55; font-weight: 400; }
   .topnav .ghost { padding: .65rem 1.3rem; font-size: 1rem; }
   .pane { display: none; animation: fade .25s ease; }
   .pane.show { display: block; }
@@ -4899,7 +5074,7 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
   <p>You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
 </div></div>
 <nav class="rail">
-  <div class="railhead"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <a class="railhead" href="https://aisa.one/?source=aisa_cli_connect" target="_blank" rel="noopener"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g clip-path="url(#clip0_383_646)">
 <path d="M131.82 19.3201C134.536 19.0359 138.411 19.8123 140.541 21.5465C143.1 23.6295 143.798 25.5303 144.214 28.6185L137.348 28.6269C136.931 25.9579 135.016 24.9636 132.471 24.9612C130.729 24.9281 128.542 25.5621 128.561 27.671C128.575 29.1596 129.725 29.7727 130.962 30.2626C132.595 30.9098 134.332 31.2902 136.021 31.7531C136.917 32.0003 137.803 32.2832 138.677 32.6009C142.115 33.8805 144.392 36.0809 144.438 39.9316C144.472 41.9722 143.674 43.939 142.227 45.3784C139.874 47.7669 136.365 48.4599 133.144 48.4843C128.189 48.4747 122.897 46.1258 121.279 41.0789C121.081 40.4629 120.987 39.7484 120.89 39.1043C123.046 39.0106 125.925 39.0947 128.135 39.1013C128.668 41.8472 131.083 42.9942 133.72 42.8507C134.919 42.7853 136.131 42.4903 136.976 41.5805C137.837 40.6536 137.796 39.0112 136.735 38.2486C136.048 37.7408 135.2 37.4698 134.402 37.1824C130.863 35.9261 126.904 35.6958 123.935 33.1945C120.9 30.6374 120.867 25.7519 123.437 22.853C125.616 20.3955 128.638 19.5072 131.82 19.3201ZM175.324 20.642C175.261 24.238 175.317 28.4508 175.317 32.0615L175.327 48.2658C173.199 48.3411 170.631 48.2731 168.467 48.2737C168.478 46.963 168.476 45.4421 168.46 44.1314C168.311 44.3023 168.138 44.5396 167.996 44.7234L167.978 44.7435C165.94 47.0297 163.358 48.2988 160.328 48.4618C152.689 48.8723 147.739 42.9526 147.282 35.7245C146.805 28.1634 150.863 21.1881 158.918 20.7303C159.364 20.6713 160.338 20.709 160.803 20.7589C164.132 21.1164 166.375 22.4476 168.467 24.9757C168.523 23.7793 168.462 21.88 168.484 20.6404L175.324 20.642ZM165.691 28.1474C164.239 27.027 162.409 26.5146 160.586 26.7185C160.58 26.7195 160.572 26.7207 160.565 26.7217C151.212 28.0278 152.662 43.2707 162.146 42.4672C162.159 42.4652 162.173 42.4629 162.186 42.4609C166.956 41.866 169.045 37.4817 168.421 33.1347C168.136 31.1445 167.302 29.3886 165.691 28.1474Z" fill="currentColor"/>
 <path d="M78.0289 13.5267C80.6702 13.5267 83.5754 13.5364 86.2127 13.5354C86.5222 14.5265 87.0571 15.8691 87.4172 16.8669L89.8901 23.7404L98.8048 48.5169L91.3698 48.5249C91.2837 48.1226 90.9557 47.3326 90.8194 46.8917C90.3085 45.2375 89.5697 43.4991 89.1018 41.8495H86.1714L75.1161 41.8472C74.3126 44.1997 73.6136 46.2007 72.8134 48.5292C70.578 48.5344 67.6979 48.5348 65.4658 48.5348C67.0587 44.0868 67.8658 41.8125 69.0723 38.4674L74.7844 22.5834L76.9855 16.4448C77.2399 15.7423 77.8755 14.1862 78.0289 13.5267ZM82.0944 21.6837C80.3256 26.4589 78.7575 31.4495 77.0142 36.2634L87.1713 36.2683C86.7585 35.0365 82.2554 21.8714 82.0944 21.6837Z" fill="#F76918"/>
@@ -4911,7 +5086,7 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
 <rect width="175.328" height="59.3984" fill="white"/>
 </clipPath>
 </defs>
-</svg><span>Connect</span></div>
+</svg><span>Connect</span></a>
   <div class="railsteps"><button type="button" class="rstep" data-step="1">
   <span class="rn">1</span><span class="rt"><span class="rtitle">Welcome</span><span class="rsub">What you are about to get</span></span></button><button type="button" class="rstep" data-step="2">
   <span class="rn">2</span><span class="rt"><span class="rtitle">Your agent</span><span class="rsub">Pick the tool to connect</span></span></button><button type="button" class="rstep" data-step="3">
@@ -4922,7 +5097,10 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
 </nav>
 <section class="main">
 <div class="content">
-  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button><div class="langpick"><button type="button" class="lang on" data-lang="en">EN</button><button type="button" class="lang" data-lang="zh">中文</button></div></div>
+  <div class="topnav"><button type="button" class="ghost" id="back">← Back</button><div class="more">
+  <button type="button" class="morebtn" id="morebtn" aria-haspopup="true" aria-expanded="false" aria-label="Menu"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5h16M4 12h16M4 19h16"/></svg></button>
+  <div class="moremenu" id="moremenu" hidden><button type="button" class="lang on" data-lang="en">EN</button><button type="button" class="lang" data-lang="zh">中文</button></div>
+</div></div>
   <div class="pane" data-pane="1">
 <h1>One connection. <em>Every major model</em>, live data and skills — inside the agent you already use.</h1>
 <p class="lede">AIsa is the capability layer for AI agents: one account, one key, and your coding agent can reach the best models <b>and</b> the real world. Setting it up takes about a minute and nothing here is irreversible.</p>
@@ -5114,6 +5292,28 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
   // Switching reloads: the page is rendered by the CLI, so the new language
   // arrives the same way the first one did. Storing it first means the
   // terminal picks it up too.
+  // The menu: opens on click, closes on the next click anywhere else or on
+  // Escape. Nothing here is destructive, so it does not need to be modal —
+  // it needs to get out of the way, which is the opposite requirement.
+  (function () {
+    var btn = $("#morebtn"), menu = $("#moremenu");
+    if (!btn || !menu) return;
+    function setOpen(on) {
+      menu.hidden = !on;
+      btn.setAttribute("aria-expanded", on ? "true" : "false");
+    }
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      setOpen(menu.hidden);
+    });
+    document.addEventListener("click", function (e) {
+      if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) setOpen(false);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !menu.hidden) setOpen(false);
+    });
+  })();
+
   $$(".lang").forEach(function (b) {
     b.addEventListener("click", function () {
       if (b.classList.contains("on")) return;

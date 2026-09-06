@@ -83,6 +83,12 @@ function normCategory(c: string): string {
   return /^search/i.test(c) ? "Search & Research" : c;
 }
 
+/** lucide:menu — same 2px round-cap line as the rest of the page's marks. */
+const MENU_ICON =
+  '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">' +
+  '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" ' +
+  'stroke-width="2" d="M4 5h16M4 12h16M4 19h16"/></svg>';
+
 export function renderT2Page(
   servers: LiveServer[],
   clients: ClientInfo[],
@@ -304,9 +310,16 @@ ${restChips}
   // stores it, so the terminal beside this page switches too and the next run
   // opens in the same language. A picker that only changed the page would
   // leave the two surfaces disagreeing — the thing flow.ts exists to prevent.
-  const langPicker = `<div class="langpick">${LANGS.map((code) =>
+  // A two-button language toggle sat in the corner of every step, on a page
+  // whose whole job is to ask six questions — a seventh control, permanently
+  // lit, competing with them. It is a setting, not a step: behind a menu it
+  // is one click further away and stops being part of the conversation.
+  const langPicker = `<div class="more">
+  <button type="button" class="morebtn" id="morebtn" aria-haspopup="true" aria-expanded="false" aria-label="Menu">${MENU_ICON}</button>
+  <div class="moremenu" id="moremenu" hidden>${LANGS.map((code) =>
     `<button type="button" class="lang${code === lang ? " on" : ""}" data-lang="${code}">${LANG_LABEL[code]}</button>`
-  ).join("")}</div>`;
+  ).join("")}</div>
+</div>`;
 
   const body = `
 <div class="wrap">
@@ -315,7 +328,7 @@ ${restChips}
   <p>${T(SUPERSEDED.body)} <b id="sscount">60</b> ${T(SUPERSEDED.seconds)}.</p>
 </div></div>
 <nav class="rail">
-  <div class="railhead">${LOGO_INK}<span>Connect</span></div>
+  <a class="railhead" href="https://aisa.one/?source=aisa_cli_connect" target="_blank" rel="noopener">${LOGO_INK}<span>Connect</span></a>
   <div class="railsteps">${rail}</div>
 </nav>
 <section class="main">
@@ -372,6 +385,28 @@ ${restChips}
   // Switching reloads: the page is rendered by the CLI, so the new language
   // arrives the same way the first one did. Storing it first means the
   // terminal picks it up too.
+  // The menu: opens on click, closes on the next click anywhere else or on
+  // Escape. Nothing here is destructive, so it does not need to be modal —
+  // it needs to get out of the way, which is the opposite requirement.
+  (function () {
+    var btn = $("#morebtn"), menu = $("#moremenu");
+    if (!btn || !menu) return;
+    function setOpen(on) {
+      menu.hidden = !on;
+      btn.setAttribute("aria-expanded", on ? "true" : "false");
+    }
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      setOpen(menu.hidden);
+    });
+    document.addEventListener("click", function (e) {
+      if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) setOpen(false);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !menu.hidden) setOpen(false);
+    });
+  })();
+
   $$(".lang").forEach(function (b) {
     b.addEventListener("click", function () {
       if (b.classList.contains("on")) return;
@@ -1039,7 +1074,9 @@ function shellT2(title: string, body: string): string {
      the space above and below them is equal at any window height. */
   .rail { border-right: 1px solid var(--line); padding: 1.6rem 2.2rem; position: sticky; top: 0;
     height: 100vh; display: flex; flex-direction: column; }
-  .railhead { display: flex; align-items: flex-end; gap: .6rem; color: var(--ink); padding: 0 .6rem; }
+  .railhead { display: flex; align-items: flex-end; gap: .6rem; color: var(--ink); padding: 0 .6rem;
+    text-decoration: none; transition: opacity .15s ease; }
+  .railhead:hover { opacity: .72; }
   .railhead svg { width: 89px; height: auto; display: block; }
   .railhead span { font-weight: 600; font-size: 1.28rem; line-height: 1; color: var(--muted); padding-bottom: 4px; }
   /* Sits a little above centre: the gap below is noticeably larger than the gap above. */
@@ -1069,11 +1106,24 @@ function shellT2(title: string, body: string): string {
   .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
   .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
-  .langpick { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
-  .langpick .lang { border: 0; background: none; cursor: pointer; font: inherit; font-size: .82rem; color: var(--muted);
-    padding: .3rem .72rem; border-radius: 999px; line-height: 1.4; }
-  .langpick .lang:hover { color: var(--ink); }
-  .langpick .lang.on { background: var(--ink); color: #fff; }
+  .more { position: relative; display: inline-flex; }
+  .morebtn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+    border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--muted); cursor: pointer; }
+  .morebtn:hover, .morebtn[aria-expanded="true"] { color: var(--ink); border-color: var(--muted); }
+  .moremenu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
+    display: flex; flex-direction: column; min-width: 132px; padding: 4px;
+    border: 1px solid var(--line); border-radius: 10px; background: #fff;
+    box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+  .moremenu[hidden] { display: none; }
+  /* No border of its own — the menu already draws one, and a box inside a
+     box is the shape nothing else on this page has. A row here is text that
+     lights up under the cursor. */
+  .moremenu .lang { display: flex; justify-content: space-between; align-items: center;
+    border: 0; background: none; cursor: pointer; font: inherit; font-size: .86rem;
+    color: var(--muted); text-align: left; padding: 8px 10px; border-radius: 6px; line-height: 1.4; }
+  .moremenu .lang:hover { background: var(--paper); color: var(--ink); }
+  .moremenu .lang.on { color: var(--ink); font-weight: 600; }
+  .moremenu .lang.on::after { content: "✓"; opacity: .55; font-weight: 400; }
   .topnav .ghost { padding: .65rem 1.3rem; font-size: 1rem; }
   .pane { display: none; animation: fade .25s ease; }
   .pane.show { display: block; }
