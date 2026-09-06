@@ -784,11 +784,19 @@ export async function runTerminalFlow(
         // wrong. Escape still leaves without applying.
         choices: [
           { label: chalk.green.bold(t(CONFIRM.apply, o.lang)) },
-          { label: chalk.bold(t(CONFIRM.goBack, o.lang)) },
+          // Dim, like the way-back row on the models step. A way out of a
+          // screen is not one of the things the screen offers, and rendering
+          // it as brightly as the action it declines reads as a second offer.
+          { label: dim(t(CONFIRM.goBack, o.lang)) },
         ],
         multi: false,
         initial: [0],
-        hint: o.lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
+        // Escape does the same as picking the way-back row - `r.aborted`
+        // falls through to "again" below - so the hint says so. Steps 3
+        // and 4 both advertise it and this one did not, which made the
+        // key look like it did nothing here.
+        hint: o.lang === "zh" ? "↑↓ 选择 · 回车确认 · esc 返回修改"
+                              : "↑↓ move · enter to confirm · esc to go back",
       });
       confirmed = !r.aborted && r.picked?.[0] === 0 ? "go" : "again";
       console.log(dim("└─ ") + (confirmed === "go"
