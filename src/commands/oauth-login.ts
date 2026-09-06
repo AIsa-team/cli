@@ -9,6 +9,7 @@ import { httpFetch } from "../utils/http.js";
 import { canOpenBrowser } from "../utils/browser.js";
 import { SIGNIN, t, type Lang } from "./flow.js";
 import { renderSignInPage } from "./signin-page.js";
+import { handOverSignInPage, SIGNIN_PAGE_TTL_MS } from "./serve-signin.js";
 
 /**
  * `aisa login` without a key: sign in once in a browser, come back with the
@@ -153,8 +154,15 @@ function waitForCallback(port: number, expectedState: string, lang: Lang): Promi
       // is what the last version of this line actually did.
       res
         .writeHead(200, { "content-type": "text/html; charset=utf-8" })
-        .end(renderSignInPage("ok"));
-      srv.close();
+        .end(renderSignInPage("ok", Date.now() + SIGNIN_PAGE_TTL_MS));
+      // Not srv.close(): a page that cannot survive a refresh is a page that
+      // says "this site can't be reached" to someone checking their sign-in
+      // really worked. The port goes to a detached copy that serves this one
+      // document for a few minutes, and the terminal comes back now.
+      res.on("finish", () => {
+        clearTimeout(giveUp);
+        handOverSignInPage(port, () => srv.close());
+      });
       resolve(code);
     });
     srv.listen(port, "127.0.0.1");

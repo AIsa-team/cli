@@ -40,6 +40,8 @@ export const DOCS_MCP_URL = "https://aisa.one/docs/mcp";
 
 /** Where credit is added. Payment always finishes in a browser — Stripe's
  *  hosted page owns the card details, and 3-D Secure needs one. */
+/** The account surface. Printed where someone can act on it, not linked. */
+export const CONSOLE_URL = "https://console.aisa.one";
 export const CONSOLE_BILLING_URL = "https://console.aisa.one/billing";
 
 /** Anthropic-shaped base for Claude Code: it appends /v1/messages itself. */

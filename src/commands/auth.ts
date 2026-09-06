@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import { setApiKey, clearApiKey, getApiKey, getKeySource, maskKey } from "../config.js";
 import { success, error, info } from "../utils/display.js";
-import { ENV_VAR_NAME } from "../constants.js";
+import { CONSOLE_URL, ENV_VAR_NAME } from "../constants.js";
 
 export async function loginAction(options: { key?: string; browser?: boolean }): Promise<void> {
   const key = options.key || process.env[ENV_VAR_NAME];
@@ -42,6 +42,10 @@ async function proveItWorks(): Promise<void> {
     info(`Stored, but could not read your balance: ${(e as Error).message}`);
     console.log(chalk.gray("  Try: aisa balance"));
   }
+  // Last line, and an address rather than a command: everything above is
+  // this machine, and the account behind it lives somewhere the terminal
+  // cannot show. Written out so it can be remembered, not just clicked.
+  console.log(chalk.gray(`  Account, usage and top-ups — ${chalk.cyan(CONSOLE_URL)}`));
 }
 
 export function logoutAction(): void {

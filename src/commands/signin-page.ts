@@ -18,13 +18,38 @@
  * the authorization code.
  */
 
+
+/** Fixed to the bottom; quiet until the final minute. */
+const EXPIRY_MARKUP = [
+  '<div class="expiry" id="expiry"></div>',
+  "<scr" + "ipt>",
+  "(function () {",
+  "  var until = __UNTIL__;",
+  '  var el = document.getElementById("expiry");',
+  "  function tick() {",
+  "    var left = Math.ceil((until - Date.now()) / 1000);",
+  "    if (left <= 0) {",
+  '      el.textContent = "This page has expired. You can close it \u2014 nothing here is needed any more.";',
+  '      el.className = "expiry on";',
+  "      return;",
+  "    }",
+  "    if (left > 60) { setTimeout(tick, 1000); return; }",
+  '    el.textContent = "This page stops working in " + left + " seconds. You can close it at any time \u2014 your key is already saved.";',
+  '    el.className = "expiry on";',
+  "    setTimeout(tick, 1000);",
+  "  }",
+  "  tick();",
+  "})();",
+  "</scr" + "ipt>",
+].join("\n");
+
 export type SignInOutcome = "ok" | "failed" | "expired";
 
 interface Outcome {
   kicker: string;
   title: string;
   body: string;
-  cta?: { href: string; label: string; note: string };
+  cta?: { href: string; domain: string; before: string; after: string };
 }
 
 const COPY: Record<SignInOutcome, Outcome> = {
@@ -33,19 +58,22 @@ const COPY: Record<SignInOutcome, Outcome> = {
     title: "You're all set",
     body: "Your key was created on the machine you started from — it never travelled through this browser. You can close this tab.",
     /**
-     * The one moment a link to the console is welcome rather than in the way.
+     * The one moment a mention of the console is welcome rather than in the
+     * way — and a sentence, not a button.
      *
-     * The thing they came to do is done, the tab is about to be closed
-     * anyway, and they have just acquired an account they have probably
-     * never looked at. Anywhere earlier in the flow this would be a
-     * distraction; here it is the only thing left to offer. Carries the
-     * same source parameter the CLI's other console links use, so the
-     * traffic can be told apart from someone typing the address.
+     * A button is a demand for attention, and this person's attention
+     * belongs back in the terminal they started from. It also teaches them
+     * nothing: they click it once and could not tell you afterwards where
+     * they went. The address, written out and worth clicking, is the thing
+     * they can still type next week. Carries the source parameter the CLI's
+     * other console links use, with its own value, so this surface can be
+     * told apart from someone typing it from memory — which is the point.
      */
     cta: {
       href: "https://console.aisa.one?source=aisa_cli_signin",
-      label: "Open your console",
-      note: "Usage, spending and API keys live there.",
+      domain: "console.aisa.one",
+      before: "Usage, spending and API keys live at ",
+      after: ".",
     },
   },
   failed: {
@@ -60,7 +88,11 @@ const COPY: Record<SignInOutcome, Outcome> = {
   },
 };
 
-export function renderSignInPage(outcome: SignInOutcome): string {
+/**
+ * @param closesAt Absolute epoch ms when this page stops being served.
+ *   Given one, the page counts itself down near the end.
+ */
+export function renderSignInPage(outcome: SignInOutcome, closesAt?: number): string {
   const c = COPY[outcome];
   const good = outcome === "ok";
   return `<!doctype html>
@@ -95,17 +127,22 @@ export function renderSignInPage(outcome: SignInOutcome): string {
   h1{font-size:34px;line-height:1.25;margin:0 0 16px;letter-spacing:-.021em;font-weight:650}
   p{margin:0;font-size:18px;color:var(--dim);max-width:32em}
   code{font-family:var(--mono);font-size:16px;color:var(--fg)}
-  .cta{margin-top:36px;padding-top:28px;border-top:1px solid var(--line);
-    display:flex;align-items:center;gap:18px;flex-wrap:wrap}
-  .cta a{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;
-    border-radius:10px;padding:15px 30px;font-weight:600;font-size:16px;letter-spacing:.01em}
-  .cta a:hover{filter:brightness(1.07)}
-  .cta span{font-size:15px;color:var(--faint)}
+  .cta{margin:22px 0 0;font-size:17px;color:var(--dim);max-width:32em}
+  /* Along the bottom, out of the way, and silent until there is something
+     worth saying. A countdown running for five minutes is not a warning, it
+     is furniture — and this one exists to remove a worry, not create one. */
+  .expiry{position:fixed;left:0;right:0;bottom:0;padding:14px 32px;
+    font-size:13.5px;color:var(--faint);text-align:center;
+    border-top:1px solid var(--line);background:var(--bg);
+    opacity:0;transition:opacity .4s ease;pointer-events:none}
+  .expiry.on{opacity:1}
+  .cta a{color:var(--accent);text-decoration:none;font-family:var(--mono);
+    font-size:16px;border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent)}
+  .cta a:hover{border-bottom-color:var(--accent)}
   @media (max-width:760px){
     body{padding:32px 20px} .wrap{width:100%}
     h1{font-size:27px} p{font-size:16.5px}
-    .cta{flex-direction:column;align-items:flex-start;gap:12px}
-    .cta a{width:100%;text-align:center}
+    .cta{font-size:16px}
   }
 </style>
 </head>
@@ -115,12 +152,10 @@ export function renderSignInPage(outcome: SignInOutcome): string {
     <h1>${c.title}</h1>
     <p>${c.body}</p>
     ${c.cta
-      ? `<div class="cta">
-      <a href="${c.cta.href}" rel="noopener">${c.cta.label}</a>
-      <span>${c.cta.note}</span>
-    </div>`
+      ? `<p class="cta">${c.cta.before}<a href="${c.cta.href}" rel="noopener">${c.cta.domain}</a>${c.cta.after}</p>`
       : ""}
   </div>
+  ${closesAt ? EXPIRY_MARKUP.replace("__UNTIL__", String(closesAt)) : ""}
 </body>
 </html>`;
 }

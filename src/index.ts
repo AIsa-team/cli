@@ -57,6 +57,7 @@ import { completionAction, completeAction } from "./commands/completionCmd.js";
 // Manifest
 import { manifestAction } from "./commands/manifest.js";
 import { serveResultsAction } from "./commands/serve-results.js";
+import { serveSignInAction } from "./commands/serve-signin.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function wrap(fn: (...args: any[]) => Promise<void>): (...args: any[]) => void {
@@ -693,6 +694,12 @@ cache
 program
   .command("__serve-results <file>", { hidden: true })
   .action(wrap(serveResultsAction));
+
+// Hidden: started by `login` so the page the browser landed on survives a
+// refresh after the terminal has been handed back.
+program
+  .command("__serve-signin <port> <until>", { hidden: true })
+  .action(wrap(serveSignInAction));
 
 program
   .command("manifest [command...]")
