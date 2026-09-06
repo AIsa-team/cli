@@ -8,7 +8,7 @@ export async function loginAction(options: { key?: string; browser?: boolean }):
   if (key) {
     setApiKey(key);
     success(`Authenticated: ${maskKey(key)}`);
-    console.log(chalk.gray("  Get your API key at https://console.aisa.one/api-keys"));
+    await proveItWorks();
     return;
   }
   // No key given: the browser sign-in is the front door, not an error.
@@ -19,6 +19,29 @@ export async function loginAction(options: { key?: string; browser?: boolean }):
   // waiting for a click. Only the false case is the user speaking.
   const { oauthLogin } = await import("./oauth-login.js");
   await oauthLogin(options.browser === false ? { open: false } : {});
+  await proveItWorks();
+}
+
+/**
+ * Use the key we just stored, and show what came back.
+ *
+ * "Signed in — key stored" says a file was written. It does not say the key
+ * works, and those are different claims: a pasted key can be the wrong one, a
+ * minted one can belong to an account with no credit. Ending on a balance
+ * turns the question "did that work?" into something already answered on
+ * screen, which is what someone finishing a sign-in actually wants to know.
+ *
+ * Failure here is not a failed sign-in — the key is stored either way — so it
+ * says what it could not do and points at the command to retry with.
+ */
+async function proveItWorks(): Promise<void> {
+  try {
+    const { balanceAction } = await import("./account.js");
+    await balanceAction();
+  } catch (e) {
+    info(`Stored, but could not read your balance: ${(e as Error).message}`);
+    console.log(chalk.gray("  Try: aisa balance"));
+  }
 }
 
 export function logoutAction(): void {

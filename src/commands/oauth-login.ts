@@ -77,18 +77,49 @@ async function registerClient(redirectUri: string): Promise<string> {
 }
 
 /** Wait for the authorization code on the loopback port. */
-/** How long to hold a loopback callback open before giving up on it. */
-const CALLBACK_TIMEOUT_MS = 5 * 60 * 1000;
+/**
+ * How long to hold a loopback callback open before giving up on it.
+ *
+ * Five minutes looked generous until a sign-in took longer than that and the
+ * approval landed on a closed port: the browser said it could not connect,
+ * which reads as "I broke something" rather than "that took too long". A
+ * person who is signing in normally is done inside a minute; the ones who are
+ * not are switching machines, reading the consent screen properly, or being
+ * interrupted. Fifteen minutes costs nothing and covers all of them.
+ */
+const CALLBACK_TIMEOUT_MS = 15 * 60 * 1000;
+
+/**
+ * And once it does expire, keep answering for a little longer.
+ *
+ * The wait is over and the terminal has said so, but the socket costs nothing
+ * to hold and an approval arriving late deserves a sentence rather than a
+ * connection error. It stops the process from lingering more than this.
+ */
+const AFTER_TIMEOUT_GRACE_MS = 90 * 1000;
 
 function waitForCallback(port: number, expectedState: string, lang: Lang): Promise<string> {
+  let expired = false;
   return new Promise((resolve, reject) => {
     // A browser we opened may never come back — it was never opened at all,
     // the tab was closed, the machine has no screen. Waiting for that with
     // no deadline is a hang, and a hang is the one failure that tells the
     // user nothing.
     const giveUp = setTimeout(() => {
-      srv.close();
-      reject(new Error("no response from the browser after 5 minutes — try: aisa login --no-browser"));
+      // Deliberately not closing the server: an approval that arrives now has
+      // to land somewhere that can explain itself. It closes on its own a
+      // little later, and the process does not outlive it.
+      expired = true;
+      const close = setTimeout(() => {
+        srv.close();
+        process.exit(1);
+      }, AFTER_TIMEOUT_GRACE_MS);
+      close.unref?.();
+      reject(
+        new Error(
+          `no response from the browser after ${CALLBACK_TIMEOUT_MS / 60_000} minutes — run 'aisa login' again`
+        )
+      );
     }, CALLBACK_TIMEOUT_MS);
     giveUp.unref?.();
     const srv = createServer((req, res) => {
@@ -98,12 +129,21 @@ function waitForCallback(port: number, expectedState: string, lang: Lang): Promi
         res.writeHead(404).end();
         return;
       }
+      if (expired) {
+        // They approved it; we had already stopped listening for an answer.
+        // Saying so is the difference between "that took too long" and the
+        // browser's own "could not connect", which reads like a broken tool.
+        res
+          .writeHead(408, { "content-type": "text/html; charset=utf-8" })
+          .end(renderSignInPage("expired"));
+        return;
+      }
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");
       if (!code || state !== expectedState) {
         res
           .writeHead(400, { "content-type": "text/html; charset=utf-8" })
-          .end(renderSignInPage(false, lang));
+          .end(renderSignInPage("failed"));
         srv.close();
         reject(new Error("authorization was denied or the response was malformed"));
         return;
@@ -113,7 +153,7 @@ function waitForCallback(port: number, expectedState: string, lang: Lang): Promi
       // is what the last version of this line actually did.
       res
         .writeHead(200, { "content-type": "text/html; charset=utf-8" })
-        .end(renderSignInPage(true, lang));
+        .end(renderSignInPage("ok"));
       srv.close();
       resolve(code);
     });
@@ -282,6 +322,7 @@ export async function oauthLogin(options: { open?: boolean; lang?: Lang } = {}):
     return;
   }
   const key = await mintCliKey(options);
+  // The balance follows from the caller, so no "try aisa balance" here: being
+  // told to go and check is worse than being shown.
   success(`Signed in — CLI key ${maskKey(key)} stored`);
-  hint("Try: aisa balance");
 }

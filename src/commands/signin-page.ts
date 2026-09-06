@@ -1,46 +1,89 @@
-import { SIGNIN_PAGE, t, type Lang } from "./flow.js";
-
 /**
  * The page the browser lands on when a sign-in finishes on this machine.
  *
  * For a long time this was one unstyled line of HTML served without a
- * charset, which is two faults in one: it looked like a crash, and a browser
- * in a Chinese locale decoded the em dash as GBK and rendered it as mojibake.
- * The person reading it has just finished trusting us with their account.
+ * charset: two faults in one, because a browser in a Chinese locale decoded
+ * the em dash as GBK and rendered it as mojibake. The person reading it has
+ * just finished trusting us with their account, and it looked like a crash.
  *
- * Self-contained on purpose. It is served by a socket that closes moments
- * later, so anything it referenced would already be gone by the time the
- * browser asked for it — and a stylesheet fetched from anywhere carries the
- * URL of this page, which is the authorization code.
+ * Same proportions as https://aisa.one/cli/auth — the other page a sign-in
+ * can land on. One of the two is always the last thing a user sees, and they
+ * should not look like they came from different products. English on both,
+ * for the same reason: one language read by everyone beats two read by
+ * halves.
+ *
+ * Self-contained on purpose. The socket serving it closes moments later, so
+ * anything it referenced would already be gone by the time the browser asked
+ * — and a stylesheet from another origin carries this page's URL, which is
+ * the authorization code.
  */
-export function renderSignInPage(ok: boolean, lang: Lang): string {
-  const c = ok ? SIGNIN_PAGE.ok : SIGNIN_PAGE.failed;
+
+export type SignInOutcome = "ok" | "failed" | "expired";
+
+const COPY: Record<SignInOutcome, { kicker: string; title: string; body: string }> = {
+  ok: {
+    kicker: "SIGNED IN",
+    title: "You're all set",
+    body: "Your key was created on the machine you started from — it never travelled through this browser. You can close this tab.",
+  },
+  failed: {
+    kicker: "NOT COMPLETED",
+    title: "Sign-in was not completed",
+    body: "Nothing was changed. Return to your terminal and run <code>aisa login</code> again.",
+  },
+  expired: {
+    kicker: "EXPIRED",
+    title: "This sign-in timed out",
+    body: "The terminal stopped waiting before you got here, so this approval has nowhere to go. Nothing was changed — run <code>aisa login</code> again and it will take a few seconds.",
+  },
+};
+
+export function renderSignInPage(outcome: SignInOutcome): string {
+  const c = COPY[outcome];
+  const good = outcome === "ok";
   return `<!doctype html>
-<html lang="${lang}">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
 <title>AIsa CLI</title>
 <style>
-  :root{--bg:#fbfaf9;--fg:#1c1917;--dim:#78716c;--line:#e7e5e4;--card:#fff;--accent:${ok ? "#b4451f" : "#9a3412"}}
-  @media (prefers-color-scheme:dark){:root{--bg:#0c0a09;--fg:#f5f5f4;--dim:#a8a29e;--line:#292524;--card:#161312}}
-  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
-    background:var(--bg);color:var(--fg);
-    font:16px/1.6 ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif}
-  .card{width:100%;max-width:460px;background:var(--card);border:1px solid var(--line);
-    border-radius:14px;padding:32px;text-align:center}
-  .mark{width:44px;height:44px;border-radius:50%;background:var(--accent);color:#fff;display:flex;
-    align-items:center;justify-content:center;font-size:23px;margin:0 auto 18px}
-  h1{font-size:21px;margin:0 0 8px;letter-spacing:-.01em}
-  p{margin:0;color:var(--dim);font-size:14.5px}
+  :root{
+    --bg:#faf9f7; --fg:#1c1917; --dim:#6f6864; --faint:#a8a29e;
+    --line:#e7e4e0; --accent:${good ? "#c2410c" : "#9a3412"};
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#0d0c0b; --fg:#f5f4f2; --dim:#a09a95; --faint:#6f6864;
+          --line:#282523; --accent:${good ? "#e2703a" : "#c2410c"}}
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;display:flex;align-items:center;justify-content:center;
+    padding:48px 32px;background:var(--bg);color:var(--fg);
+    font:17px/1.65 ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{width:min(720px,74vw)}
+  .tick{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+  .tick span{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:15px;flex:0 0 auto}
+  .tick b{font-size:15px;font-weight:600;letter-spacing:.02em;color:var(--dim)}
+  h1{font-size:34px;line-height:1.25;margin:0 0 16px;letter-spacing:-.021em;font-weight:650}
+  p{margin:0;font-size:18px;color:var(--dim);max-width:32em}
+  code{font-family:var(--mono);font-size:16px;color:var(--fg)}
+  @media (max-width:760px){
+    body{padding:32px 20px} .wrap{width:100%}
+    h1{font-size:27px} p{font-size:16.5px}
+  }
 </style>
 </head>
 <body>
-  <div class="card">
-    <div class="mark">${ok ? "✓" : "!"}</div>
-    <h1>${t(c.title, lang)}</h1>
-    <p>${t(c.body, lang)}</p>
+  <div class="wrap">
+    <div class="tick"><span>${good ? "✓" : "!"}</span><b>${c.kicker}</b></div>
+    <h1>${c.title}</h1>
+    <p>${c.body}</p>
   </div>
 </body>
 </html>`;
