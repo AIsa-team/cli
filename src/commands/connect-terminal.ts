@@ -488,10 +488,22 @@ export async function runTerminalFlow(
   // Start from whatever the shared draft already holds — a page may have been
   // open first, and its ticks are the starting point here rather than being
   // silently discarded.
+  //
+  // Its *position* is part of that state, not just its answers. Adopting the
+  // ticks while always restarting at step 2 meant a page sitting on step 4 got
+  // asked its first two questions again by a terminal that already knew both
+  // answers — and, now that the page follows this side backwards, got dragged
+  // back to 2 to watch. Resuming where the run actually stands is the whole
+  // difference between two views of one run and two runs that happen to share
+  // a draft.
   const seed = await pull(o);
+  let resumeAt = 2;
   if (seed) {
     rev = seed.rev;
     if (seed.draft) Object.assign(draft, seed.draft);
+    // Cap at the confirmation: 6 is the finished view, and there is nothing
+    // for this side to ask once a run has been applied.
+    if (seed.currentStep) resumeAt = Math.min(terminalStepFor(seed.currentStep), 5);
   }
 
   try {
@@ -523,7 +535,7 @@ export async function runTerminalFlow(
     // What a later step needs from an earlier one lives out here, so
     // resuming at 3 still knows which agent step 2 settled on.
     let confirmed: "go" | "again" = "again";
-    let from = 2;
+    let from = resumeAt;
     let client: FlowClient | undefined;
     let modeLabel = "";
     for (;;) {
