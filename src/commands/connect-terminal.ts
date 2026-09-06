@@ -194,7 +194,31 @@ function say(text: string, indent = "│  "): void {
 /** What happened to a question: the user typed, or the page answered it. */
 type Answer =
   | { by: "user"; index: number; picked?: number[] }
-  | { by: "page"; draft: Selection };
+  | { by: "page"; draft: Selection }
+  /** The page went back to an earlier step; this side follows. */
+  | { by: "back"; to: number };
+
+/**
+ * Thrown by a step when the run has to resume from an earlier one.
+ *
+ * The steps are written straight down the page, which reads well and cannot
+ * jump. Going back is rare enough that unwinding to the loop and starting
+ * again from a named step is clearer than turning the whole thing into a
+ * state machine for the sake of it.
+ */
+class Rewind {
+  constructor(readonly to: number) {}
+}
+
+/**
+ * Where the terminal should stand when the page is on `pageStep`.
+ *
+ * Step 1 is the welcome, which this side prints on its way past rather than
+ * stopping on — so a click on it lands here at the first question.
+ */
+function terminalStepFor(pageStep: number): number {
+  return Math.max(2, pageStep);
+}
 
 /**
  * Ask one question, while watching for the page to answer it instead.
@@ -249,6 +273,12 @@ async function askOrWatch(
       if ((s.currentStep ?? 0) > step) {
         return { by: "page", draft: s.draft };
       }
+      // And going back is an answer too: clicking an earlier step in the rail
+      // means "I want to choose that again", which is not something this side
+      // can honour by staying where it is.
+      if (s.currentStep && s.currentStep < step) {
+        return { by: "back", to: terminalStepFor(s.currentStep) };
+      }
     }
   })();
 
@@ -271,6 +301,8 @@ async function pickOrWatch(
   multi: boolean,
   initial: number[],
   hint: string,
+  /** Where Escape lands. Without it Escape is ignored, as on step 2. */
+  backTo: number | undefined,
   /**
    * Mirror a checklist instead of ending on its first change.
    *
@@ -297,6 +329,8 @@ async function pickOrWatch(
   // write, and anything at all while one is in flight.
   let floor = seenRev;
   let shown = initial.join(",");
+  /** Set by the watcher when the page moved to an earlier step. */
+  let back: number | undefined;
 
   // Holding an arrow key down produces a keystroke every few milliseconds,
   // and one request each would put the page behind the terminal rather than
@@ -350,6 +384,10 @@ async function pickOrWatch(
         misses = 0;
         if (s.rev === seenRev || !s.draft) continue;
         if ((s.currentStep ?? 0) > step) return s.draft;
+        if (s.currentStep && s.currentStep < step) {
+          back = terminalStepFor(s.currentStep);
+          return s.draft; // ends the picker; the caller reads `back`
+        }
         if (!live || s.rev < floor) continue;
         const indexes = live.read(s.draft);
         if (!indexes) continue;
@@ -361,7 +399,14 @@ async function pickOrWatch(
       return undefined;
     },
   });
-  if (r.interrupted) return { by: "page", draft: r.interrupted };
+  if (r.interrupted) {
+    if (back !== undefined) return { by: "back", to: back };
+    return { by: "page", draft: r.interrupted };
+  }
+  if (r.escaped) {
+    if (backTo === undefined) return { by: "user", index: initial[0] ?? 0, picked: initial };
+    return { by: "back", to: backTo };
+  }
   return { by: "user", index: r.picked?.[0] ?? initial[0] ?? 0, picked: r.picked };
 }
 
@@ -470,11 +515,21 @@ export async function runTerminalFlow(
     }
     console.log(dim("└─"));
 
-    // Steps 2 through the confirmation, repeatable: answering n at the end
-    // brings you back here with what you chose still in hand.
+    // Steps 2 through the confirmation, repeatable — and resumable from any
+    // of them. Answering n at the end comes back here, and so does clicking
+    // an earlier step in the page's rail: both say "I want to choose that
+    // again", and the difference is only which step they land on.
+    //
+    // What a later step needs from an earlier one lives out here, so
+    // resuming at 3 still knows which agent step 2 settled on.
     let confirmed: "go" | "again" = "again";
+    let from = 2;
+    let client: FlowClient | undefined;
+    let modeLabel = "";
     for (;;) {
+     try {
       // ── step 2: your agent ──
+      if (from <= 2) {
       console.log(header(2, o.lang));
       say(t(STEP_AGENT.question, o.lang));
       console.log(dim("│"));
@@ -498,6 +553,7 @@ export async function runTerminalFlow(
             })),
             false, [preferred],
             o.lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
+            undefined, // step 2 has nothing behind it
             {
               read: (d) => {
                 const i = shown.findIndex((c) => c.id === d.clients[0]);
@@ -512,7 +568,7 @@ export async function runTerminalFlow(
               },
             })
         : await askOrWatch(o, shown.length, preferred, rev, 2);
-      let client: FlowClient;
+      if (a1.by === "back") throw new Rewind(a1.to);
       if (a1.by === "page") {
         // Answered in the browser. Say so rather than redrawing silently —
         // seeing why the prompt moved on is the whole point.
@@ -528,8 +584,16 @@ export async function runTerminalFlow(
       console.log(dim("└─ ") + chalk.green(client.label) + " ✓");
       if (AGENT_NOTES[client.id]) say(t(AGENT_NOTES[client.id], o.lang), "   ");
       ({ rev } = await push(o, rev, { step: 3, draft: { clients: draft.clients, install: draft.install } }));
+      }
+      // Resuming at 3 or later: the agent is whatever step 2 settled on, or
+      // whatever the shared draft says if this side never ran that step.
+      if (!client) {
+        client = o.clients.find((c) => c.id === draft.clients[0]) ?? o.clients.find((c) => c.detected);
+        if (!client) return undefined;
+      }
 
       // ── step 3: models ──
+      if (from <= 3) {
       console.log(header(3, o.lang));
       say(`${t(STEP_MODELS.h2Prefix, o.lang)}${client.label}${t(STEP_MODELS.h2Suffix, o.lang)}`);
       console.log(dim("│"));
@@ -574,11 +638,14 @@ export async function runTerminalFlow(
         console.log(dim("│"));
         const a2 = interactive()
           ? await pickOrWatch(o, rev, 3,
-              modes.map((m, i) => ({
-                label: m.label + (i === 0 ? dim(` (${t(STEP_MODELS.recommended, o.lang)})`) : ""),
-              })),
+              modes
+                .map((m, i) => ({
+                  label: m.label + (i === 0 ? dim(` (${t(STEP_MODELS.recommended, o.lang)})`) : ""),
+                }))
+                .concat([{ label: dim(t(CONFIRM.goBack, o.lang)) }]),
               false, [0],
-              o.lang === "zh" ? "↑↓ 选择 · 回车确认" : "↑↓ move · enter to confirm",
+              o.lang === "zh" ? "↑↓ 选择 · 回车确认 · esc 返回" : "↑↓ move · enter to confirm · esc to go back",
+              2,
               {
                 read: (d) => {
                   const i = modes.findIndex((m) => m.id === d.llmMode);
@@ -590,6 +657,11 @@ export async function runTerminalFlow(
                 },
               })
           : await askOrWatch(o, modes.length, 0, rev, 3);
+        if (a2.by === "back") throw new Rewind(a2.to);
+        // The extra row is the way back. Steps 3 and 4 are the two where a
+        // person can realise they picked the wrong thing a moment ago; 2 has
+        // nothing behind it and 5 already asks.
+        if (a2.by === "user" && a2.index === modes.length) throw new Rewind(2);
         if (a2.by === "page") {
           mode = modes.find((m) => m.id === a2.draft.llmMode) ?? modes[0];
           Object.assign(draft, a2.draft);
@@ -601,9 +673,12 @@ export async function runTerminalFlow(
         console.log(dim("└─ ") + chalk.green(mode.label) + " ✓");
       }
       draft.llmMode = mode.id;
+      modeLabel = mode.label;
       ({ rev } = await push(o, rev, { step: 4, draft: { llmMode: draft.llmMode } }));
+      }
 
       // ── step 4: capabilities ──
+      if (from <= 4) {
       console.log(header(4, o.lang));
       const totalTools = o.servers.reduce((n, s) => n + s.toolCount, 0);
       const cats = [...new Set(o.servers.map((s) => s.category))];
@@ -626,8 +701,9 @@ export async function runTerminalFlow(
           })),
           true, initial,
           o.lang === "zh"
-            ? "↑↓ 移动 · 空格勾选 · a 全选/全不选 · 回车确认"
-            : "↑↓ move · space to tick · a for all · enter to confirm",
+            ? "↑↓ 移动 · 空格勾选 · a 全选/全不选 · 回车确认 · esc 返回上一步"
+            : "↑↓ move · space to tick · a for all · enter to confirm · esc to go back",
+          3,
           {
             read: (d) =>
               d.servers === undefined
@@ -639,6 +715,9 @@ export async function runTerminalFlow(
               return rev;
             },
           });
+        // In a checklist the way back cannot be another row — a row is a
+        // thing you tick — so Escape is the gesture, and the hint says so.
+        if (a3.by === "back") throw new Rewind(a3.to);
         if (a3.by === "page") {
           chosen.clear();
           for (const slug of a3.draft.servers ?? []) chosen.add(slug);
@@ -681,6 +760,7 @@ export async function runTerminalFlow(
       // the page start the run by itself, and the user has not confirmed yet.
       // Announcing the step here applied everything without being asked.
       ({ rev } = await push(o, rev, { draft: { servers: draft.servers } }));
+      }
 
       // ── step 5: confirm ──
       // Everything above was browsing and could be undone by closing the
@@ -689,7 +769,7 @@ export async function runTerminalFlow(
       console.log(header(5, o.lang));
       say(t(CONFIRM.heading, o.lang));
       console.log(dim("│"));
-      const modeLabel = modes.find((m) => m.id === draft.llmMode)?.label ?? draft.llmMode;
+      if (!modeLabel) modeLabel = draft.llmMode;
       console.log(`${dim("│")}   ${t(CONFIRM.agent, o.lang)}: ${chalk.bold(client.label)}`);
       console.log(`${dim("│")}   ${t(CONFIRM.models, o.lang)}: ${chalk.bold(modeLabel)}`);
       console.log(`${dim("│")}   ${t(CONFIRM.capabilities, o.lang)}: ${chalk.bold(String(draft.servers.length))}  ${dim(draft.servers.join(", "))}`);
@@ -737,8 +817,25 @@ export async function runTerminalFlow(
         : chalk.yellow(t(CONFIRM.backToEdit, o.lang))));
     }
 
-    if (confirmed === "again") continue;
-    break;
+     } catch (e) {
+      if (!(e instanceof Rewind)) throw e;
+      // Somebody asked for an earlier step — the page's rail, or a way-back
+      // row here. Start again from there with everything else still in hand.
+      from = e.to;
+      console.log("\n" + dim("│  ") + chalk.magenta(
+        o.lang === "zh" ? `↩ 回到第 ${from} 步` : `↩ back to step ${from}`
+      ));
+      ({ rev } = await push(o, rev, { step: from }));
+      continue;
+     }
+
+      // "Go back and change something" at the confirmation lands on the model
+      // step, not the agent: an agent you already picked is rarely the thing
+      // you came back to change, and making you pick it again to reach the
+      // rest is a toll rather than a choice.
+      if (confirmed === "again") { from = 3; ({ rev } = await push(o, rev, { step: 3 })); continue; }
+      from = 2;
+      break;
     }
 
     return draft;

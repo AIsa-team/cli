@@ -110,6 +110,7 @@ interface Keys {
   space: boolean;
   enter: boolean;
   abort: boolean;
+  escape: boolean;
   digit?: number;
   all?: boolean;
 }
@@ -120,11 +121,13 @@ function decode(data: string): Keys {
     down: data === "[B" || data === "j",
     space: data === " ",
     enter: data === "\r" || data === "\n",
-    // Ctrl-C only. A bare Escape used to land here too, and "abort" meant
-    // the caller took the highlighted row as the answer — so both keys
-    // quietly agreed to whatever the cursor happened to be on. Escape now
-    // does nothing, which is also what it does in the page.
     abort: data === "",
+    // Escape leaves the question rather than answering it. It used to share
+    // the abort path, where "abort" meant the caller took the highlighted row
+    // — so the key that means "no, wait" quietly agreed to whatever the
+    // cursor was on. Now it has its own way out and callers decide where it
+    // goes: back a step, in the flow that uses it.
+    escape: data === "",
     all: data === "a",
     digit: /^[0-9]$/.test(data) ? Number(data) : undefined,
   };
@@ -222,6 +225,8 @@ export interface PickResult<T> {
   /** Whatever the interrupt resolved with. */
   interrupted?: T;
   aborted?: boolean;
+  /** Escape: the question was left rather than answered. */
+  escaped?: boolean;
 }
 
 /**
@@ -310,6 +315,7 @@ export async function pick<T>(opts: {
         draw();
         if (!opts.multi) opts.onToggle?.([cursor]);
       };
+      if (k.escape) return finish({ escaped: true });
       if (k.up) { cursor = (cursor - 1 + opts.choices.length) % opts.choices.length; moved(); return; }
       if (k.down) { cursor = (cursor + 1) % opts.choices.length; moved(); return; }
       if (opts.multi && k.all) {
