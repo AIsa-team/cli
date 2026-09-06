@@ -611,8 +611,53 @@ ${restChips}
   }
   pollOnce();
 
+  /**
+   * Nothing to go back to while the machine is being changed.
+   *
+   * Locking the inputs was not enough: the rail still navigated, and leaving
+   * step 5 publishes the step it lands on — which drags the terminal out of a
+   * run that is halfway through writing files. The choices stop being choices
+   * the moment they are being acted on, and the rail should say so rather
+   * than accept a click and quietly do something else.
+   *
+   * It thaws on its own the moment the run settles, either way: a finished
+   * run and a failed one are both things you are allowed to look back at.
+   */
+  function frozen() {
+    // Not the server's phase. In a dry run — and on a fast machine in a real
+    // one — the server reports "done" while the checklist here is still
+    // playing itself out a row at a time, and that visible stretch is
+    // exactly what a person means by "it is installing". Locking on the
+    // server's word thawed the rail in the middle of the animation.
+    //
+    // The honest signal is the results: locked when the run began, thawed
+    // when step 6 exists, which is the moment there is something to go back
+    // and look at.
+    return locked && unlocked < 6;
+  }
+
+  /**
+   * Repaint the rail on its own.
+   *
+   * It used to be painted only inside go(), so freezing after arriving at
+   * step 5 changed nothing on screen: the steps kept their pointer cursor
+   * and their hover, which is how a rail that refuses clicks still reads as
+   * clickable.
+   */
+  function paintRail() {
+    rails.forEach(function (r) {
+      var k = Number(r.dataset.step);
+      r.classList.toggle("active", k === current);
+      r.classList.toggle("done", k < current || (k <= unlocked && k !== current && (locked || k < current)));
+      r.classList.toggle("open", k <= unlocked);
+      // Says it before the click rather than swallowing it afterwards.
+      r.classList.toggle("frozen", frozen() && k < 5);
+    });
+  }
+
   function go(n) {
     if (n < 1 || n > 6 || n > unlocked) return;
+    if (frozen() && n < 5) return;
     current = n;
     // Only the step, never the draft. Publishing what is ticked here on mere
     // arrival made opening the page look like answering it: the terminal saw
@@ -620,12 +665,7 @@ ${restChips}
     // not made. A draft is published when someone changes something.
     publish({ step: n });
     panes.forEach(function (p) { p.classList.toggle("show", Number(p.dataset.pane) === n); });
-    rails.forEach(function (r) {
-      var k = Number(r.dataset.step);
-      r.classList.toggle("active", k === n);
-      r.classList.toggle("done", k < n || (k <= unlocked && k !== n && (locked || k < current)));
-      r.classList.toggle("open", k <= unlocked);
-    });
+    paintRail();
     backBtn.style.visibility = n === 1 ? "hidden" : "visible";
     if (n === 5) { renderInstallPane(); }
     else if (n === 6) { nextBtn.style.display = "none"; navnote.textContent = ""; revealCheck(); }
@@ -834,6 +874,7 @@ ${restChips}
     $("#inTitle").innerHTML = failed ? "Finished, <em>with " + failed + " issue" + (failed > 1 ? "s" : "") + "</em>" : "All <em>connected</em>";
     $("#inLede").textContent = failed ? COPY.ledeFailed : COPY.ledeAllRan;
     unlocked = 6; rails.forEach(function (r) { r.classList.add("open"); });
+    paintRail(); // thawed: the results exist, so the earlier steps are readable again
     renderSteps();
     nextBtn.disabled = false; nextBtn.style.display = ""; nextBtn.innerHTML = "See your results " + ARROW;
     navnote.textContent = VIEW === "start" && lastStatus && lastStatus.doneUrl ? "A results tab also opened on its own." : "";
@@ -842,6 +883,7 @@ ${restChips}
   }
   function lockSelections() {
     locked = true;
+    paintRail();
     $$('.pane[data-pane="2"] input, .pane[data-pane="3"] input, .pane[data-pane="4"] input').forEach(function (i) { i.disabled = true; });
     $$(".ctile, #spAll").forEach(function (b) { b.disabled = false; });
     document.body.classList.add("locked");
@@ -1086,6 +1128,10 @@ function shellT2(title: string, body: string): string {
     cursor: default; opacity: .55; position: relative; }
   .rstep.open { opacity: 1; cursor: pointer; }
   .rstep.open:hover { background: color-mix(in srgb, var(--tint) 60%, transparent); }
+  /* While the run is writing to the machine: still legible, plainly not a
+     control. No hover, because a hover that leads nowhere is a small lie. */
+  .rstep.frozen { cursor: default; opacity: .45; }
+  .rstep.frozen:hover { background: transparent; }
   .rstep .rn { flex: none; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line);
     display: flex; align-items: center; justify-content: center; font-size: .82rem; font-weight: 700; }
   .rstep .rtitle { display: block; font-weight: 700; font-size: 1.08rem; color: var(--ink); }
