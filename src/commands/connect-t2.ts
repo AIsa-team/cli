@@ -445,7 +445,13 @@ ${restChips}
     // as far as the run has gone — gating on the Next button alone meant the
     // terminal could move to step 3 and this side would sit on step 1,
     // ignoring the update as out of range.
-    if (s.currentStep && s.currentStep > current) {
+    //
+    // It moves this page in both directions. Escape over there rewinds the run
+    // and pushes the earlier step, and following only forward left that looking
+    // broken: the terminal printed "back to step 2" while this side stayed on
+    // 3. unlocked is a high-water mark, so arriving from behind never re-locks
+    // a step that was already reached — the rail stays clickable.
+    if (s.currentStep && s.currentStep !== current) {
       unlocked = Math.max(unlocked, Math.min(s.currentStep, 5));
       renderSteps();
       go(s.currentStep);
