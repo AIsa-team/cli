@@ -50,6 +50,7 @@ import { runTerminalFlow, flowClients } from "./connect-terminal.js";
 import { pick, type Choice } from "./prompt.js";
 import { handOverResults, closeStaleResults, SUPERSEDE_GRACE_MS } from "./serve-results.js";
 import { restoreTerminal } from "./prompt.js";
+import { printBanner } from "../utils/banner.js";
 
 /**
  * Page templates. T1 is the original two-page flow (selection + live
@@ -2180,6 +2181,7 @@ export async function connectAction(options: {
   // user at the page that is already open instead. --force overrides for the
   // rare case where the first run is wedged.
   const log = new Journal(detached);
+  if (!detached) printBanner();
   log.section(`AIsa connect · v${VERSION}`);
   log.line("info", "Machine", `${process.platform} ${process.arch} · node ${process.versions.node}`);
   // Fired now so it has the whole run — often minutes, while the user picks
