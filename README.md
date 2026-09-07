@@ -16,7 +16,11 @@ npm install -g @aisa-one/cli
 # Authenticate (or set AISA_API_KEY)
 aisa login --key sk-your-api-key
 
-# See what's available — no API key needed for this part
+# Discover published tools (Router; no API key required)
+aisa search "insider trades" --json
+aisa schema <tool> --json
+
+# Old catalog keyword search is still available
 aisa api list
 aisa api search "insider trades"
 
@@ -29,7 +33,11 @@ aisa stock AAPL
 # Search the web
 aisa web-search "latest AI research"
 
-# Call any endpoint in the catalog directly
+# Quote then execute a published Router tool
+aisa quote -f request.json --json
+aisa call -f request.json --json
+
+# Raw provider/LLM routing is still available (deprecated for published tools)
 aisa run financial /insider-trades -q "ticker=AAPL"
 ```
 
@@ -37,11 +45,38 @@ Get your API key at
 [console.aisa.one/api-keys](https://console.aisa.one/api-keys). New accounts
 receive $5 in free credits.
 
+## Published tools (Tool Router)
+
+These four commands are a thin HTTP client for the same Router service MCP
+uses. They do not search the local catalog cache and do not call providers
+directly.
+
+```bash
+aisa search "company facts" --json
+aisa search --input '{"query":"company facts","limit":5}' --json
+aisa schema similarweb_get_company --json
+aisa schema -f schema.json --json
+aisa quote -f calls.json --json
+aisa call --input '{"calls":[{"call_id":"c1","tool":"similarweb_get_company","arguments":{}}]}' --json
+```
+
+`--json` prints the unmodified application JSON (including large integer
+tokens). Diagnostics go to stderr. Exit `2` means local input was invalid and
+nothing was sent; `1` is transport, auth, or an HTTP error; `3` means the
+Router returned a batch with at least one failed item.
+
+`search` and `schema` may be anonymous. `quote` and `call` require
+`AISA_API_KEY`. Point a test Router at `AISA_ROUTER_BASE_URL` (origin or
+prefix before `/v1/tool-router/...`), or `aisa config set routerUrl`.
+
+`quote` never executes. There is no automatic quote-to-call sequence and no
+retry.
+
 ## API Catalog
 
-The catalog is the fastest way to find what the platform can do. It reads a
-public endpoint, so `list`, `show`, `search`, and `code` all work before you log
-in.
+The catalog still lists integration providers. `api list` and `api code` are
+unchanged. `api search` and `api show` keep their previous catalog behavior
+and are deprecated in favor of `search` / `schema` for published tools.
 
 ```bash
 aisa api list                          # all 29 providers
@@ -67,6 +102,9 @@ The catalog is cached in `~/.aisa/cache` (override with `AISA_CACHE_DIR`). Pass
 `--refresh` to any command to bypass it, or `aisa cache clear`.
 
 ## Execute Any Endpoint
+
+`aisa run` still sends raw provider and LLM requests. For published Router
+tools prefer `aisa call`. `run` is deprecated but unchanged.
 
 ```bash
 aisa run financial /insider-trades -q "ticker=AAPL"
@@ -341,11 +379,14 @@ Settings:
 - `defaultModel` — default model for `aisa chat` (default: `gpt-4.1-mini`)
 - `baseUrl` — platform root; the LLM (`/v1`), integration (`/apis/v1`), and
   catalog bases are all derived from it
+- `routerUrl` — Tool Router origin (independent of `baseUrl`); overridden by
+  `AISA_ROUTER_BASE_URL`
 - `outputFormat` — `text` or `json`
 
 Environment variables: `AISA_API_KEY` takes precedence over the stored key.
-`AISA_CACHE_DIR` relocates the cache. `GITHUB_TOKEN` raises the GitHub rate
-limit for skills commands.
+`AISA_ROUTER_BASE_URL` is the Router origin/prefix before
+`/v1/tool-router/...`. `AISA_CACHE_DIR` relocates the cache. `GITHUB_TOKEN`
+raises the GitHub rate limit for skills commands.
 
 ## Development
 

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+
+- **`aisa search` is no longer an alias for `api search`.** It now calls the
+  Tool Router (`POST /v1/tool-router/aisa-search-tool`) and prints Router
+  results. The old catalog keyword search remains as `aisa api search`.
+
+### Added
+
+- **`aisa search` / `schema` / `quote` / `call`** — Unix-oriented entries for
+  the same four Router operations as MCP. Accept `--input '<json>'` and
+  `-f/--file` (including `-f -` for stdin). `--json` writes the unmodified
+  application response, including integer tokens outside JavaScript's safe
+  range. Quote never executes; none of the four retry or fall back to
+  provider shortcuts. Router origin is `AISA_ROUTER_BASE_URL`, else config
+  `routerUrl`, else `https://api.aisa.one`.
+
+### Deprecated
+
+- **`aisa api search`, `aisa api show`, and `aisa run`** keep their previous
+  behavior, stdout, and exit semantics. Help, one stderr warning, and
+  manifest `deprecated` / `replacement` / `migration` fields mark them.
+  Removal will be a separately announced breaking release.
+
 ### Added
 
 - **`aisa connect`** — a one-shot local page (`npx @aisa-one/cli connect`) to

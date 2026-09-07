@@ -40,6 +40,11 @@ export AISA_API_KEY=sk-your-key
 ## Usage
 
 \`\`\`bash
+aisa search "<capability>" --json
+aisa schema <tool> --json
+aisa quote -f request.json --json
+aisa call -f request.json --json
+# raw provider/LLM routing (deprecated for published tools):
 aisa run <slug> <path> -q "param=value"
 \`\`\`
 `,

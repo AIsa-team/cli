@@ -48,6 +48,7 @@ const config = new Conf({
     apiKey: { type: "string", default: "" },
     defaultModel: { type: "string", default: "gpt-4.1-mini" },
     baseUrl: { type: "string", default: "https://api.aisa.one/v1" },
+    routerUrl: { type: "string", default: "" },
     outputFormat: { type: "string", default: "text" },
     // Set by --lang or the page's picker; read by both renderers so they
     // never end up in different languages.
