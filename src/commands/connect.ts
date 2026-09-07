@@ -667,7 +667,10 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
     for (let left = SIGNIN_COUNTDOWN_S; left > 0; left--) {
       setStep(state, "signin", {
         state: "running",
-        detail: `AIsa needs an account — opening the sign-in in a new tab in ${left}…`,
+        // Spelled out, and no trailing ellipsis. "in 2…" was read as a
+        // sentence that had been cut off rather than a countdown — the one
+        // word that says what the number means was the word missing.
+        detail: `AIsa needs an account — opening the sign-in in a new tab in ${left} second${left === 1 ? "" : "s"}`,
       });
       await pause(1000);
     }
@@ -680,7 +683,18 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
         ok("signin", "dry run — the browser approval would open here");
       } else {
         key = await mintCliKey({ lang: input.lang, catcher: input.catcher });
-        ok("signin", "signed in — your CLI key is stored");
+        // Two facts, in the order they matter to the person who just left
+        // the page to go and do this: it worked, and here is what it got
+        // them. The old line led with the artifact — "your CLI key is
+        // stored" — which reports a file being written and leaves the
+        // question they actually went away to answer unanswered.
+        setStep(state, "signin", {
+          state: "ok",
+          detail: "signed in successfully — your AIsa key is now stored on this machine",
+        });
+        // Its own line rather than ok()'s label-plus-detail, which would read
+        // "Sign in to AIsa — signed in successfully — …".
+        log.line("ok", "Signed in successfully", "your AIsa key is stored on this machine");
       }
     } catch (e) {
       // Not fatal: the per-server OAuth path still works, it is just one
