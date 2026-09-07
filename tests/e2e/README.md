@@ -56,12 +56,11 @@ tests/e2e/run.sh --cli dist/index.js --skip-build
 
 ## Environment the CLI must honor
 
-The harness sets **both** Router origin aliases to the same loopback overlay so a mid-integration CLI cannot fall through to `https://api.aisa.one`:
+The harness sets the canonical Router origin to the loopback overlay and does not inherit Router settings from the parent shell:
 
 | Variable | Role |
 | --- | --- |
 | `AISA_ROUTER_BASE_URL` | Canonical Router origin. |
-| `AISA_ROUTER_URL` | Same overlay origin (compatibility pin for mid-integration binaries; not a separate adapter). |
 | `AISA_API_KEY` | Bearer credential. Unset for anonymous discovery and local-auth-rejection cases. Fixture value is `caller-key` (not a real key). Never inherited from the parent shell. |
 
 POST `${origin}/v1/tool-router/<operation>`. Independent of `/apis/v1` and LLM `/v1`.

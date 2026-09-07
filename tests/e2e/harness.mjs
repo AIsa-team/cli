@@ -212,7 +212,7 @@ function resolveCli(cliFlag) {
 }
 
 function isolatedCliEnv({ home, xdg, tmp, baseURL, apiKey }) {
-  // 不继承父进程 AISA_* / 用户 Conf。AISA_ROUTER_BASE_URL 为规范名；AISA_ROUTER_URL 同值，避免中途构建打到生产。
+  // 不继承父进程 AISA_* / 用户 Conf；规范 Router 基址固定到本机 overlay。
   const env = {
     PATH: process.env.PATH,
     HOME: home,
@@ -223,7 +223,6 @@ function isolatedCliEnv({ home, xdg, tmp, baseURL, apiKey }) {
     XDG_CACHE_HOME: xdg.cache,
     TMPDIR: tmp,
     AISA_ROUTER_BASE_URL: baseURL,
-    AISA_ROUTER_URL: baseURL,
   };
   if (apiKey) env.AISA_API_KEY = apiKey;
   return env;
@@ -768,7 +767,7 @@ async function main() {
     report.http_mcp = httpMcpFailed === 0 ? "GREEN" : "RED";
     report.cli_parity = cliFailed === 0 ? "GREEN" : "RED";
     report.canonical_router_env = "AISA_ROUTER_BASE_URL";
-    report.router_env_aliases = ["AISA_ROUTER_BASE_URL", "AISA_ROUTER_URL"];
+    report.router_env_aliases = ["AISA_ROUTER_BASE_URL"];
     report.router_source = snapshot
       ? "AISA_ROUTER_SNAPSHOT"
       : routerRepo
