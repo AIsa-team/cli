@@ -501,22 +501,10 @@ async function main() {
     const sourceHasLicense = !args.tarball && existsSync(sourceLicensePath);
     const packedHasLicense = has("package/LICENSE");
     const packedLicense = packedHasLicense ? readPackedFile(tarballPath, "package/LICENSE") : "";
-    if (sourceHasLicense || packedHasLicense) {
-      check("license-text", packedHasLicense && isMitText(packedLicense), packedHasLicense ? "shipped" : "missing");
-      if (sourceHasLicense) {
-        const sourceLicense = readFileSync(sourceLicensePath, "utf8");
-        check(
-          "license-source-agreement",
-          isMitText(sourceLicense) && packedHasLicense && sourceLicense === packedLicense
-        );
-      }
-    } else {
-      check(
-        "license-text",
-        false,
-        "declared MIT but tarball has no LICENSE file",
-        "baseline-0.3-missing-license-text"
-      );
+    check("license-text", packedHasLicense && isMitText(packedLicense), packedHasLicense ? "shipped" : "missing");
+    if (sourceHasLicense) {
+      const sourceLicense = readFileSync(sourceLicensePath, "utf8");
+      check("license-source-agreement", isMitText(sourceLicense) && packedHasLicense && sourceLicense === packedLicense);
     }
 
     log(`npm install --prefix ${prefix}`);

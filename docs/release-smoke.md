@@ -37,7 +37,7 @@ Stdout is a JSON report. `report.json` is also written into the artifact directo
 
 The candidate version is **inferred**, not hardcoded:
 
-- Default: `package.json` `version` of this checkout (0.3.0 on the current baseline; 0.4.x after core integration)
+- Default: `package.json` `version` of this checkout
 - `--tarball`: version inside the packed `package/package.json`
 
 When packing from this checkout, `package.json`, `package-lock.json`, `src/constants.ts` `VERSION`, the packed metadata, and `aisa --version` must all equal that candidate. `--tarball` compares the packed metadata to the installed `--version` only.
@@ -45,7 +45,7 @@ When packing from this checkout, `package.json`, `package-lock.json`, `src/const
 ## What it checks
 
 - Tarball contains `package.json`, `dist/index.js`, `README.md`, and the `aisa` bin; excludes `src/` and `tests/`
-- `package.json` `license` is `MIT`. After core ships `LICENSE`, the tarball text must be MIT and match the source file. On this 0.3 baseline the MIT field is present but the file is missing — recorded as `expected_limitation`, not a hard fail. Integration (0.4) must pass `license-text`.
+- `package.json` `license` is `MIT`. The tarball must contain the MIT `LICENSE`; when packing this checkout, the text must match the source file. A missing license is a failure.
 - Isolated `HOME` / `XDG_*` / `TMPDIR`; parent `AISA_*` is never forwarded
 - Installed `--version`, `--help`, and `manifest` (including deprecation / replacement / migration on `api search`, `api show`, and `run`)
 - Local usage errors (exit 2) and quote-without-key (exit 1, empty stdout, missing-key diagnostic) do not dispatch
@@ -64,7 +64,7 @@ After local stub probes, the same installed bin is invoked with isolated `HOME` 
 2. takes the first returned `tools[].tool` name exactly
 3. runs `aisa schema <that-tool> --json` and requires `successful` plus `arguments_schema`
 
-It never runs `quote` or `call`. Those checks are labeled `loop: "Real API E2E"` in the report; local stub checks are unlabeled. A 0.3 source tree may still pack 0.3; pass `--tarball` of a 0.4 artifact (or run after parent integrates 0.4 source).
+It never runs `quote` or `call`. Those checks are labeled `loop: "Real API E2E"` in the report; local stub checks are unlabeled. Pass `--tarball` to verify an existing candidate artifact.
 
 ## Reuse existing Router parity
 
