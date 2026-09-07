@@ -48,6 +48,7 @@ import { mcpSetupAction, mcpStatusAction } from "./commands/mcp.js";
 import { connectAction } from "./commands/connect.js";
 // Update
 import { updateAction } from "./commands/update.js";
+import { announceUpdate } from "./utils/update-check.js";
 // Config
 import { configSetAction, configGetAction, configListAction, configResetAction } from "./commands/configCmd.js";
 // Cache
@@ -62,10 +63,16 @@ import { serveSignInAction } from "./commands/serve-signin.js";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function wrap(fn: (...args: any[]) => Promise<void>): (...args: any[]) => void {
   return (...args) => {
-    fn(...args).catch((err: Error) => {
-      console.error(`Error: ${err.message}`);
-      process.exit(1);
-    });
+    fn(...args)
+      // After the command, never before: the thing the user asked for is what
+      // should reach the screen first, and this is only ever a footnote.
+      // announceUpdate is silent for a pipe, for an install it cannot update,
+      // and whenever the answer is not already on disk within its budget.
+      .then(() => announceUpdate())
+      .catch((err: Error) => {
+        console.error(`Error: ${err.message}`);
+        process.exit(1);
+      });
   };
 }
 

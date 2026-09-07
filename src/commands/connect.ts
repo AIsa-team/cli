@@ -31,7 +31,7 @@ import { apiRequest } from "../api.js";
 import { run, runSync, QUICK_TIMEOUT_MS } from "../utils/exec.js";
 import { httpFetch } from "../utils/http.js";
 import { Journal } from "../utils/journal.js";
-import { checkForUpdate } from "../utils/update-check.js";
+import { checkForUpdate, markUpdateAnnounced } from "../utils/update-check.js";
 import { resolveLang, LANGS, LAUNCH, SURFACE, t, type Lang } from "./flow.js";
 import { VERSION } from "../constants.js";
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync, mkdtempSync } from "node:fs";
@@ -2187,6 +2187,10 @@ export async function connectAction(options: {
   // Fired now so it has the whole run — often minutes, while the user picks
   // servers in the browser — to resolve. Cached and throttled (see
   // update-check.ts), so this is a no-op network call on most invocations.
+  // connect says this itself, in the run's own voice and among the rest of
+  // what it reports — so the generic line at the end of every command stands
+  // down rather than saying it twice.
+  markUpdateAnnounced();
   const updateCheckP = detached ? Promise.resolve(undefined) : checkForUpdate().catch(() => undefined);
 
   // A page left over from a previous run describes a machine that has since

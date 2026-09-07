@@ -1,5 +1,6 @@
 import { readCache, writeCache } from "../cache.js";
 import { VERSION } from "../constants.js";
+import { detectInstall } from "./install-method.js";
 
 /**
  * Throttled, best-effort check for a newer published version.
@@ -70,4 +71,67 @@ export async function checkForUpdate(options: CheckForUpdateOptions = {}): Promi
   } catch {
     return cached && isNewer(cached.data.latest, current) ? cached.data.latest : undefined;
   }
+}
+
+/**
+ * Say it once, at the end of whatever command the user actually ran.
+ *
+ * The check already existed but only `connect` ever read it, and `connect` is
+ * the command a person runs once. Everyone who then lived in `chat`, `run`
+ * and `twitter` for a month was never told a release had happened.
+ *
+ * Three things keep it from becoming noise:
+ *
+ *  · Nothing is printed unless stdout is a terminal. Most commands here emit
+ *    JSON, and a friendly line appended to a pipe is corrupted output.
+ *  · Nothing is printed for a copy that cannot be updated — npx is current by
+ *    definition, and a working copy is updated with git.
+ *  · The lookup is read from the day-old cache, not the network. A stale
+ *    cache is refreshed within a tight budget and simply skipped if the
+ *    registry is slow: no command pays for this at the moment it exits.
+ */
+const ANNOUNCE_BUDGET_MS = 700;
+
+let announced = false;
+
+/** Mark it said, for a surface that prints its own line (connect does). */
+export function markUpdateAnnounced(): void {
+  announced = true;
+}
+
+export interface AnnounceOptions {
+  current?: string;
+  /** Injectable for tests, all of them. */
+  isTTY?: boolean;
+  updatable?: boolean;
+  lookup?: () => Promise<string | undefined>;
+  write?: (line: string) => void;
+}
+
+/** Returns the line it printed, or undefined when it stayed quiet. */
+export async function announceUpdate(o: AnnounceOptions = {}): Promise<string | undefined> {
+  if (announced) return undefined;
+  announced = true;
+  const current = o.current ?? VERSION;
+  if (!(o.isTTY ?? process.stdout.isTTY)) return undefined;
+  if (process.env.AISA_NO_UPDATE_NOTICE) return undefined;
+  if (!(o.updatable ?? Boolean(detectInstall().command))) return undefined;
+  let latest: string | undefined;
+  try {
+    latest = await Promise.race([
+      (o.lookup ?? (() => checkForUpdate({ current })))(),
+      new Promise<undefined>((r) => setTimeout(() => r(undefined), ANNOUNCE_BUDGET_MS)),
+    ]);
+  } catch {
+    return undefined;
+  }
+  if (!latest) return undefined;
+  const line = `\nA newer aisa is out — ${current} → ${latest}. Run \u001b[1maisa update\u001b[0m\n`;
+  (o.write ?? ((l: string) => process.stdout.write(l)))(line);
+  return line;
+}
+
+/** Tests only: the once-per-process latch has to be resettable. */
+export function resetUpdateAnnouncement(): void {
+  announced = false;
 }
