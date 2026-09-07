@@ -1,0 +1,6 @@
+{
+  "search_id": "srch_parity",
+  "calls": [
+    { "call_id": "facts", "tool": "getFacts", "arguments": { "ticker": "NVDA" } }
+  ]
+}

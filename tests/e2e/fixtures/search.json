@@ -1,0 +1,5 @@
+{
+  "query": "company facts",
+  "known_fields": { "ticker": "NVDA" },
+  "limit": 3
+}
