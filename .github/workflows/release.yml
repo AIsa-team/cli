@@ -1,26 +1,16 @@
 # Release — publish to npm when a v* tag is pushed.
 #
-# The whole point: the tag IS the publish button. `git push origin v0.4.0`
-# triggers this, and nothing else does. A plain push to main only runs CI
-# (ci.yml); it never publishes.
+# The tag is the publish button. `git push origin v0.4.0` triggers this;
+# a push to main runs CI only.
 #
-# Auth is Trusted Publishing (OIDC): GitHub proves to npm that this workflow,
-# in this repo, is running — no token is stored anywhere, so there is no token
-# to leak and no 90-day rotation. Account 2FA stays ON and is never in the way,
-# because OIDC is not a "token that bypasses 2FA".
+# npm Trusted Publisher must be configured for repository AIsa-team/cli and
+# workflow release.yml before a tag can publish. This workflow has not
+# recorded a successful OIDC publish. Until that setup exists, `npm publish`
+# 403s and the tag is harmless. Do not add NODE_AUTH_TOKEN or change these
+# permissions.
 #
-# Trusted Publisher on npmjs.com is a publish-time prerequisite, not something
-# this repository has proven. `gh run list --workflow release.yml` returns
-# no historical runs and no historical release.yml success, so OIDC publish
-# must not be treated as already verified.
-# Before the first tag that should ship: a maintainer configures
-# @aisa-one/cli → Settings → Trusted Publisher for repository AIsa-team/cli
-# and workflow release.yml. Until that exists, `npm publish` 403s and the
-# tag is harmless. Do not add NODE_AUTH_TOKEN or change these permissions
-# to "make it work".
-#
-# A guard refuses to publish if the tag and package.json disagree, so a
-# mistyped tag can never ship a version the code does not claim.
+# The job publishes the smoke-tested tarball, not a second pack of the
+# source tree. A tag that does not match package.json is refused.
 name: Release
 
 on:
@@ -53,15 +43,18 @@ jobs:
           fi
           echo "tag and package.json agree on $pkg"
 
-      # Trusted Publishing needs npm >= 11.5.1 for the OIDC handshake.
-      # Install latest npm rather than depending on the image default.
-      - run: npm install -g npm@latest
+      # npm 11.6.0 is >= 11.5.1 (OIDC) and supports Node 24. Do not use latest.
+      - run: npm install -g npm@11.6.0
       - run: npm ci
       - run: npm test
-      - run: node scripts/package-smoke.mjs
-
-      # `prepack` builds the tarball. Do not also run `npm run build` here —
-      # that would duplicate the lifecycle. npm does the OIDC handshake itself;
-      # no NODE_AUTH_TOKEN, no stored secret.
-      - name: Publish to npm (Trusted Publishing)
-        run: npm publish
+      - name: Pack and smoke the release tarball
+        run: node scripts/package-smoke.mjs --output "$RUNNER_TEMP/aisa-cli-release"
+      - name: Publish the smoke-tested tarball
+        run: |
+          pkg="$(node -p "require('./package.json').version")"
+          tarball="$RUNNER_TEMP/aisa-cli-release/artifacts/aisa-one-cli-${pkg}.tgz"
+          if [ ! -f "$tarball" ]; then
+            echo "::error::smoke tarball missing: $tarball"
+            exit 1
+          fi
+          npm publish "$tarball"
