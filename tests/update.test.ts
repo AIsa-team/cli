@@ -7,6 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * install.ts), must report "already latest" rather than a false success when
  * the binary reports the same version before and after, and must report the
  * actual before/after when it changes.
+ *
+ * And a fifth, added later: it must run the manager that actually installed
+ * this copy. It used to run `npm install -g` regardless, which for a pnpm or
+ * bun user installs a second copy rather than updating theirs, and for an
+ * npx user installs a global they never asked for.
  */
 
 type Channel =
@@ -22,6 +27,16 @@ let versions: string[]; // shifted once per --version probe: [before, after]
 vi.mock("../src/commands/install.js", () => ({
   pickNpmChannel: async () => channel,
   npmPrefixWritable: () => prefixWritable,
+}));
+
+let install: { kind: string; path: string; command?: string };
+
+vi.mock("../src/utils/install-method.js", () => ({
+  detectInstall: () => install,
+}));
+
+vi.mock("../src/utils/update-check.js", () => ({
+  checkForUpdate: async () => undefined,
 }));
 
 vi.mock("../src/utils/exec.js", () => ({
@@ -46,6 +61,11 @@ describe("updateAction", () => {
     prefixWritable = true;
     shellOk = true;
     versions = ["0.3.0", "0.4.0"];
+    install = {
+      kind: "npm",
+      path: "/opt/homebrew/lib/node_modules/@aisa-one/cli/dist/index.js",
+      command: "npm install -g @aisa-one/cli@latest",
+    };
     logged = [];
     vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
       logged.push(args.join(" "));
@@ -105,5 +125,38 @@ describe("updateAction", () => {
     const { updateAction } = await freshUpdate();
     await updateAction();
     expect(logged.some((l) => l.includes("--registry=https://registry.npmmirror.com"))).toBe(true);
+  });
+
+  it("runs pnpm for a pnpm install, and never npm", async () => {
+    install = { kind: "pnpm", path: "/Users/x/Library/pnpm/global/5/node_modules/@aisa-one/cli/dist/index.js", command: "pnpm add -g @aisa-one/cli@latest" };
+    const { updateAction } = await freshUpdate();
+    await updateAction();
+    expect(logged.some((l) => l.includes("pnpm add -g"))).toBe(true);
+    expect(logged.some((l) => l.includes("npm install -g"))).toBe(false);
+  });
+
+  it("installs nothing when the caller is running through npx", async () => {
+    install = { kind: "npx", path: "/Users/x/.npm/_npx/abc/node_modules/@aisa-one/cli/dist/index.js" };
+    shellOk = false; // would surface as a failure if it ran anything at all
+    const { updateAction } = await freshUpdate();
+    await updateAction();
+    expect(process.exitCode).toBeUndefined();
+    expect(logged.some((l) => l.toLowerCase().includes("npx"))).toBe(true);
+  });
+
+  it("refuses to touch a working copy", async () => {
+    install = { kind: "source", path: "/Users/x/src/cli/dist/index.js" };
+    const { updateAction } = await freshUpdate();
+    await updateAction();
+    expect(process.exitCode).toBe(1);
+    expect(logged.some((l) => l.includes("git"))).toBe(true);
+  });
+
+  it("prints the command rather than guessing when it cannot tell", async () => {
+    install = { kind: "unknown", path: "/somewhere/odd/index.js" };
+    const { updateAction } = await freshUpdate();
+    await updateAction();
+    expect(process.exitCode).toBe(1);
+    expect(logged.some((l) => l.includes("npm install -g @aisa-one/cli@latest"))).toBe(true);
   });
 });
