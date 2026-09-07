@@ -407,6 +407,13 @@ async function applySelection(
 /** Long enough to read one sentence before the screen changes under you.
  *  Every handoff to the browser or to a slow command gets one. */
 const BEFORE_HANDOFF_MS = 3000;
+/** Seconds of visible warning before a sign-in tab opens. Long enough to
+ *  survive the page's own checklist pacing, which can be several seconds
+ *  behind the run at exactly this point. */
+const SIGNIN_COUNTDOWN_S = 4;
+/** How long to wait for the page to say the warning is up, before giving up
+ *  on it and counting down anyway. */
+const SIGNIN_ACK_WAIT_MS = 15_000;
 /** How long a run waits for an approval that opened in a second tab. */
 const SIGNIN_CATCH_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -546,6 +553,8 @@ interface RunInput {
    * paste-it-back path is the only one that works.
    */
   catcher?: OAuthCatcher;
+  /** Resolves when the page reports the sign-in warning is on screen. */
+  signinShown?: Promise<void>;
   install: string[];
   clients: string[];
   servers: LiveServer[];
@@ -631,17 +640,37 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
   // ── sign in once, before anything that wants a credential ──
   let key = input.key;
   if (state.steps.some((s) => s.id === "signin")) {
-    // Said before the tab opens, not as it opens. A browser that jumps to a
-    // sign-in page the user did not ask for reads as something going wrong —
-    // they came here to configure an agent and nobody told them an account
-    // was part of it. Three seconds of "here is why, and here is what is
-    // about to happen" turns a surprise into a step.
+    // Counted down, not merely announced.
+    //
+    // The first version set a line saying a tab was about to open, waited
+    // three seconds and opened it — and the tab still arrived unannounced,
+    // because the page paces its checklist: rows are revealed one at a time
+    // with a dwell each, so the sign-in row often reached the screen at the
+    // very moment the three seconds ran out. The warning was displayed for
+    // nobody.
+    //
+    // A number that changes cannot be missed the same way. Whatever the page
+    // is behind by, the reader catches the tail of it and a ticking number
+    // reads as "something is about to happen" with no instructions needed.
+    log.line("step", "You need an AIsa account", "opening the sign-in in a new browser tab");
     setStep(state, "signin", {
       state: "running",
-      detail: "AIsa needs an account — a sign-in page is about to open in a new tab…",
+      detail: "AIsa needs an account — the sign-in opens in a new tab in a moment…",
     });
-    log.line("step", "You need an AIsa account", "opening the sign-in in a new browser tab");
-    await pause(BEFORE_HANDOFF_MS);
+    // Wait to be told the line above is actually on screen. Measured, the
+    // page can be seven seconds behind the run at this row, so counting down
+    // from here counted down to nobody. Bounded: a page that was never opened
+    // never answers, and a terminal-only run must not stall on it.
+    if (input.signinShown) {
+      await Promise.race([input.signinShown, pause(SIGNIN_ACK_WAIT_MS)]);
+    }
+    for (let left = SIGNIN_COUNTDOWN_S; left > 0; left--) {
+      setStep(state, "signin", {
+        state: "running",
+        detail: `AIsa needs an account — opening the sign-in in a new tab in ${left}…`,
+      });
+      await pause(1000);
+    }
     setStep(state, "signin", {
       state: "running",
       detail: "sign in or create your account in the new tab — this setup waits here",
@@ -2374,6 +2403,20 @@ export async function connectAction(options: {
   // closed tab would never say so, hence the bounded wait below.
   let pageSeen: () => void = () => {};
   const pageSeenP = new Promise<void>((r) => (pageSeen = r));
+  /**
+   * The page saying it has the sign-in warning on screen.
+   *
+   * A countdown run by this process was invisible: the page paces its
+   * checklist, and measured here the sign-in row reached the screen seven
+   * seconds after the run got to it — by which point the countdown was on its
+   * last number. Warning somebody after the fact is not warning them.
+   *
+   * So the run waits to be told. Bounded, because a page that was never
+   * opened will never say anything and a terminal-only run must not stall on
+   * a browser that does not exist.
+   */
+  let signinShown: () => void = () => {};
+  const signinShownP = new Promise<void>((r) => (signinShown = r));
   /** Set when /apply came from the terminal rather than the page. */
   let drivenByTerminal = false;
   /**
@@ -2613,6 +2656,15 @@ export async function connectAction(options: {
       );
       return;
     }
+    if (req.method === "POST" && url.pathname === "/signin-shown") {
+      if (!tokenOk) {
+        res.writeHead(403).end();
+        return;
+      }
+      signinShown();
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true }));
+      return;
+    }
     if (req.method === "POST" && url.pathname === "/seen") {
       if (!tokenOk) {
         res.writeHead(403).end();
@@ -2764,6 +2816,7 @@ export async function connectAction(options: {
         // into MCP entries or provider settings on its way to failing.
         key: liveKey(),
         catcher: signInCatcher,
+        signinShown: signinShownP,
         dryRun: Boolean(options.dryRun),
         llmMode,
         lang,

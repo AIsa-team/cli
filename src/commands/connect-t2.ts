@@ -838,12 +838,25 @@ ${restChips}
     var BTN = { install: "Installing…", signin: "Signing in…", mcp: "Connecting…", llm: "Configuring models…", auth: "Authorizing…", balance: "Finishing…" };
     if (running) { nextBtn.disabled = true; nextBtn.textContent = BTN[running.id.split(":")[0]] || "Working…"; }
   }
+  /** Said once: the run waits on it, and repeating it would say nothing new. */
+  var toldSignin = false;
   function caughtUp() {
     return (serverSteps || []).every(function (s) { return shown[s.id] === s.state; });
   }
+  /** Digest of the visible detail text, so a change to it can be noticed. */
+  var lastDetails = "";
   function tick() {
     var now = Date.now();
     var steps = serverSteps || [];
+    // A row's state is paced by this function; its detail is not — the run
+    // rewrites it whenever it has something to say, and the sign-in countdown
+    // is nothing but that. Repainting only on a state flip meant those
+    // updates went to a screen that never redrew: four seconds of counting,
+    // none of it displayed, and then the row jumped to done.
+    var details = steps.map(function (s) {
+      return (shown[s.id] || "pending") === "pending" ? "" : (s.detail || "");
+    }).join("\u0001");
+    if (details !== lastDetails) { lastDetails = details; renderSteps(); }
     for (var i = 0; i < steps.length; i++) {
       var s = steps[i], cur = shown[s.id] || "pending";
       if (cur === s.state) continue;
@@ -852,7 +865,16 @@ ${restChips}
       if (cur === "pending" && (s.state === "running" || /ok|skip|fail/.test(s.state))) {
         // Even an instant step gets a visible moment of work before its tick.
         if (now - lastFlip < MIN_DWELL && lastFlip) break;
-        shown[s.id] = "running"; lastFlip = now; renderSteps(); break;
+        shown[s.id] = "running"; lastFlip = now; renderSteps();
+        // The run holds the sign-in here until this arrives. Anything else it
+        // does is its own business; this one row is the only one whose next
+        // move takes the reader out of the page, so it is the only one worth
+        // asking permission to leave from.
+        if (s.id === "signin" && !toldSignin) {
+          toldSignin = true;
+          fetch("/signin-shown?token=" + TOKEN, { method: "POST" }).catch(function () {});
+        }
+        break;
       }
       if (cur === "running" && /ok|skip|fail/.test(s.state)) {
         if (now - lastFlip < dwell) break;
