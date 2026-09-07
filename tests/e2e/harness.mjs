@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // DEFAULT-OFF Mock E2E：编译后的 CLI 对照真实 Router HTTP / MCP（共用 toolrouter.Service）。
-// 不伪造整段 Router HTTP 响应；只替身本地 AIsaServices。基线在新命令落地前允许 CLI RED。
+// 不伪造整段 Router HTTP 响应；只替身本地 AIsaServices。
+// quote/call 缺 key：HTTP/MCP 仍比 401 应用层 payload；CLI 单独断言 local-auth-rejection，不比 401 body。
 
 import { spawn, spawnSync } from "node:child_process";
 import {
@@ -23,10 +24,9 @@ const overlaySrc = join(here, "router-overlay/cmd/parity-router");
 const fixturesDir = join(here, "fixtures");
 
 const args = parseArgs(process.argv.slice(2));
-const snapshot =
-  process.env.AISA_ROUTER_SNAPSHOT ||
-  "/tmp/aisa-cli-mcp-audit.h2pKoy/router";
+const snapshot = process.env.AISA_ROUTER_SNAPSHOT || "";
 const routerRepo = process.env.AISA_ROUTER_REPO || "";
+const MISSING_KEY_DIAGNOSTIC = /No API key found[\s\S]*aisa login --key[\s\S]*AISA_API_KEY/;
 
 function parseArgs(argv) {
   const out = { cli: process.env.AISA_CLI || "", skipBuild: false };
@@ -212,7 +212,7 @@ function resolveCli(cliFlag) {
 }
 
 function isolatedCliEnv({ home, xdg, tmp, baseURL, apiKey }) {
-  // 不继承父进程 AISA_* / 用户 Conf。两个 Router 别名都钉到本机 overlay，避免打到生产。
+  // 不继承父进程 AISA_* / 用户 Conf。AISA_ROUTER_BASE_URL 为规范名；AISA_ROUTER_URL 同值，避免中途构建打到生产。
   const env = {
     PATH: process.env.PATH,
     HOME: home,
@@ -222,8 +222,8 @@ function isolatedCliEnv({ home, xdg, tmp, baseURL, apiKey }) {
     XDG_STATE_HOME: xdg.state,
     XDG_CACHE_HOME: xdg.cache,
     TMPDIR: tmp,
-    AISA_ROUTER_URL: baseURL,
     AISA_ROUTER_BASE_URL: baseURL,
+    AISA_ROUTER_URL: baseURL,
   };
   if (apiKey) env.AISA_API_KEY = apiKey;
   return env;
@@ -308,15 +308,56 @@ function classifyCli(result) {
   const text = `${result.stderr}\n${result.stdout}\n${result.error}`;
   if (/unknown command/i.test(text)) return "cli_command_missing";
   if (/unknown option/i.test(text)) return "cli_option_missing";
-  if (/No API key found/i.test(text)) return "cli_required_key";
   return "ran";
+}
+
+function isMissingKeyDiagnostic(stderr) {
+  return MISSING_KEY_DIAGNOSTIC.test(String(stderr));
+}
+
+function evaluateCli(testCase, cliRes, httpBody, cliDispatch) {
+  if (testCase.cliMode === "local-auth-rejection") {
+    const issues = [];
+    const wantExit = testCase.wantCliExit ?? 1;
+    const wantDispatch = testCase.wantDispatch || { quotes: 0, executes: 0 };
+    if (cliRes.status !== wantExit) issues.push(`cli exit ${cliRes.status} want ${wantExit}`);
+    if (cliRes.stdout.trim() !== "") issues.push("cli stdout must be empty");
+    if (!isMissingKeyDiagnostic(cliRes.stderr)) {
+      issues.push("cli stderr is not the missing-key diagnostic");
+    }
+    if (!dispatchMatches(cliDispatch, wantDispatch)) {
+      issues.push(`cli ${dispatchSummary(cliDispatch, wantDispatch)}`);
+    }
+    return {
+      ok: issues.length === 0,
+      issues,
+      kind: issues.length === 0 ? "local-auth-rejection" : classifyCli(cliRes),
+    };
+  }
+
+  const kind = classifyCli(cliRes);
+  if (kind !== "ran") return { ok: false, issues: [kind], kind };
+
+  const compared = compareCli(httpBody, cliRes.stdout, {
+    requirePrecision: testCase.requirePrecision,
+  });
+  const issues = [...compared.issues];
+  if (testCase.wantCliExit === undefined) {
+    issues.push("harness missing wantCliExit");
+  } else if (cliRes.status !== testCase.wantCliExit) {
+    issues.push(`cli exit ${cliRes.status} want ${testCase.wantCliExit}`);
+  }
+  if (!dispatchMatches(cliDispatch, testCase.wantDispatch)) {
+    issues.push(`cli ${dispatchSummary(cliDispatch, testCase.wantDispatch)}`);
+  }
+  return { ok: issues.length === 0, issues, kind };
 }
 
 function prepareRouterTree() {
   const work = mkdtempSync(join(tmpdir(), "aisa-cli-mcp-parity-"));
   try {
     const src = join(work, "router");
-    if (existsSync(join(snapshot, ".git")) || existsSync(join(snapshot, "go.mod"))) {
+    if (snapshot && (existsSync(join(snapshot, ".git")) || existsSync(join(snapshot, "go.mod")))) {
       const clone = spawnSync("git", ["clone", "--local", "--quiet", snapshot, src], {
         encoding: "utf8",
       });
@@ -330,7 +371,7 @@ function prepareRouterTree() {
       }
     } else {
       failInfra(
-        `Router snapshot missing at ${snapshot}. Set AISA_ROUTER_SNAPSHOT or AISA_ROUTER_REPO.`
+        "Set AISA_ROUTER_SNAPSHOT to a local Router checkout at the pin, or AISA_ROUTER_REPO to a git URL/path. See tests/e2e/README.md."
       );
     }
     const head = spawnSync("git", ["-C", src, "rev-parse", "HEAD"], { encoding: "utf8" });
@@ -557,6 +598,7 @@ async function main() {
         auth: "",
         cli: ["search", "--input", searchBody, "--json"],
         wantHttpStatus: 200,
+        wantCliExit: 0,
         wantDispatch: { quotes: 0, executes: 0 },
       },
       {
@@ -567,6 +609,7 @@ async function main() {
         auth: "",
         cli: ["schema", "--input", schemaBody, "--json"],
         wantHttpStatus: 200,
+        wantCliExit: 3,
         wantDispatch: { quotes: 0, executes: 0 },
         check: (httpObj) => {
           if (httpObj.total_count !== 2 || httpObj.success_count !== 1 || httpObj.error_count !== 1) {
@@ -582,7 +625,9 @@ async function main() {
         body: quoteBody,
         auth: "",
         cli: ["quote", "-f", join(fixturesDir, "quote-mixed.json"), "--json"],
+        cliMode: "local-auth-rejection",
         wantHttpStatus: 401,
+        wantCliExit: 1,
         wantDispatch: { quotes: 0, executes: 0 },
       },
       {
@@ -594,6 +639,7 @@ async function main() {
         requestId: "req_parity_quote",
         cli: ["quote", "-f", join(fixturesDir, "quote-mixed.json"), "--json"],
         wantHttpStatus: 200,
+        wantCliExit: 3,
         requirePrecision: true,
         wantDispatch: { quotes: 3, executes: 0 },
         check: (httpObj) => {
@@ -617,6 +663,7 @@ async function main() {
         cli: ["quote", "-f", "-", "--json"],
         stdin: `${quoteBody}\n`,
         wantHttpStatus: 200,
+        wantCliExit: 3,
         requirePrecision: true,
         wantDispatch: { quotes: 3, executes: 0 },
       },
@@ -627,7 +674,9 @@ async function main() {
         body: useBody,
         auth: "",
         cli: ["call", "-f", join(fixturesDir, "use-ok.json"), "--json"],
+        cliMode: "local-auth-rejection",
         wantHttpStatus: 401,
+        wantCliExit: 1,
         wantDispatch: { quotes: 0, executes: 0 },
       },
       {
@@ -639,6 +688,7 @@ async function main() {
         requestId: "req_parity_use",
         cli: ["call", "-f", join(fixturesDir, "use-ok.json"), "--json"],
         wantHttpStatus: 200,
+        wantCliExit: 0,
         wantDispatch: { quotes: 0, executes: 1 },
       },
     ];
@@ -679,23 +729,9 @@ async function main() {
         apiKey: testCase.auth || undefined,
         stdin: testCase.stdin,
       });
-      const cliKind = classifyCli(cliRes);
-      let cliCompare = { ok: false, issues: [cliKind] };
-      if (cliKind === "ran") {
-        cliCompare = compareCli(httpRes.body, cliRes.stdout, {
-          requirePrecision: testCase.requirePrecision,
-        });
-        const cliDispatch = await readDispatch(dispatchURL);
-        if (!dispatchMatches(cliDispatch, testCase.wantDispatch)) {
-          cliCompare.ok = false;
-          cliCompare.issues.push(`cli ${dispatchSummary(cliDispatch, testCase.wantDispatch)}`);
-        }
-        if (testCase.wantHttpStatus >= 400 && cliRes.status === 0) {
-          cliCompare.ok = false;
-          cliCompare.issues.push("cli exited 0 on error case");
-        }
-      }
-      if (!cliCompare.ok) cliFailed++;
+      const cliDispatch = await readDispatch(dispatchURL);
+      const cliEval = evaluateCli(testCase, cliRes, httpRes.body, cliDispatch);
+      if (!cliEval.ok) cliFailed++;
 
       const row = {
         id: testCase.id,
@@ -714,10 +750,11 @@ async function main() {
           ...(checkIssue ? [checkIssue] : []),
           ...(mcpRes.rpcError ? [`mcp rpc ${JSON.stringify(mcpRes.rpcError)}`] : []),
         ],
-        cli: cliKind === "ran" && cliCompare.ok ? "GREEN" : "RED",
-        cli_kind: cliKind,
+        cli: cliEval.ok ? "GREEN" : "RED",
+        cli_semantics: testCase.cliMode === "local-auth-rejection" ? "local-auth-rejection" : "payload",
+        cli_kind: cliEval.kind,
         cli_exit: cliRes.status,
-        cli_issues: cliCompare.issues,
+        cli_issues: cliEval.issues,
         cli_stderr: (cliRes.stderr || "").trim().split("\n").slice(0, 3).join(" | "),
       };
       report.cases.push(row);
@@ -730,9 +767,15 @@ async function main() {
 
     report.http_mcp = httpMcpFailed === 0 ? "GREEN" : "RED";
     report.cli_parity = cliFailed === 0 ? "GREEN" : "RED";
-    report.router_env_aliases = ["AISA_ROUTER_URL", "AISA_ROUTER_BASE_URL"];
+    report.canonical_router_env = "AISA_ROUTER_BASE_URL";
+    report.router_env_aliases = ["AISA_ROUTER_BASE_URL", "AISA_ROUTER_URL"];
+    report.router_source = snapshot
+      ? "AISA_ROUTER_SNAPSHOT"
+      : routerRepo
+        ? "AISA_ROUTER_REPO"
+        : "unset";
     report.expected_baseline =
-      "CLI RED if schema/quote/call or Router-backed search --json are absent; HTTP/MCP must be GREEN";
+      "HTTP/MCP: application payload + dispatch. CLI payload cases: lossless JSON, precision, exact exit 0/3, dispatch. CLI quote/call without key: local-auth-rejection (exit 1, empty stdout, missing-key diagnostic, zero dispatch), not 401 payload parity.";
     console.log(JSON.stringify(report, null, 2));
     if (httpMcpFailed) {
       process.exitCode = 2;
