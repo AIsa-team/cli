@@ -98,7 +98,10 @@ const bold = chalk.bold;
 /** A framed step header, so the terminal has the page's sense of place. */
 function header(n: number, lang: Lang): string {
   const step = STEP_TITLES.find((s) => s.n === n)!;
-  const title = `${n}/6  ${t(step.title, lang)}`;
+  // After the number, before the words: the number says where you are, the
+  // glyph says what this one is, and a reader scrolling back finds the glyph
+  // first. Terminal only — see the note on STEP_TITLES.
+  const title = `${n}/6  ${step.icon}  ${t(step.title, lang)}`;
   return `\n${bold.cyan("┌─ " + title)} ${dim("· " + t(step.sub, lang))}`;
 }
 

@@ -226,17 +226,30 @@ export const AGENT_HAVE_NOTES: Record<string, Text> = {
 
 // ── the rail: every step's name ─────────────────────────────────────────────
 
-export const STEP_TITLES: Array<{ n: number; title: Text; sub: Text }> = [
-  { n: 1, title: { en: "Welcome", zh: "开始" },
+/**
+ * The six steps, and one glyph each.
+ *
+ * `icon` is for the terminal only. The page has a numbered rail down its left
+ * edge — position, colour and a tick already say which step you are on, and a
+ * sixth signal would be decoration. A terminal has none of that: the headers
+ * scroll past in one column of text, and after two of them "3/6" and "4/6"
+ * are the same shape. The glyph is what the eye finds when scrolling back.
+ *
+ * One per step and never repeated, so it identifies rather than decorates.
+ * Deliberately not the marks the journal already uses for outcomes
+ * (✅ ⚠️ ❌ ℹ️) — a step heading is not a result.
+ */
+export const STEP_TITLES: Array<{ n: number; title: Text; sub: Text; icon: string }> = [
+  { n: 1, icon: "👋", title: { en: "Welcome", zh: "开始" },
     sub: { en: "What you are about to get", zh: "你将得到什么" } },
-  { n: 2, title: STEP_AGENT.title, sub: STEP_AGENT.sub },
-  { n: 3, title: { en: "Models", zh: "模型" },
+  { n: 2, icon: "🤖", title: STEP_AGENT.title, sub: STEP_AGENT.sub },
+  { n: 3, icon: "🧠", title: { en: "Models", zh: "模型" },
     sub: { en: "What it runs on", zh: "它用什么模型跑" } },
-  { n: 4, title: { en: "Capabilities", zh: "能力" },
+  { n: 4, icon: "🧰", title: { en: "Capabilities", zh: "能力" },
     sub: { en: "Live data for your agent", zh: "给 agent 的实时数据" } },
-  { n: 5, title: { en: "Install", zh: "安装" },
+  { n: 5, icon: "🔌", title: { en: "Install", zh: "安装" },
     sub: { en: "Sign in and wire it up", zh: "登录并接线" } },
-  { n: 6, title: { en: "Done", zh: "完成" },
+  { n: 6, icon: "🚀", title: { en: "Done", zh: "完成" },
     sub: { en: "Try it now", zh: "现在就试试" } },
 ];
 
