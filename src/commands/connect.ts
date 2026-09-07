@@ -51,6 +51,7 @@ import { pick, type Choice } from "./prompt.js";
 import { handOverResults, closeStaleResults, SUPERSEDE_GRACE_MS } from "./serve-results.js";
 import { restoreTerminal } from "./prompt.js";
 import { printBanner } from "../utils/banner.js";
+import { verifyKey, type KeyVerdict } from "../utils/key-check.js";
 
 /**
  * Page templates. T1 is the original two-page flow (selection + live
@@ -431,6 +432,8 @@ interface PlanInput {
   clients: string[];
   servers: LiveServer[];
   keyed: boolean;
+  /** A key was found and the gateway turned it down — worth saying out loud. */
+  keyRejected?: boolean;
   dryRun: boolean;
   llmMode: LlmMode;
   /** Cursor via install deeplinks rather than a config-file write (T2). */
@@ -480,7 +483,13 @@ function buildPlan(input: PlanInput): Step[] {
       id: "signin",
       label: "Sign in to AIsa",
       state: "pending",
-      detail: "one browser approval — it mints your CLI key",
+      // Two different situations, and the difference matters to the reader:
+      // a first sign-in is expected, while a key that has stopped working is
+      // news — and without saying so the step looks like the setup forgot
+      // they had signed in before.
+      detail: input.keyRejected
+        ? "your stored key is no longer accepted — one browser approval replaces it"
+        : "one browser approval — it mints your CLI key",
     });
   }
   const web = input.clients[0] === "claude-ai";
@@ -2295,6 +2304,24 @@ export async function connectAction(options: {
     return;
   }
   const key = getApiKey();
+  // A key that exists is not a key that works. One revoked from the console,
+  // or belonging to a deleted account, sits in ~/.aisa/key looking exactly
+  // like a good one — and the run then skipped the sign-in, wrote the dead
+  // key into every MCP entry and into the agent's provider settings, and the
+  // first the user heard of it was their agent failing to authenticate after
+  // the setup had declared itself finished.
+  //
+  // Started here and never awaited: the user is about to spend half a minute
+  // choosing servers, so the answer is always in hand before the plan is
+  // built. Optimistic until it says otherwise, because "cannot tell" must not
+  // push someone on a flaky connection through a sign-in they do not need.
+  let keyVerdict: KeyVerdict = key ? "unreachable" : "invalid";
+  const keyCheckP = key
+    ? verifyKey(key).then((v) => (keyVerdict = v))
+    : Promise.resolve<KeyVerdict>("invalid");
+  void keyCheckP;
+  /** The stored key, or nothing when the gateway has rejected it. */
+  const liveKey = () => (keyVerdict === "invalid" ? undefined : key);
 
   // One random token per run: the page and every endpoint require it, so
   // another local process cannot drive this server blind.
@@ -2304,8 +2331,8 @@ export async function connectAction(options: {
   // language the user just switched away from.
   const page = () =>
     template === "t2"
-      ? renderT2Page(servers, clients, token, Boolean(key), supported(), !isInstalled("aisa"), "start", lang)
-      : renderPage(servers, clients, token, Boolean(key), supported());
+      ? renderT2Page(servers, clients, token, Boolean(liveKey()), supported(), !isInstalled("aisa"), "start", lang)
+      : renderPage(servers, clients, token, Boolean(liveKey()), supported());
 
   const state: RunState = resumed ? resumed.state : {
     phase: "selecting",
@@ -2574,7 +2601,8 @@ export async function connectAction(options: {
         install: [...wantInstall],
         clients: chosenClients,
         servers: chosenServers,
-        keyed: Boolean(key),
+        keyed: Boolean(liveKey()),
+        keyRejected: Boolean(key) && keyVerdict === "invalid",
         dryRun: Boolean(options.dryRun),
         llmMode,
         deeplink: template === "t2" && chosenClients[0] === "cursor",
@@ -2613,7 +2641,9 @@ export async function connectAction(options: {
         install: [...wantInstall],
         clients: chosenClients,
         servers: chosenServers,
-        key,
+        // Not `key`: a key the gateway has turned down must not be written
+        // into MCP entries or provider settings on its way to failing.
+        key: liveKey(),
         dryRun: Boolean(options.dryRun),
         llmMode,
         lang,
@@ -2701,7 +2731,7 @@ export async function connectAction(options: {
                   token,
                   template,
                   lang,
-                  keyed: Boolean(key),
+                  keyed: Boolean(liveKey()),
                   canInstall: supported(),
                   servers,
                   clients,
@@ -2730,7 +2760,7 @@ export async function connectAction(options: {
             handOverResults(
               {
                 port, token, template, lang,
-                keyed: Boolean(key),
+                keyed: Boolean(liveKey()),
                 canInstall: supported(),
                 servers, clients, chosenServers, chosenClients, state,
                 until: Date.now() + LINGER_AFTER_DONE_MS,
