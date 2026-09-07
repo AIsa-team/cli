@@ -20,6 +20,8 @@ Default path: `npm ci` if `node_modules` is missing; then `npm pack` (via `prepa
 node scripts/package-smoke.mjs --tarball /path/to/aisa-one-cli-0.4.0.tgz
 node scripts/package-smoke.mjs --output /tmp/cli-smoke-out
 node scripts/package-smoke.mjs --keep-output
+node scripts/package-smoke.mjs --live-discovery
+node scripts/package-smoke.mjs --tarball /tmp/aisa-cli-release-candidate-040/artifacts/aisa-one-cli-0.4.0.tgz --live-discovery
 ```
 
 | Flag | Effect |
@@ -27,6 +29,7 @@ node scripts/package-smoke.mjs --keep-output
 | `--tarball FILE` | Skip build/pack; inspect and install this archive |
 | `--output DIR` | Write the tarball copy, install prefix, and `report.json` here (kept) |
 | `--keep-output` | Keep the temp artifact directory |
+| `--live-discovery` | Default-off Real API E2E on the installed bin |
 
 Stdout is a JSON report. `report.json` is also written into the artifact directory when that directory is kept.
 
@@ -51,7 +54,19 @@ When packing from this checkout, `package.json`, `package-lock.json`, `src/const
 - Partial schema → exit 3; quote keeps the `9007199254740993` token; quote does not follow a 307
 - Quote/call use only the fake key `local-smoke-key`
 
-## Reuse existing Router parity and live checks
+## Live discovery (default off)
+
+`--live-discovery` is Real API E2E. It is not part of the default local run.
+
+After local stub probes, the same installed bin is invoked with isolated `HOME` / `XDG_*` and **no** `AISA_API_KEY`, **no** inherited `AISA_*`, and **no** `AISA_ROUTER_BASE_URL` override (the packaged default origin). It:
+
+1. runs `aisa search "company profile" --limit 1 --json`
+2. takes the first returned `tools[].tool` name exactly
+3. runs `aisa schema <that-tool> --json` and requires `successful` plus `arguments_schema`
+
+It never runs `quote` or `call`. Those checks are labeled `loop: "Real API E2E"` in the report; local stub checks are unlabeled. A 0.3 source tree may still pack 0.3; pass `--tarball` of a 0.4 artifact (or run after parent integrates 0.4 source).
+
+## Reuse existing Router parity
 
 Do **not** copy `tests/e2e`. After a kept run, the report's `install_bin` is the artifact to pass through:
 
@@ -59,8 +74,6 @@ Do **not** copy `tests/e2e`. After a kept run, the report's `install_bin` is the
 AISA_ROUTER_SNAPSHOT=/path/to/router-checkout \
   tests/e2e/run.sh --cli "$INSTALL_BIN" --skip-build
 ```
-
-Anonymous deployed search/schema against the default origin is a separate Real API E2E for the parent: same `install_bin`, isolated HOME/XDG, no user credentials.
 
 ## Exit status
 

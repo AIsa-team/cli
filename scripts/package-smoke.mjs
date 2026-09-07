@@ -54,12 +54,13 @@ class InfraError extends Error {
 }
 
 function parseArgs(argv) {
-  const out = { tarball: "", keepOutput: false, output: "" };
+  const out = { tarball: "", keepOutput: false, output: "", liveDiscovery: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--tarball") out.tarball = argv[++i] || "";
     else if (arg === "--keep-output") out.keepOutput = true;
     else if (arg === "--output") out.output = argv[++i] || "";
+    else if (arg === "--live-discovery") out.liveDiscovery = true;
     else if (arg === "--help" || arg === "-h") {
       printHelp();
       process.exit(0);
@@ -71,14 +72,16 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  process.stdout.write(`Usage: node scripts/package-smoke.mjs [--tarball FILE] [--output DIR] [--keep-output]
+  process.stdout.write(`Usage: node scripts/package-smoke.mjs [--tarball FILE] [--output DIR] [--keep-output] [--live-discovery]
 
 Build (unless --tarball), npm pack, install into an isolated prefix, and probe
 the installed aisa bin. Prints a JSON report. Does not publish, tag, or install globally.
 
-  --tarball FILE   Skip build/pack; inspect and install this archive
-  --output DIR     Write tarball, prefix, report.json here (kept)
-  --keep-output    Keep the temp artifact directory
+  --tarball FILE     Skip build/pack; inspect and install this archive
+  --output DIR       Write tarball, prefix, report.json here (kept)
+  --keep-output      Keep the temp artifact directory
+  --live-discovery   Default-off Real API E2E: anonymous search then schema at the
+                     installed default origin. Never quote or call.
 `);
 }
 
@@ -164,7 +167,7 @@ function cliEnv(isolation, extra = {}) {
   };
 }
 
-function runInstalled(bin, args, isolation, extraEnv = {}, stdin) {
+function runInstalled(bin, args, isolation, extraEnv = {}, stdin, timeoutMs = 20_000) {
   return new Promise((resolvePromise) => {
     const child = spawn(bin, args, {
       cwd: isolation.cwd,
@@ -182,7 +185,7 @@ function runInstalled(bin, args, isolation, extraEnv = {}, stdin) {
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
       finish({ status: 1, stdout, stderr, error: "timeout" });
-    }, 20_000);
+    }, timeoutMs);
     child.stdout.on("data", (chunk) => {
       stdout += String(chunk);
     });
@@ -206,6 +209,27 @@ function expectRawJson(stdout, raw) {
 
 function probeDetail(ran, stub) {
   return `exit ${ran.status} stdout=${JSON.stringify((ran.stdout || "").slice(0, 120))} hits=${JSON.stringify(stub.hits)}`;
+}
+
+function firstSearchTool(stdout) {
+  try {
+    const tools = JSON.parse(String(stdout).trim()).tools;
+    const first = Array.isArray(tools)
+      ? tools.find((item) => item && typeof item.tool === "string" && item.tool.trim())
+      : undefined;
+    return first ? first.tool.trim() : "";
+  } catch {
+    return "";
+  }
+}
+
+function schemaItem(stdout, tool) {
+  try {
+    const tools = JSON.parse(String(stdout).trim()).tools;
+    return tools && typeof tools === "object" ? tools[tool] : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function findManifest(node, path) {
@@ -347,12 +371,13 @@ async function main() {
   mkdirSync(work, { recursive: true });
 
   const checks = [];
-  const check = (id, ok, detail = "", expectedLimitation = "") => {
+  const check = (id, ok, detail = "", expectedLimitation = "", loop = "") => {
     checks.push({
       id,
       ok: Boolean(ok),
       detail,
       ...(expectedLimitation ? { expected_limitation: expectedLimitation } : {}),
+      ...(loop ? { loop } : {}),
     });
     const mark = ok ? "PASS" : expectedLimitation ? "LIMIT" : "FAIL";
     log(`${mark} ${id}${detail ? ` — ${detail}` : ""}`);
@@ -367,6 +392,7 @@ async function main() {
   let tarballSha = "";
   let packedPkg = null;
   let candidate = "";
+  let liveTool = "";
 
   const report = () => ({
     kind: "package-smoke",
@@ -391,9 +417,8 @@ async function main() {
       note: "This smoke does not copy or run the Mock E2E harness. Parent should pass install_bin.",
     },
     canonical_router_env: "AISA_ROUTER_BASE_URL",
-    live_reuse: {
-      note: "Anonymous deployed search/schema is a parent Real API E2E using this install_bin, isolated HOME/XDG, and no user credentials.",
-    },
+    live_discovery: args.liveDiscovery,
+    live_tool: liveTool || null,
     checks,
     ok: checks.every((item) => item.ok || item.expected_limitation),
   });
@@ -736,6 +761,48 @@ async function main() {
       probeDetail(redirected, stub)
     );
     stub.setRedirectQuote(false);
+    await stub.close();
+    stub = undefined;
+
+    if (args.liveDiscovery) {
+      // Default origin only: no AISA_ROUTER_* override, no key, no inherited AISA_*.
+      const liveSearch = await runInstalled(
+        installBin,
+        ["search", "company profile", "--limit", "1", "--json"],
+        isolation,
+        {},
+        undefined,
+        45_000
+      );
+      liveTool = firstSearchTool(liveSearch.stdout);
+      check(
+        "live-discovery-search",
+        liveSearch.status === 0 && Boolean(liveTool),
+        liveTool || `exit ${liveSearch.status} ${liveSearch.stdout.slice(0, 160) || liveSearch.stderr.slice(0, 160)}`,
+        "",
+        "Real API E2E"
+      );
+      if (liveTool) {
+        const liveSchema = await runInstalled(
+          installBin,
+          ["schema", liveTool, "--json"],
+          isolation,
+          {},
+          undefined,
+          45_000
+        );
+        const item = schemaItem(liveSchema.stdout, liveTool);
+        check(
+          "live-discovery-schema",
+          liveSchema.status === 0 && item?.successful === true && item.arguments_schema !== undefined,
+          `${liveTool} exit ${liveSchema.status} successful=${item?.successful} schema=${item?.arguments_schema !== undefined}`,
+          "",
+          "Real API E2E"
+        );
+      } else {
+        check("live-discovery-schema", false, "skipped: no tool from search", "", "Real API E2E");
+      }
+    }
 
     const final = report();
     writeFileSync(join(work, "report.json"), `${JSON.stringify(final, null, 2)}\n`);
