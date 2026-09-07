@@ -2,10 +2,11 @@ import { getConfig } from "./config.js";
 import { httpFetch } from "./utils/http.js";
 
 /**
- * Production origin from the Router OpenAPI servers list. Paths already
- * include `/v1/tool-router/...`, so this is an origin, not the LLM `/v1` base.
+ * Deployed Tool Router origin (nginx / tools.aisa.one). Paths already include
+ * `/v1/tool-router/...`, so this is an origin, not the LLM `/v1` base.
+ * OpenAPI still lists api.aisa.one; that host 404s these paths.
  */
-export const DEFAULT_ROUTER_URL = "https://api.aisa.one";
+export const DEFAULT_ROUTER_URL = "https://tools.aisa.one";
 /** Origin/prefix before `/v1/tool-router/...`. Harness and tests set this. */
 export const ROUTER_URL_ENV = "AISA_ROUTER_BASE_URL";
 

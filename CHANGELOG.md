@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-09-08
+
 ### Breaking
 
 - **`aisa search` is no longer an alias for `api search`.** It now calls the
@@ -21,7 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   application response, including integer tokens outside JavaScript's safe
   range. Quote never executes; none of the four retry or fall back to
   provider shortcuts. Router origin is `AISA_ROUTER_BASE_URL`, else config
-  `routerUrl`, else `https://api.aisa.one`.
+  `routerUrl`, else `https://tools.aisa.one`. The LLM/catalog host
+  `https://api.aisa.one` is unchanged and is not a Router fallback.
 
 ### Fixed
 
@@ -33,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and non-unique or oversized `provider_filters` before dispatch.
 - Human search prints a returned `plan` (`plan_ref`, steps, pitfalls) when
   the Router includes one.
+- Default Tool Router origin is `https://tools.aisa.one`. Anonymous
+  `/v1/tool-router/...` on `api.aisa.one` returns 404; the deployed nginx
+  front door is `tools.aisa.one`. Overrides (`AISA_ROUTER_BASE_URL`,
+  `routerUrl`) keep precedence. There is no origin fallback.
 
 ### Deprecated
 
@@ -76,9 +83,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   After the add (which the flag keeps free of OAuth popups), the entry is
   patched to a literal `http_headers` Authorization — the same thing the
   Claude Code path stores via `--header`.
-- CI on every push/PR (build + tests), and a tag-triggered release workflow that
-  publishes to npm via Trusted Publishing (OIDC — no stored token, 2FA stays on).
-  From the next release, `git push origin vX.Y.Z` is the publish button.
+- The npm tarball includes the MIT `LICENSE` text (Copyright (c) 2026
+  AIsa Team). License policy is unchanged.
+- CI on every push/PR builds, tests, and pack-smokes on Ubuntu Node
+  18/20 (legacy compatibility), 22/24 (maintained), and 26 (current).
+  `engines` stay `>=18`.
+  The tag-triggered publish job uses Node 24. Trusted Publisher on npmjs.com
+  is a publish-time prerequisite — this repo has no historical `release.yml`
+  success. `prepack` builds the tarball so a clean `npm pack` includes
+  `dist` and `LICENSE`. `git push origin vX.Y.Z` is the publish button.
 
 ## [0.3.0] — 2026-08-18
 
@@ -319,7 +332,9 @@ supports today; nothing here depends on a backend change.
 - Config commands (`aisa config get|set|list|reset`) and auth
   (`aisa login|logout|whoami`).
 
-[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/AIsa-team/cli/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/AIsa-team/cli/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/AIsa-team/cli/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/AIsa-team/cli/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/AIsa-team/cli/compare/v0.2.1...v0.2.2

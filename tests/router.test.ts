@@ -28,10 +28,12 @@ describe("resolveRouterBase", () => {
     expect(resolveRouterBase()).toBe("http://router.local:8080");
   });
 
-  it("defaults to the OpenAPI production origin, not the LLM /v1 base", () => {
+  it("defaults to the deployed tools origin, not the LLM /v1 or api host", () => {
     vi.spyOn(config, "getConfig").mockReturnValue("");
-    expect(resolveRouterBase()).toBe(DEFAULT_ROUTER_URL);
+    expect(DEFAULT_ROUTER_URL).toBe("https://tools.aisa.one");
+    expect(resolveRouterBase()).toBe("https://tools.aisa.one");
     expect(resolveRouterBase()).not.toMatch(/\/v1$/);
+    expect(resolveRouterBase()).not.toBe("https://api.aisa.one");
   });
 
   it("does not follow baseUrl /apis/v1 or /v1 rewriting", () => {

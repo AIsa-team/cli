@@ -9,10 +9,15 @@
 # to leak and no 90-day rotation. Account 2FA stays ON and is never in the way,
 # because OIDC is not a "token that bypasses 2FA".
 #
-# One-time setup on npmjs.com before the first tagged release works (needs a
-# maintainer): the @aisa-one/cli package page → Settings → Trusted Publishing →
-# add this repository (AIsa-team/cli) and workflow (release.yml). Until that is
-# configured, the publish step 403s and the tag is harmless — CI still ran.
+# Trusted Publisher on npmjs.com is a publish-time prerequisite, not something
+# this repository has proven. `gh run list --workflow release.yml` returns
+# no historical runs and no historical release.yml success, so OIDC publish
+# must not be treated as already verified.
+# Before the first tag that should ship: a maintainer configures
+# @aisa-one/cli → Settings → Trusted Publisher for repository AIsa-team/cli
+# and workflow release.yml. Until that exists, `npm publish` 403s and the
+# tag is harmless. Do not add NODE_AUTH_TOKEN or change these permissions
+# to "make it work".
 #
 # A guard refuses to publish if the tag and package.json disagree, so a
 # mistyped tag can never ship a version the code does not claim.
@@ -33,7 +38,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Publish on maintained Node 24. engines stay >=18.
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
           cache: npm
 
@@ -47,13 +53,15 @@ jobs:
           fi
           echo "tag and package.json agree on $pkg"
 
-      # Trusted Publishing needs npm >= 11.5.1 for the OIDC handshake; node 20
-      # ships npm 10.x, so upgrade first.
+      # Trusted Publishing needs npm >= 11.5.1 for the OIDC handshake.
+      # Install latest npm rather than depending on the image default.
       - run: npm install -g npm@latest
       - run: npm ci
-      - run: npm run build
       - run: npm test
+      - run: node scripts/package-smoke.mjs
 
-      # npm does the OIDC handshake itself; no NODE_AUTH_TOKEN, no stored secret.
+      # `prepack` builds the tarball. Do not also run `npm run build` here —
+      # that would duplicate the lifecycle. npm does the OIDC handshake itself;
+      # no NODE_AUTH_TOKEN, no stored secret.
       - name: Publish to npm (Trusted Publishing)
         run: npm publish

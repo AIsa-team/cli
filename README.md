@@ -66,8 +66,10 @@ nothing was sent; `1` is transport, auth, or an HTTP error; `3` means the
 Router returned a batch with at least one failed item.
 
 `search` and `schema` may be anonymous. `quote` and `call` require
-`AISA_API_KEY`. Point a test Router at `AISA_ROUTER_BASE_URL` (origin or
-prefix before `/v1/tool-router/...`), or `aisa config set routerUrl`.
+`AISA_API_KEY`. The default Router origin is `https://tools.aisa.one`
+(independent of `baseUrl` / `https://api.aisa.one`). Point a test Router at
+`AISA_ROUTER_BASE_URL` (origin or prefix before `/v1/tool-router/...`), or
+`aisa config set routerUrl`. There is no origin fallback.
 
 `quote` never executes. Router requests do not follow HTTP redirects, so a
 307/308 cannot turn quote into call. There is no automatic quote-to-call sequence and no
@@ -380,13 +382,14 @@ Settings:
 - `defaultModel` — default model for `aisa chat` (default: `gpt-4.1-mini`)
 - `baseUrl` — platform root; the LLM (`/v1`), integration (`/apis/v1`), and
   catalog bases are all derived from it
-- `routerUrl` — Tool Router origin (independent of `baseUrl`); overridden by
-  `AISA_ROUTER_BASE_URL`
+- `routerUrl` — Tool Router origin (default `https://tools.aisa.one`,
+  independent of `baseUrl`); overridden by `AISA_ROUTER_BASE_URL`
 - `outputFormat` — `text` or `json`
 
 Environment variables: `AISA_API_KEY` takes precedence over the stored key.
 `AISA_ROUTER_BASE_URL` is the Router origin/prefix before
-`/v1/tool-router/...`. `AISA_CACHE_DIR` relocates the cache. `GITHUB_TOKEN`
+`/v1/tool-router/...` and overrides the default `https://tools.aisa.one`.
+`AISA_CACHE_DIR` relocates the cache. `GITHUB_TOKEN`
 raises the GitHub rate limit for skills commands.
 
 ## Development
@@ -398,7 +401,11 @@ npm install
 npm run build       # compile TypeScript
 npm run dev         # watch mode
 npm test            # run tests
+npm run package:smoke  # clean pack, isolated install, installed-bin checks
 ```
+
+Release metadata and the exact merge/tag publish path (not an authorization
+to publish) are in [`docs/release.md`](docs/release.md).
 
 ## Appendix: Notes for Contributors
 
@@ -441,4 +448,4 @@ uses `company/facts` + `analyst-estimates` + `news` instead. Working fields:
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE). Copyright (c) 2026 AIsa Team.

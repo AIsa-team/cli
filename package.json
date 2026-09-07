@@ -1,6 +1,6 @@
 {
   "name": "@aisa-one/cli",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "CLI for the AIsa unified AI infrastructure platform - one API key for 80+ LLMs and 900+ endpoints across finance, search, social, and video APIs",
   "type": "module",
   "main": "dist/index.js",
@@ -9,6 +9,7 @@
     "dist",
     "README.md",
     "CHANGELOG.md",
+    "LICENSE",
     "vscode-extension/aisa-vscode.vsix"
   ],
   "bin": {
@@ -21,7 +22,8 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "npm run build"
+    "package:smoke": "node scripts/package-smoke.mjs",
+    "prepack": "npm run build"
   },
   "engines": {
     "node": ">=18"
