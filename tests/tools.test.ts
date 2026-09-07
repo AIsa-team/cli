@@ -124,7 +124,79 @@ describe("tool router commands", () => {
     const fetchMock = stubFetch(() => new Response("{}", { status: 200 }));
     await expect(searchAction(undefined, { json: true })).rejects.toMatchObject({ exitCode: 2 });
     await expect(quoteAction({ input: "{", json: true })).rejects.toMatchObject({ exitCode: 2 });
+    await expect(
+      searchAction(undefined, { input: '{"query":"x","unexpected":true}', json: true })
+    ).rejects.toMatchObject({ exitCode: 2 });
+    await expect(
+      quoteAction({
+        input:
+          '{"calls":[{"call_id":"same","tool":"a","arguments":{}},{"call_id":"same","tool":"b","arguments":{}}]}',
+        json: true,
+      })
+    ).rejects.toMatchObject({ exitCode: 2 });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("prints each quote result's own micros token, including values above 2^53", async () => {
+    const body = `{"batch_id":"b","total_count":2,"success_count":2,"error_count":0,"results":[{"call_id":"cheap","tool":"a","successful":true,"request_id":"r1","data":{"object":"cost_estimate","estimate_kind":"exact","estimated_cost_micros_usd":7,"may_exceed_estimate":false}},{"call_id":"expensive","tool":"b","successful":true,"request_id":"r2","data":{"object":"cost_estimate","estimate_kind":"estimate","estimated_cost_micros_usd":${BIG},"may_exceed_estimate":true}}],"next_steps_guidance":[]}`;
+    stubFetch(() => new Response(body, { status: 200 }));
+    const req =
+      '{"calls":[{"call_id":"cheap","tool":"a","arguments":{}},{"call_id":"expensive","tool":"b","arguments":{}}]}';
+
+    await quoteAction({ input: req });
+
+    const text = stdout.join("\n");
+    const cheapIdx = text.indexOf("cheap");
+    const expensiveIdx = text.indexOf("expensive");
+    expect(cheapIdx).toBeGreaterThan(-1);
+    expect(expensiveIdx).toBeGreaterThan(cheapIdx);
+    expect(text.slice(cheapIdx, expensiveIdx)).toContain("estimated_cost_micros_usd 7");
+    expect(text.slice(cheapIdx, expensiveIdx)).not.toContain(BIG);
+    expect(text.slice(expensiveIdx)).toContain(`estimated_cost_micros_usd ${BIG}`);
+    expect(text.slice(expensiveIdx)).not.toMatch(/estimated_cost_micros_usd 7\b/);
+  });
+
+  it("prints each call result's own customer_cost token", async () => {
+    const body = `{"batch_id":"b","total_count":2,"success_count":2,"error_count":0,"results":[{"call_id":"first","tool":"a","successful":true,"request_id":"r1","customer_cost_micros_usd":7},{"call_id":"second","tool":"b","successful":true,"request_id":"r2","customer_cost_micros_usd":${BIG}}],"next_steps_guidance":[]}`;
+    stubFetch(() => new Response(body, { status: 200 }));
+    const req =
+      '{"calls":[{"call_id":"first","tool":"a","arguments":{}},{"call_id":"second","tool":"b","arguments":{}}]}';
+
+    await callAction({ input: req });
+
+    const text = stdout.join("\n");
+    const firstIdx = text.indexOf("first");
+    const secondIdx = text.indexOf("second");
+    expect(text.slice(firstIdx, secondIdx)).toContain("customer_cost_micros_usd 7");
+    expect(text.slice(secondIdx)).toContain(`customer_cost_micros_usd ${BIG}`);
+    expect(text.slice(secondIdx)).not.toMatch(/customer_cost_micros_usd 7\b/);
+  });
+
+  it("renders returned plan guidance without inventing steps", async () => {
+    stubFetch(() =>
+      new Response(
+        JSON.stringify({
+          search_id: "s1",
+          plan: {
+            plan_ref: "research-company/v1",
+            recommended_steps: ["get the facts first"],
+            known_pitfalls: ["do not invent tickers"],
+            primary_tools: ["t1"],
+            related_tools: [],
+          },
+          tools: [],
+          next_steps_guidance: ["generic next"],
+        }),
+        { status: 200 }
+      )
+    );
+
+    await searchAction("company facts", {});
+    const text = stdout.join("\n");
+    expect(text).toContain("research-company/v1");
+    expect(text).toContain("get the facts first");
+    expect(text).toContain("do not invent tickers");
+    expect(text).toContain("generic next");
   });
 
   it("transport failures become exit 1", async () => {

@@ -139,4 +139,31 @@ describe("validateEnvelope", () => {
       usage(() => validateEnvelope("quote", { calls: [{ call_id: "c1", tool: "t" }] }))
     ).toMatch(/arguments/);
   });
+
+  it("rejects unknown envelope fields and duplicate call_id before dispatch", () => {
+    expect(usage(() => validateEnvelope("search", { query: "x", unexpected: true }))).toMatch(
+      /unknown field/
+    );
+    expect(
+      usage(() =>
+        validateEnvelope("quote", {
+          calls: [
+            { call_id: "same", tool: "a", arguments: {} },
+            { call_id: "same", tool: "b", arguments: {} },
+          ],
+        })
+      )
+    ).toMatch(/unique/);
+  });
+
+  it("rejects non-unique or oversized provider_filters", () => {
+    expect(
+      usage(() => validateEnvelope("search", { query: "x", provider_filters: ["a", "a"] }))
+    ).toMatch(/unique/);
+    expect(
+      usage(() =>
+        validateEnvelope("search", { query: "x", provider_filters: Array.from({ length: 51 }, (_, i) => `p${i}`) })
+      )
+    ).toMatch(/at most 50/);
+  });
 });

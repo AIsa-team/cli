@@ -86,6 +86,7 @@ describe("routerPost", () => {
       expect(calls[0].url).toBe(`http://router.test${path}`);
       expect(calls[0].init.method).toBe("POST");
       expect((calls[0].init.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
+      expect(calls[0].init.redirect).toBe("manual");
     }
   });
 
@@ -103,5 +104,6 @@ describe("routerPost", () => {
     stubFetch([new Response("{}", { status: 200 })]);
     await routerPost({ operation: "search", body: '{"query":"x"}' });
     expect((calls[0].init.headers as Record<string, string>).Authorization).toBeUndefined();
+    expect(calls[0].init.redirect).toBe("manual");
   });
 });

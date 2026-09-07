@@ -69,7 +69,8 @@ Router returned a batch with at least one failed item.
 `AISA_API_KEY`. Point a test Router at `AISA_ROUTER_BASE_URL` (origin or
 prefix before `/v1/tool-router/...`), or `aisa config set routerUrl`.
 
-`quote` never executes. There is no automatic quote-to-call sequence and no
+`quote` never executes. Router requests do not follow HTTP redirects, so a
+307/308 cannot turn quote into call. There is no automatic quote-to-call sequence and no
 retry.
 
 ## API Catalog

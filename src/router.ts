@@ -73,6 +73,8 @@ export async function routerPost(request: RouterRequest): Promise<RouterHttpResu
     headers,
     body: request.body,
     idempotent: false,
+    // Never follow: a 307/308 to aisa-batch-use would keep POST+body+auth.
+    redirect: "manual",
   });
 
   return { status: res.status, raw: await res.text() };

@@ -154,8 +154,14 @@ function parseLimit(raw: string): number {
   return n;
 }
 
+const SEARCH_KEYS = ["query", "known_fields", "provider_filters", "limit"];
+const SCHEMA_KEYS = ["tools", "include_arguments_schema", "include_response_schema"];
+const BATCH_KEYS = ["search_id", "calls"];
+const CALL_KEYS = ["call_id", "tool", "arguments"];
+
 export function validateEnvelope(kind: RouterKind, value: Record<string, unknown>): void {
   if (kind === "search") {
+    rejectUnknownKeys(value, SEARCH_KEYS, "search request");
     if (typeof value.query !== "string" || value.query.trim().length === 0) {
       throw usageError("search request requires a non-empty query string");
     }
@@ -165,8 +171,16 @@ export function validateEnvelope(kind: RouterKind, value: Record<string, unknown
     if (value.known_fields !== undefined && !isPlainObject(value.known_fields)) {
       throw usageError("known_fields must be a JSON object");
     }
-    if (value.provider_filters !== undefined && !isStringArray(value.provider_filters)) {
-      throw usageError("provider_filters must be an array of strings");
+    if (value.provider_filters !== undefined) {
+      if (!isStringArray(value.provider_filters)) {
+        throw usageError("provider_filters must be an array of strings");
+      }
+      if (value.provider_filters.length > 50) {
+        throw usageError("provider_filters must have at most 50 entries");
+      }
+      if (new Set(value.provider_filters).size !== value.provider_filters.length) {
+        throw usageError("provider_filters must be unique");
+      }
     }
     if (value.limit !== undefined) {
       if (typeof value.limit !== "number" || !Number.isInteger(value.limit) || value.limit < 1 || value.limit > 20) {
@@ -177,6 +191,7 @@ export function validateEnvelope(kind: RouterKind, value: Record<string, unknown
   }
 
   if (kind === "schema") {
+    rejectUnknownKeys(value, SCHEMA_KEYS, "schema request");
     if (!isStringArray(value.tools) || value.tools.length < 1 || value.tools.length > 20) {
       throw usageError("schema request requires tools: 1–20 non-empty strings");
     }
@@ -200,16 +215,19 @@ export function validateEnvelope(kind: RouterKind, value: Record<string, unknown
     return;
   }
 
+  rejectUnknownKeys(value, BATCH_KEYS, "quote/call request");
   if (!Array.isArray(value.calls) || value.calls.length < 1 || value.calls.length > 20) {
     throw usageError("quote/call request requires calls: 1–20 items");
   }
   if (value.search_id !== undefined && typeof value.search_id !== "string") {
     throw usageError("search_id must be a string");
   }
+  const callIds: string[] = [];
   for (const [i, call] of value.calls.entries()) {
     if (!isPlainObject(call)) {
       throw usageError(`calls[${i}] must be an object`);
     }
+    rejectUnknownKeys(call, CALL_KEYS, `calls[${i}]`);
     if (typeof call.call_id !== "string" || call.call_id.length < 1 || call.call_id.length > 128) {
       throw usageError(`calls[${i}].call_id must be a string of 1–128 characters`);
     }
@@ -219,6 +237,17 @@ export function validateEnvelope(kind: RouterKind, value: Record<string, unknown
     if (!isPlainObject(call.arguments)) {
       throw usageError(`calls[${i}].arguments must be a JSON object`);
     }
+    callIds.push(call.call_id);
+  }
+  if (new Set(callIds).size !== callIds.length) {
+    throw usageError("call_id values must be unique within the batch");
+  }
+}
+
+function rejectUnknownKeys(value: Record<string, unknown>, allowed: string[], label: string): void {
+  const extra = Object.keys(value).filter((key) => !allowed.includes(key));
+  if (extra.length > 0) {
+    throw usageError(`${label} has unknown field(s): ${extra.join(", ")}`);
   }
 }
 

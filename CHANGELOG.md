@@ -23,6 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   provider shortcuts. Router origin is `AISA_ROUTER_BASE_URL`, else config
   `routerUrl`, else `https://api.aisa.one`.
 
+### Fixed
+
+- Router `search` / `schema` / `quote` / `call` do not follow HTTP redirects.
+  A 307/308 is a transport failure, so a quote response cannot become a use.
+- Human quote/call print each result's own micro-USD token, including values
+  above 2^53. `--json` was already lossless.
+- Full `--input` / `-f` envelopes reject unknown fields, duplicate `call_id`,
+  and non-unique or oversized `provider_filters` before dispatch.
+- Human search prints a returned `plan` (`plan_ref`, steps, pitfalls) when
+  the Router includes one.
+
 ### Deprecated
 
 - **`aisa api search`, `aisa api show`, and `aisa run`** keep their previous

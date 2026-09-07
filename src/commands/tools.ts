@@ -4,6 +4,7 @@ import { getApiKey, requireApiKey } from "../config.js";
 import { CliError, EXIT_PARTIAL, EXIT_TRANSPORT, transportError } from "../cli-error.js";
 import { routerPost, type RouterOperation } from "../router.js";
 import { error as printError } from "../utils/display.js";
+import { numberToken, parseJsonKeepingNumberTokens } from "../json-text.js";
 import {
   prepareRouterRequest,
   type RouterIoOptions,
@@ -127,7 +128,7 @@ export function batchHasFailure(raw: string): boolean {
 function renderHuman(kind: RouterKind, raw: string): void {
   let value: Record<string, unknown>;
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = parseJsonKeepingNumberTokens(raw);
     if (!isRecord(parsed)) {
       console.log(raw);
       return;
@@ -146,13 +147,15 @@ function renderHuman(kind: RouterKind, raw: string): void {
     renderSchema(value);
     return;
   }
-  renderBatch(kind, value, raw);
+  renderBatch(kind, value);
 }
 
 function renderSearch(value: Record<string, unknown>): void {
   if (typeof value.search_id === "string") {
     console.log(`\n  ${chalk.gray("search_id")} ${value.search_id}`);
   }
+
+  renderPlan(value.plan);
 
   const tools = Array.isArray(value.tools) ? value.tools : [];
   if (tools.length === 0) {
@@ -205,7 +208,18 @@ function renderSchema(value: Record<string, unknown>): void {
   console.log();
 }
 
-function renderBatch(kind: RouterKind, value: Record<string, unknown>, raw: string): void {
+function renderPlan(plan: unknown): void {
+  if (!isRecord(plan)) return;
+  if (typeof plan.plan_ref === "string") {
+    console.log(`\n  ${chalk.bold("Plan")} ${plan.plan_ref}`);
+  } else {
+    console.log(`\n  ${chalk.bold("Plan")}`);
+  }
+  printStringList("    step", plan.recommended_steps);
+  printStringList("    pitfall", plan.known_pitfalls);
+}
+
+function renderBatch(kind: RouterKind, value: Record<string, unknown>): void {
   if (typeof value.batch_id === "string") {
     console.log(`\n  ${chalk.gray("batch_id")} ${value.batch_id}`);
   }
@@ -231,9 +245,9 @@ function renderBatch(kind: RouterKind, value: Record<string, unknown>, raw: stri
     if (requestId) console.log(chalk.gray(`    request_id ${requestId}`));
 
     if (kind === "quote") {
-      renderQuoteData(item.data, raw);
+      renderQuoteData(item.data);
     } else {
-      const charged = rawFieldNumberNear(raw, "customer_cost_micros_usd", callId);
+      const charged = numberToken(item.customer_cost_micros_usd);
       if (charged) {
         console.log(`    customer_cost_micros_usd ${charged} (as reported; not converted to dollars)`);
       } else {
@@ -251,15 +265,15 @@ function renderBatch(kind: RouterKind, value: Record<string, unknown>, raw: stri
   console.log();
 }
 
-function renderQuoteData(data: unknown, raw: string): void {
+function renderQuoteData(data: unknown): void {
   if (!isRecord(data)) {
     console.log(chalk.gray("    quote data missing — not treated as zero"));
     return;
   }
   const kind = typeof data.estimate_kind === "string" ? data.estimate_kind : "unknown";
   const mayExceed = data.may_exceed_estimate === true;
-  const estimated = rawFieldNumber(raw, "estimated_cost_micros_usd");
-  const max = rawFieldNumber(raw, "max_cost_micros_usd");
+  const estimated = numberToken(data.estimated_cost_micros_usd);
+  const max = numberToken(data.max_cost_micros_usd);
 
   console.log(`    estimate_kind ${kind}${mayExceed ? " (may exceed estimate)" : ""}`);
   if (estimated) {
@@ -276,10 +290,10 @@ function renderQuoteData(data: unknown, raw: string): void {
 }
 
 function printCounts(value: Record<string, unknown>): void {
-  const total = value.total_count;
-  const ok = value.success_count;
-  const err = value.error_count;
-  if (typeof total === "number" || typeof ok === "number" || typeof err === "number") {
+  const total = numberToken(value.total_count);
+  const ok = numberToken(value.success_count);
+  const err = numberToken(value.error_count);
+  if (total !== undefined || ok !== undefined || err !== undefined) {
     console.log(`\n  ${ok ?? "?"} ok · ${err ?? "?"} failed · ${total ?? "?"} total`);
   }
 }
@@ -297,20 +311,6 @@ function printStringList(label: string, value: unknown): void {
   for (const line of value) {
     if (typeof line === "string") console.log(`${label}: ${line}`);
   }
-}
-
-export function rawFieldNumber(raw: string, key: string): string | undefined {
-  const match = raw.match(new RegExp(`"${key}"\\s*:\\s*(-?\\d+)`));
-  return match?.[1];
-}
-
-function rawFieldNumberNear(raw: string, key: string, callId: string): string | undefined {
-  const idx = raw.indexOf(`"call_id":"${callId}"`) >= 0
-    ? raw.indexOf(`"call_id":"${callId}"`)
-    : raw.indexOf(`"call_id": "${callId}"`);
-  if (idx < 0) return rawFieldNumber(raw, key);
-  const window = raw.slice(idx, idx + 2000);
-  return rawFieldNumber(window, key);
 }
 
 function rawFieldString(raw: string, key: string): string | undefined {
