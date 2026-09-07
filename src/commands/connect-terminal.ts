@@ -195,8 +195,16 @@ function say(text: string, indent = "│  "): void {
 type Answer =
   | { by: "user"; index: number; picked?: number[] }
   | { by: "page"; draft: Selection }
-  /** The page went back to an earlier step; this side follows. */
-  | { by: "back"; to: number };
+  /**
+   * Go back to an earlier step.
+   *
+   * `from` matters because this side has no step 1: a click on the page's
+   * first rail step lands the terminal at 2, and echoing that 2 back into the
+   * shared position told the page it was on the agent question when it was
+   * showing the welcome. A rewind asked for by the page is already recorded
+   * there; only one asked for here needs publishing.
+   */
+  | { by: "back"; to: number; from: "page" | "here" };
 
 /**
  * Thrown by a step when the run has to resume from an earlier one.
@@ -207,7 +215,11 @@ type Answer =
  * state machine for the sake of it.
  */
 class Rewind {
-  constructor(readonly to: number) {}
+  constructor(
+    readonly to: number,
+    /** False when the page already knows — see Answer's `back`. */
+    readonly echo = true
+  ) {}
 }
 
 /**
@@ -276,8 +288,12 @@ async function askOrWatch(
       // And going back is an answer too: clicking an earlier step in the rail
       // means "I want to choose that again", which is not something this side
       // can honour by staying where it is.
-      if (s.currentStep && s.currentStep < step) {
-        return { by: "back", to: terminalStepFor(s.currentStep) };
+      // Compared after translating, not before. The page's step 1 is this
+      // side's step 2, so a page sitting on the welcome reads as "behind"
+      // a terminal that is already standing exactly where it should — and
+      // the question got reprinted every time somebody opened the page.
+      if (s.currentStep && terminalStepFor(s.currentStep) < step) {
+        return { by: "back", to: terminalStepFor(s.currentStep), from: "page" };
       }
     }
   })();
@@ -384,7 +400,7 @@ async function pickOrWatch(
         misses = 0;
         if (s.rev === seenRev || !s.draft) continue;
         if ((s.currentStep ?? 0) > step) return s.draft;
-        if (s.currentStep && s.currentStep < step) {
+        if (s.currentStep && terminalStepFor(s.currentStep) < step) {
           back = terminalStepFor(s.currentStep);
           return s.draft; // ends the picker; the caller reads `back`
         }
@@ -400,12 +416,12 @@ async function pickOrWatch(
     },
   });
   if (r.interrupted) {
-    if (back !== undefined) return { by: "back", to: back };
+    if (back !== undefined) return { by: "back", to: back, from: "page" };
     return { by: "page", draft: r.interrupted };
   }
   if (r.escaped) {
     if (backTo === undefined) return { by: "user", index: initial[0] ?? 0, picked: initial };
-    return { by: "back", to: backTo };
+    return { by: "back", to: backTo, from: "here" };
   }
   return { by: "user", index: r.picked?.[0] ?? initial[0] ?? 0, picked: r.picked };
 }
@@ -580,7 +596,7 @@ export async function runTerminalFlow(
               },
             })
         : await askOrWatch(o, shown.length, preferred, rev, 2);
-      if (a1.by === "back") throw new Rewind(a1.to);
+      if (a1.by === "back") throw new Rewind(a1.to, a1.from === "here");
       if (a1.by === "page") {
         // Answered in the browser. Say so rather than redrawing silently —
         // seeing why the prompt moved on is the whole point.
@@ -669,7 +685,7 @@ export async function runTerminalFlow(
                 },
               })
           : await askOrWatch(o, modes.length, 0, rev, 3);
-        if (a2.by === "back") throw new Rewind(a2.to);
+        if (a2.by === "back") throw new Rewind(a2.to, a2.from === "here");
         // The extra row is the way back. Steps 3 and 4 are the two where a
         // person can realise they picked the wrong thing a moment ago; 2 has
         // nothing behind it and 5 already asks.
@@ -729,7 +745,7 @@ export async function runTerminalFlow(
           });
         // In a checklist the way back cannot be another row — a row is a
         // thing you tick — so Escape is the gesture, and the hint says so.
-        if (a3.by === "back") throw new Rewind(a3.to);
+        if (a3.by === "back") throw new Rewind(a3.to, a3.from === "here");
         if (a3.by === "page") {
           chosen.clear();
           for (const slug of a3.draft.servers ?? []) chosen.add(slug);
@@ -845,7 +861,7 @@ export async function runTerminalFlow(
       console.log("\n" + dim("│  ") + chalk.magenta(
         o.lang === "zh" ? `↩ 回到第 ${from} 步` : `↩ back to step ${from}`
       ));
-      ({ rev } = await push(o, rev, { step: from }));
+      if (e.echo) ({ rev } = await push(o, rev, { step: from }));
       continue;
      }
 
