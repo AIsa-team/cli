@@ -668,3 +668,37 @@ export const SUPERSEDED = {
     zh: "本页面已关闭。新的运行有它自己的页面。",
   },
 };
+
+/**
+ * The second tab, once the sign-in is done.
+ *
+ * A sign-in started from inside `connect` opens a new tab, and that tab has
+ * to end somewhere. Ending it on "you can close this tab" is right for
+ * standalone `aisa login`, where closing it is the whole of what is left —
+ * but wrong here, where a setup is still running one tab over and the reader
+ * has just been sent away from it. This page goes back instead.
+ */
+export const RETURN_PAGE = {
+  ok: {
+    title: { en: "Signed in", zh: "登录成功" },
+    body: {
+      en: "Taking you back to your setup — it carries on from where it was.",
+      zh: "正在带你回到刚才的配置流程 —— 会从原来的位置继续。",
+    },
+  },
+  failed: {
+    title: { en: "Sign-in was not completed", zh: "登录没有完成" },
+    body: {
+      en: "Nothing was changed. Go back to your setup and try the sign-in again.",
+      zh: "什么都没有改动。回到配置流程再登录一次。",
+    },
+  },
+  stale: {
+    title: { en: "Nothing is waiting for this", zh: "这次回调已经没人在等了" },
+    body: {
+      en: "This sign-in has already been answered. Back to your setup.",
+      zh: "这次登录已经处理过了。回到你的配置流程。",
+    },
+  },
+  link: { en: "Back to your setup", zh: "回到配置流程" },
+} as const;

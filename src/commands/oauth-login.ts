@@ -228,21 +228,43 @@ function openBrowser(url: string): void {
  * any failure. `aisa login` wraps this with CLI messaging; `aisa connect`
  * runs it as its "Sign in to AIsa" step.
  */
-export async function mintCliKey(options: { open?: boolean; lang?: Lang } = {}): Promise<string> {
+/**
+ * Somewhere for the browser to land.
+ *
+ * `aisa login` on its own takes a random loopback port and serves one page on
+ * it. Inside `connect` that is the wrong shape: the sign-in opens in a second
+ * tab, and a random port has nothing to do with the run — the tab finishes on
+ * a page that knows nothing about the setup in progress and leaves the user
+ * to find their way back to the first tab themselves. Handing the run's own
+ * server in means the approval comes home to the address the setup already
+ * lives at, and the tab can return the reader to it.
+ */
+export interface OAuthCatcher {
+  /** Registered with the authorization server before the browser opens. */
+  redirectUri: string;
+  /** Resolves with the authorization code, or rejects with why it will not. */
+  wait(expectedState: string): Promise<string>;
+}
+
+export async function mintCliKey(
+  options: { open?: boolean; lang?: Lang; catcher?: OAuthCatcher } = {}
+): Promise<string> {
   const lang: Lang = options.lang ?? "en";
   // Unset means "work it out": a server has no browser to open and waiting
   // for a click on a machine with no screen is the worst way to find out.
-  const useBrowser = options.open ?? canOpenBrowser();
-  // Unset means "work it out": a server has no browser to open and waiting
-  // for a click on a machine with no screen is the worst way to find out.
-
+  // A caller that brought its own catcher has already decided.
+  const useBrowser = options.catcher ? true : (options.open ?? canOpenBrowser());
 
   // The redirect has to be registered before the browser opens, and Clerk
-  // matches it exactly — so which of the two it is has to be settled here,
+  // matches it exactly — so which of the three it is has to be settled here,
   // before anything else happens. A loopback port is only worth taking when
   // this process is the one that will catch the redirect.
-  const port = useBrowser ? 10000 + Math.floor(Math.random() * 50_000) : 0;
-  const redirectUri = useBrowser ? `http://127.0.0.1:${port}/callback` : HOSTED_REDIRECT;
+  const port = useBrowser && !options.catcher ? 10000 + Math.floor(Math.random() * 50_000) : 0;
+  const redirectUri = options.catcher
+    ? options.catcher.redirectUri
+    : useBrowser
+      ? `http://127.0.0.1:${port}/callback`
+      : HOSTED_REDIRECT;
 
   info(t(SIGNIN.start, lang));
   const clientId = await registerClient(redirectUri);
@@ -262,7 +284,13 @@ export async function mintCliKey(options: { open?: boolean; lang?: Lang } = {}):
   }).toString();
 
   let code: string;
-  if (useBrowser) {
+  if (options.catcher) {
+    // The run's own server is already listening; nothing to start here.
+    info(t(SIGNIN.willOpen, lang));
+    console.log(`  ${t(SIGNIN.ifNot, lang)}\n  ${authUrl.toString()}\n`);
+    openBrowser(authUrl.toString());
+    code = await options.catcher.wait(state);
+  } else if (useBrowser) {
     info(t(SIGNIN.willOpen, lang));
     console.log(`  ${t(SIGNIN.ifNot, lang)}\n  ${authUrl.toString()}\n`);
     openBrowser(authUrl.toString());

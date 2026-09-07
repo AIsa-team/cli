@@ -23,7 +23,7 @@ import {
   DEFAULT_MODELS,
 } from "./llm-config.js";
 import { writeClaudeAisaSettings, installWrappers } from "./wrappers.js";
-import { mintCliKey } from "./oauth-login.js";
+import { mintCliKey, type OAuthCatcher } from "./oauth-login.js";
 import { canOpenBrowser } from "../utils/browser.js";
 import { vscodeDetected, vscodeUserDir, writeVSCodeLLM, writeVSCodeMCP, installVSCodeExtension, launchVSCode, VSCODE_MODELS } from "./vscode.js";
 import { formatMicrosUSD } from "./account.js";
@@ -32,7 +32,8 @@ import { run, runSync, QUICK_TIMEOUT_MS } from "../utils/exec.js";
 import { httpFetch } from "../utils/http.js";
 import { Journal } from "../utils/journal.js";
 import { checkForUpdate, markUpdateAnnounced } from "../utils/update-check.js";
-import { resolveLang, LANGS, LAUNCH, SURFACE, t, type Lang } from "./flow.js";
+import { resolveLang, LANGS, LAUNCH, SURFACE, RETURN_PAGE, t, type Lang } from "./flow.js";
+import { renderReturnPage, type ReturnOutcome } from "./signin-page.js";
 import { VERSION } from "../constants.js";
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -406,6 +407,8 @@ async function applySelection(
 /** Long enough to read one sentence before the screen changes under you.
  *  Every handoff to the browser or to a slow command gets one. */
 const BEFORE_HANDOFF_MS = 3000;
+/** How long a run waits for an approval that opened in a second tab. */
+const SIGNIN_CATCH_TIMEOUT_MS = 10 * 60 * 1000;
 
 /** Passed to `codex mcp add --bearer-token-env-var` so the add does not start
  *  its own OAuth flow; the entry is then patched to carry the literal header
@@ -537,6 +540,12 @@ function buildPlan(input: PlanInput): Step[] {
 }
 
 interface RunInput {
+  /**
+   * Where a sign-in started by this run should land. Absent on a machine with
+   * no browser, where the loopback redirect has nothing to catch and the
+   * paste-it-back path is the only one that works.
+   */
+  catcher?: OAuthCatcher;
   install: string[];
   clients: string[];
   servers: LiveServer[];
@@ -622,21 +631,26 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
   // ── sign in once, before anything that wants a credential ──
   let key = input.key;
   if (state.steps.some((s) => s.id === "signin")) {
+    // Said before the tab opens, not as it opens. A browser that jumps to a
+    // sign-in page the user did not ask for reads as something going wrong —
+    // they came here to configure an agent and nobody told them an account
+    // was part of it. Three seconds of "here is why, and here is what is
+    // about to happen" turns a surprise into a step.
     setStep(state, "signin", {
       state: "running",
-      detail: "your browser will open — approve the sign-in there…",
+      detail: "AIsa needs an account — a sign-in page is about to open in a new tab…",
     });
-    log.line("step", "Signing you in to AIsa", "one browser approval, then a durable key");
+    log.line("step", "You need an AIsa account", "opening the sign-in in a new browser tab");
     await pause(BEFORE_HANDOFF_MS);
     setStep(state, "signin", {
       state: "running",
-      detail: "waiting for you to approve it in the browser tab",
+      detail: "sign in or create your account in the new tab — this setup waits here",
     });
     try {
       if (input.dryRun) {
         ok("signin", "dry run — the browser approval would open here");
       } else {
-        key = await mintCliKey({ lang: input.lang });
+        key = await mintCliKey({ lang: input.lang, catcher: input.catcher });
         ok("signin", "signed in — your CLI key is stored");
       }
     } catch (e) {
@@ -2390,10 +2404,115 @@ export async function connectAction(options: {
     detached ? Math.max(1_000, resumed!.until - Date.now()) : IDLE_TIMEOUT_MS
   );
 
+  /**
+   * The sign-in that happens inside a run, caught on the run's own port.
+   *
+   * Standalone `aisa login` opens a random loopback port for the redirect,
+   * which is right when the sign-in is the whole errand. Here it is not: the
+   * approval opens in a second tab, and a random port lands that tab on a
+   * page with no idea a setup is in progress, leaving the reader to find
+   * their own way back to the first tab. Catching it here means the tab comes
+   * home to the address the run already lives at, and can return them to it.
+   *
+   * Only ever one at a time — a run signs in once — so a single slot is
+   * enough, and `state` is what proves the response belongs to it. The route
+   * cannot require the run token: the authorization server redirects with
+   * `code` and `state` and nothing else, which is exactly what `state` is for.
+   */
+  let pendingSignIn:
+    | { state: string; resolve: (code: string) => void; reject: (e: Error) => void }
+    | undefined;
+
+  /**
+   * Hand the run's own address to the sign-in.
+   *
+   * Only where a browser can actually be opened here. On a server the
+   * redirect would come back to a loopback port nobody can reach, so the
+   * sign-in keeps its hosted-redirect-and-paste path — the port would be a
+   * dead end dressed up as an improvement.
+   */
+  const signInCatcher: OAuthCatcher | undefined = canOpenBrowser()
+    ? {
+        // A getter, not a value: the port is assigned when the server binds,
+        // which is after this object exists and long before it is read.
+        get redirectUri() {
+          return `http://127.0.0.1:${port}/callback`;
+        },
+        wait(expected: string) {
+          return new Promise<string>((resolve, reject) => {
+            // The same deadline the standalone sign-in uses. A tab that is
+            // never approved must not hold a run open for ever.
+            const giveUp = setTimeout(() => {
+              if (pendingSignIn?.state !== expected) return;
+              pendingSignIn = undefined;
+              reject(new Error("no response from the browser — retry later with 'aisa login'"));
+            }, SIGNIN_CATCH_TIMEOUT_MS);
+            giveUp.unref?.();
+            pendingSignIn = {
+              state: expected,
+              resolve: (code) => {
+                clearTimeout(giveUp);
+                resolve(code);
+              },
+              reject: (e) => {
+                clearTimeout(giveUp);
+                reject(e);
+              },
+            };
+          });
+        },
+      }
+    : undefined;
+
+  const returnPage = (outcome: ReturnOutcome, back: string) =>
+    renderReturnPage(outcome, back, {
+      title: t(RETURN_PAGE[outcome].title, lang),
+      body: t(RETURN_PAGE[outcome].body, lang),
+      link: t(RETURN_PAGE.link, lang),
+    });
+
   const srv = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
     const tokenOk =
       url.searchParams.get("token") === token || req.headers["x-connect-token"] === token;
+
+    if (req.method === "GET" && url.pathname === "/callback") {
+      const code = url.searchParams.get("code");
+      const got = url.searchParams.get("state");
+      const mine = pendingSignIn && got === pendingSignIn.state;
+      // `state` is the only credential this route can ask for — the
+      // authorization server redirects with `code` and `state` and nothing
+      // else — so everything that turns on it is decided here.
+      //
+      // Two things follow from a state that does not match. The run is not
+      // cancelled: any local process could otherwise abort a sign-in by
+      // fetching this path once. And the page it gets back carries no link
+      // home, because that link contains the run token — the one thing
+      // keeping other processes on this machine from driving the run.
+      if (!mine) {
+        res
+          .writeHead(pendingSignIn ? 400 : 200, { "content-type": "text/html; charset=utf-8" })
+          .end(returnPage("stale", ""));
+        return;
+      }
+      const back = `http://127.0.0.1:${port}/?token=${token}`;
+      const p = pendingSignIn!;
+      pendingSignIn = undefined;
+      if (!code) {
+        // Right state, no code: the authorization server said no, or the
+        // user declined. That is this run's answer and it does end it.
+        res
+          .writeHead(400, { "content-type": "text/html; charset=utf-8" })
+          .end(returnPage("failed", back));
+        p.reject(new Error("authorization was denied or the response was malformed"));
+        return;
+      }
+      res
+        .writeHead(200, { "content-type": "text/html; charset=utf-8" })
+        .end(returnPage("ok", back));
+      p.resolve(code);
+      return;
+    }
 
     if (req.method === "GET" && url.pathname === "/") {
       if (!tokenOk) {
@@ -2644,6 +2763,7 @@ export async function connectAction(options: {
         // Not `key`: a key the gateway has turned down must not be written
         // into MCP entries or provider settings on its way to failing.
         key: liveKey(),
+        catcher: signInCatcher,
         dryRun: Boolean(options.dryRun),
         llmMode,
         lang,

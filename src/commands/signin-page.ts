@@ -159,3 +159,97 @@ export function renderSignInPage(outcome: SignInOutcome, closesAt?: number): str
 </body>
 </html>`;
 }
+
+/**
+ * The page a sign-in started from inside `connect` lands on.
+ *
+ * The difference from the one above is entirely about what happens next.
+ * Standalone `aisa login` is finished when the browser lands: "you can close
+ * this tab" is the whole of the remaining instruction. Inside a run it is
+ * not — a setup is still going one tab over, and the user has just been sent
+ * away from it by a redirect they did not choose. Leaving them on a
+ * congratulations page with a close button makes finding the way back their
+ * problem.
+ *
+ * So this one goes back on its own, after a beat long enough to read the
+ * tick. window.close() is tried first and will almost always fail — the tab
+ * was opened by the operating system, not by a script, and browsers do not
+ * let a page close what it did not open — which is exactly why the redirect
+ * cannot be left to it. A plain link sits underneath for anyone whose
+ * browser blocks both.
+ */
+export type ReturnOutcome = "ok" | "failed" | "stale";
+
+const RETURN_DWELL_MS = 1400;
+
+export function renderReturnPage(
+  outcome: ReturnOutcome,
+  back: string,
+  copy: { title: string; body: string; link: string }
+): string {
+  const good = outcome === "ok";
+  // Only a successful sign-in is sent back on its own. A failure has
+  // something to read, and bouncing someone off an explanation before they
+  // have read it is how a run becomes a mystery.
+  const auto = good;
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<title>AIsa CLI</title>
+<style>
+  :root{
+    --bg:#faf9f7; --fg:#1c1917; --dim:#6f6864; --faint:#a8a29e;
+    --line:#e7e4e0; --accent:${good ? "#c2410c" : "#9a3412"};
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#0d0c0b; --fg:#f5f4f2; --dim:#a09a95; --faint:#6f6864;
+          --line:#282523; --accent:${good ? "#e2703a" : "#c2410c"}}
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;display:flex;align-items:center;justify-content:center;
+    padding:48px 32px;background:var(--bg);color:var(--fg);
+    font:17px/1.65 ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{width:min(720px,74vw)}
+  .tick{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+  .tick span{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:15px;flex:0 0 auto}
+  h1{font-size:34px;line-height:1.25;margin:0 0 16px;letter-spacing:-.021em;font-weight:650}
+  p{margin:0;font-size:18px;color:var(--dim);max-width:32em}
+  .cta{margin:22px 0 0;font-size:17px}
+  .cta a{color:var(--accent);text-decoration:none;font-family:var(--mono);font-size:16px;
+    border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent)}
+  .cta a:hover{border-bottom-color:var(--accent)}
+  @media (max-width:760px){
+    body{padding:32px 20px} .wrap{width:100%}
+    h1{font-size:27px} p{font-size:16.5px} .cta{font-size:16px}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="tick"><span>${good ? "✓" : "!"}</span></div>
+    <h1>${copy.title}</h1>
+    <p>${copy.body}</p>
+    ${back ? `<p class="cta"><a id="back" href="${back}">${copy.link}</a></p>` : ""}
+  </div>
+<script>
+(function () {
+  var el = document.getElementById("back");
+  if (!el) return;
+  var back = el.getAttribute("href");
+  ${auto ? `setTimeout(function () {
+    try { window.close(); } catch (e) { /* not ours to close */ }
+    location.replace(back);
+  }, ${RETURN_DWELL_MS});` : ""}
+})();
+</script>
+</body>
+</html>`;
+}
