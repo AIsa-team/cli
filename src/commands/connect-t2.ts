@@ -289,6 +289,7 @@ ${restChips}
   const install = `
 <h1 id="inTitle">${T(STEP_INSTALL.h1).replace("connect", "<em>connect</em>").replace("接线", "<em>接线</em>")}</h1>
 <p class="lede" id="inLede">${T(STEP_INSTALL.lede)}</p>
+<div class="backfrom" id="backfrom" hidden></div>
 <div class="plan" id="plan"></div>
 <div class="barwrap" id="barwrap" style="display:none"><div class="barfill" id="barfill"></div></div>
 <div class="barnote" id="barnote"></div>
@@ -350,6 +351,11 @@ ${restChips}
 <script>
 (function () {
   var TOKEN = ${JSON.stringify(token)};
+  // The sign-in tab sends the reader back here with this on the URL. Without
+  // it the return reads as an unexplained reload of a page they never left
+  // on purpose — they were redirected away by the sign-in and redirected
+  // home again, and neither move was theirs.
+  var CAME_BACK = /[?&]signedin=1/.test(location.search);
   var VIEW = ${JSON.stringify(view)};
   var SERVERS = ${JSON.stringify(SERVERS)};
   var CLIENTS = ${JSON.stringify(CLIENTS)};
@@ -1095,6 +1101,35 @@ ${restChips}
       unlocked = 6; renderSteps(); finish();
       syncClientCard(s.steps);
     } else {
+      // Catch up to the run; do not re-perform it.
+      //
+      // The shown map starts empty on every page load, so a page arriving in
+      // the middle of a run replayed the whole checklist from the top at one
+      // row every 1.8s — which is what the tab coming back from a sign-in
+      // did: the reader watched Install the AIsa CLI start again and could
+      // only conclude the setup had restarted.
+      //
+      // The pacing exists to make a first viewing legible. A page that
+      // arrives late has missed it, not earned the right to see it — so
+      // everything already settled is adopted at once and the animation
+      // picks up at the row that is actually working.
+      if (CAME_BACK) {
+        var bf = $("#backfrom");
+        if (bf) {
+          // What is certain at this moment, and no more: the browser half is
+          // done. Whether the key was issued is a line or two further down
+          // the checklist and says so itself — claiming it here would be a
+          // guess dressed as a receipt.
+          bf.innerHTML = "\u2713 Signed in \u2014 back in your setup, carrying on from where it was.";
+          bf.hidden = false;
+        }
+      }
+      var caughtUp = false;
+      (serverSteps || []).forEach(function (x) {
+        if (caughtUp) return;
+        if (/ok|skip|fail/.test(x.state)) { shown[x.id] = x.state; return; }
+        if (x.state === "running") { shown[x.id] = "running"; caughtUp = true; }
+      });
       unlocked = 5; renderSteps(); if (!ticker) ticker = setInterval(tick, 250);
     }
     return true;
@@ -1152,6 +1187,10 @@ function shellT2(title: string, body: string): string {
   .rstep.open:hover { background: color-mix(in srgb, var(--tint) 60%, transparent); }
   /* While the run is writing to the machine: still legible, plainly not a
      control. No hover, because a hover that leads nowhere is a small lie. */
+  .backfrom { display: flex; align-items: center; gap: .55rem; margin: 0 0 1rem;
+    padding: .62rem .85rem; border: 1px solid #bfe0c8; border-radius: 10px;
+    background: #f2faf4; color: #216c37; font-size: .9rem; }
+  .backfrom[hidden] { display: none; }
   .rstep.frozen { cursor: default; opacity: .45; }
   .rstep.frozen:hover { background: transparent; }
   .rstep .rn { flex: none; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line);

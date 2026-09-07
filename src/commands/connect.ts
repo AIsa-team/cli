@@ -2538,7 +2538,9 @@ export async function connectAction(options: {
           .end(returnPage("stale", ""));
         return;
       }
-      const back = `http://127.0.0.1:${port}/?token=${token}`;
+      // Marked, so the page it lands on can say what just happened rather
+      // than looking like a setup that reloaded for no reason.
+      const back = `http://127.0.0.1:${port}/?token=${token}&signedin=1`;
       const p = pendingSignIn!;
       pendingSignIn = undefined;
       if (!code) {
