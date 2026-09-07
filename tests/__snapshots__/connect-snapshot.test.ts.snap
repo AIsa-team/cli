@@ -1251,7 +1251,27 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
     syncAgent(); syncModels(); syncCaps(); lockSelections();
     phase = s.phase; serverSteps = s.steps; lastStatus = s;
     var settled = phase === "done" || phase === "failed";
-    if (settled || VIEW === "done") {
+    // Coming back from the sign-in tab is not the same as arriving late.
+    //
+    // The reader left this page for exactly one row — the sign-in — and that
+    // row's outcome is the only thing they went away to get. Adopting it in
+    // silence with everything else meant the trip they had just taken had no
+    // visible result: the checklist was simply further along than they left
+    // it, and the one line that says the key is theirs went by unread.
+    //
+    // So the return resumes at the sign-in: everything above it is adopted
+    // at once (no replay from the top), the sign-in itself lands with its own
+    // tick and its own sentence, and only then does the run move on. This
+    // holds even for a run that finished while they were away — the rows are
+    // paced out rather than snapped to a finished checklist.
+    var resumeAt = -1;
+    if (CAME_BACK) {
+      (s.steps || []).forEach(function (x, i) { if (resumeAt < 0 && x.id === "signin") resumeAt = i; });
+      // Consume the marker: a manual reload later is an arrival, not a return,
+      // and should not replay a sign-in that happened minutes ago.
+      if (history.replaceState) history.replaceState(null, "", location.pathname);
+    }
+    if ((settled || VIEW === "done") && resumeAt < 0) {
       serverSteps.forEach(function (x) { shown[x.id] = x.state; });
       unlocked = 6; renderSteps(); finish();
       syncClientCard(s.steps);
@@ -1266,25 +1286,37 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
       //
       // The pacing exists to make a first viewing legible. A page that
       // arrives late has missed it, not earned the right to see it — so
-      // everything already settled is adopted at once and the animation
-      // picks up at the row that is actually working.
+      // everything already settled is adopted at once and the animation picks
+      // up at the row that is actually working. The one exception is the
+      // return from the sign-in (resumeAt), which is not an arrival: see the
+      // note where resumeAt is computed.
       if (CAME_BACK) {
         var bf = $("#backfrom");
         if (bf) {
-          // What is certain at this moment, and no more: the browser half is
-          // done. Whether the key was issued is a line or two further down
-          // the checklist and says so itself — claiming it here would be a
-          // guess dressed as a receipt.
-          bf.innerHTML = "✓ Signed in — back in your setup, carrying on from where it was.";
+          // Says the one thing the checklist cannot: the trip is over and
+          // this is the same setup they left. The receipt — that a key now
+          // exists and where it lives — belongs to the sign-in row a few
+          // lines below, which lands with its own tick and holds still long
+          // enough to be read. Saying it in both places twice over, two
+          // lines apart, is not emphasis; it is noise.
+          bf.innerHTML = "✓ Signed in — picking up where your setup left off.";
           bf.hidden = false;
         }
       }
       var caughtUp = false;
-      (serverSteps || []).forEach(function (x) {
+      (serverSteps || []).forEach(function (x, i) {
         if (caughtUp) return;
+        // On a return: adopt down to and including the sign-in, then stop.
+        // The rows after it are the ones still worth watching happen.
+        if (resumeAt >= 0 && i > resumeAt) { caughtUp = true; return; }
         if (/ok|skip|fail/.test(x.state)) { shown[x.id] = x.state; return; }
         if (x.state === "running") { shown[x.id] = "running"; caughtUp = true; }
       });
+      // The sign-in result is on screen the moment the page paints. Start the
+      // dwell clock here so it stays there: the next row cannot begin until a
+      // full MIN_DWELL has passed, which is the beat the reader needs in order
+      // to read that the key is theirs before the checklist moves again.
+      if (resumeAt >= 0) lastFlip = Date.now();
       unlocked = 5; renderSteps(); if (!ticker) ticker = setInterval(tick, 250);
     }
     return true;
@@ -2542,7 +2574,27 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
     syncAgent(); syncModels(); syncCaps(); lockSelections();
     phase = s.phase; serverSteps = s.steps; lastStatus = s;
     var settled = phase === "done" || phase === "failed";
-    if (settled || VIEW === "done") {
+    // Coming back from the sign-in tab is not the same as arriving late.
+    //
+    // The reader left this page for exactly one row — the sign-in — and that
+    // row's outcome is the only thing they went away to get. Adopting it in
+    // silence with everything else meant the trip they had just taken had no
+    // visible result: the checklist was simply further along than they left
+    // it, and the one line that says the key is theirs went by unread.
+    //
+    // So the return resumes at the sign-in: everything above it is adopted
+    // at once (no replay from the top), the sign-in itself lands with its own
+    // tick and its own sentence, and only then does the run move on. This
+    // holds even for a run that finished while they were away — the rows are
+    // paced out rather than snapped to a finished checklist.
+    var resumeAt = -1;
+    if (CAME_BACK) {
+      (s.steps || []).forEach(function (x, i) { if (resumeAt < 0 && x.id === "signin") resumeAt = i; });
+      // Consume the marker: a manual reload later is an arrival, not a return,
+      // and should not replay a sign-in that happened minutes ago.
+      if (history.replaceState) history.replaceState(null, "", location.pathname);
+    }
+    if ((settled || VIEW === "done") && resumeAt < 0) {
       serverSteps.forEach(function (x) { shown[x.id] = x.state; });
       unlocked = 6; renderSteps(); finish();
       syncClientCard(s.steps);
@@ -2557,25 +2609,37 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
       //
       // The pacing exists to make a first viewing legible. A page that
       // arrives late has missed it, not earned the right to see it — so
-      // everything already settled is adopted at once and the animation
-      // picks up at the row that is actually working.
+      // everything already settled is adopted at once and the animation picks
+      // up at the row that is actually working. The one exception is the
+      // return from the sign-in (resumeAt), which is not an arrival: see the
+      // note where resumeAt is computed.
       if (CAME_BACK) {
         var bf = $("#backfrom");
         if (bf) {
-          // What is certain at this moment, and no more: the browser half is
-          // done. Whether the key was issued is a line or two further down
-          // the checklist and says so itself — claiming it here would be a
-          // guess dressed as a receipt.
-          bf.innerHTML = "✓ Signed in — back in your setup, carrying on from where it was.";
+          // Says the one thing the checklist cannot: the trip is over and
+          // this is the same setup they left. The receipt — that a key now
+          // exists and where it lives — belongs to the sign-in row a few
+          // lines below, which lands with its own tick and holds still long
+          // enough to be read. Saying it in both places twice over, two
+          // lines apart, is not emphasis; it is noise.
+          bf.innerHTML = "✓ Signed in — picking up where your setup left off.";
           bf.hidden = false;
         }
       }
       var caughtUp = false;
-      (serverSteps || []).forEach(function (x) {
+      (serverSteps || []).forEach(function (x, i) {
         if (caughtUp) return;
+        // On a return: adopt down to and including the sign-in, then stop.
+        // The rows after it are the ones still worth watching happen.
+        if (resumeAt >= 0 && i > resumeAt) { caughtUp = true; return; }
         if (/ok|skip|fail/.test(x.state)) { shown[x.id] = x.state; return; }
         if (x.state === "running") { shown[x.id] = "running"; caughtUp = true; }
       });
+      // The sign-in result is on screen the moment the page paints. Start the
+      // dwell clock here so it stays there: the next row cannot begin until a
+      // full MIN_DWELL has passed, which is the beat the reader needs in order
+      // to read that the key is theirs before the checklist moves again.
+      if (resumeAt >= 0) lastFlip = Date.now();
       unlocked = 5; renderSteps(); if (!ticker) ticker = setInterval(tick, 250);
     }
     return true;
@@ -3833,7 +3897,27 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
     syncAgent(); syncModels(); syncCaps(); lockSelections();
     phase = s.phase; serverSteps = s.steps; lastStatus = s;
     var settled = phase === "done" || phase === "failed";
-    if (settled || VIEW === "done") {
+    // Coming back from the sign-in tab is not the same as arriving late.
+    //
+    // The reader left this page for exactly one row — the sign-in — and that
+    // row's outcome is the only thing they went away to get. Adopting it in
+    // silence with everything else meant the trip they had just taken had no
+    // visible result: the checklist was simply further along than they left
+    // it, and the one line that says the key is theirs went by unread.
+    //
+    // So the return resumes at the sign-in: everything above it is adopted
+    // at once (no replay from the top), the sign-in itself lands with its own
+    // tick and its own sentence, and only then does the run move on. This
+    // holds even for a run that finished while they were away — the rows are
+    // paced out rather than snapped to a finished checklist.
+    var resumeAt = -1;
+    if (CAME_BACK) {
+      (s.steps || []).forEach(function (x, i) { if (resumeAt < 0 && x.id === "signin") resumeAt = i; });
+      // Consume the marker: a manual reload later is an arrival, not a return,
+      // and should not replay a sign-in that happened minutes ago.
+      if (history.replaceState) history.replaceState(null, "", location.pathname);
+    }
+    if ((settled || VIEW === "done") && resumeAt < 0) {
       serverSteps.forEach(function (x) { shown[x.id] = x.state; });
       unlocked = 6; renderSteps(); finish();
       syncClientCard(s.steps);
@@ -3848,25 +3932,37 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
       //
       // The pacing exists to make a first viewing legible. A page that
       // arrives late has missed it, not earned the right to see it — so
-      // everything already settled is adopted at once and the animation
-      // picks up at the row that is actually working.
+      // everything already settled is adopted at once and the animation picks
+      // up at the row that is actually working. The one exception is the
+      // return from the sign-in (resumeAt), which is not an arrival: see the
+      // note where resumeAt is computed.
       if (CAME_BACK) {
         var bf = $("#backfrom");
         if (bf) {
-          // What is certain at this moment, and no more: the browser half is
-          // done. Whether the key was issued is a line or two further down
-          // the checklist and says so itself — claiming it here would be a
-          // guess dressed as a receipt.
-          bf.innerHTML = "✓ Signed in — back in your setup, carrying on from where it was.";
+          // Says the one thing the checklist cannot: the trip is over and
+          // this is the same setup they left. The receipt — that a key now
+          // exists and where it lives — belongs to the sign-in row a few
+          // lines below, which lands with its own tick and holds still long
+          // enough to be read. Saying it in both places twice over, two
+          // lines apart, is not emphasis; it is noise.
+          bf.innerHTML = "✓ Signed in — picking up where your setup left off.";
           bf.hidden = false;
         }
       }
       var caughtUp = false;
-      (serverSteps || []).forEach(function (x) {
+      (serverSteps || []).forEach(function (x, i) {
         if (caughtUp) return;
+        // On a return: adopt down to and including the sign-in, then stop.
+        // The rows after it are the ones still worth watching happen.
+        if (resumeAt >= 0 && i > resumeAt) { caughtUp = true; return; }
         if (/ok|skip|fail/.test(x.state)) { shown[x.id] = x.state; return; }
         if (x.state === "running") { shown[x.id] = "running"; caughtUp = true; }
       });
+      // The sign-in result is on screen the moment the page paints. Start the
+      // dwell clock here so it stays there: the next row cannot begin until a
+      // full MIN_DWELL has passed, which is the beat the reader needs in order
+      // to read that the key is theirs before the checklist moves again.
+      if (resumeAt >= 0) lastFlip = Date.now();
       unlocked = 5; renderSteps(); if (!ticker) ticker = setInterval(tick, 250);
     }
     return true;
@@ -5136,7 +5232,27 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
     syncAgent(); syncModels(); syncCaps(); lockSelections();
     phase = s.phase; serverSteps = s.steps; lastStatus = s;
     var settled = phase === "done" || phase === "failed";
-    if (settled || VIEW === "done") {
+    // Coming back from the sign-in tab is not the same as arriving late.
+    //
+    // The reader left this page for exactly one row — the sign-in — and that
+    // row's outcome is the only thing they went away to get. Adopting it in
+    // silence with everything else meant the trip they had just taken had no
+    // visible result: the checklist was simply further along than they left
+    // it, and the one line that says the key is theirs went by unread.
+    //
+    // So the return resumes at the sign-in: everything above it is adopted
+    // at once (no replay from the top), the sign-in itself lands with its own
+    // tick and its own sentence, and only then does the run move on. This
+    // holds even for a run that finished while they were away — the rows are
+    // paced out rather than snapped to a finished checklist.
+    var resumeAt = -1;
+    if (CAME_BACK) {
+      (s.steps || []).forEach(function (x, i) { if (resumeAt < 0 && x.id === "signin") resumeAt = i; });
+      // Consume the marker: a manual reload later is an arrival, not a return,
+      // and should not replay a sign-in that happened minutes ago.
+      if (history.replaceState) history.replaceState(null, "", location.pathname);
+    }
+    if ((settled || VIEW === "done") && resumeAt < 0) {
       serverSteps.forEach(function (x) { shown[x.id] = x.state; });
       unlocked = 6; renderSteps(); finish();
       syncClientCard(s.steps);
@@ -5151,25 +5267,37 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
       //
       // The pacing exists to make a first viewing legible. A page that
       // arrives late has missed it, not earned the right to see it — so
-      // everything already settled is adopted at once and the animation
-      // picks up at the row that is actually working.
+      // everything already settled is adopted at once and the animation picks
+      // up at the row that is actually working. The one exception is the
+      // return from the sign-in (resumeAt), which is not an arrival: see the
+      // note where resumeAt is computed.
       if (CAME_BACK) {
         var bf = $("#backfrom");
         if (bf) {
-          // What is certain at this moment, and no more: the browser half is
-          // done. Whether the key was issued is a line or two further down
-          // the checklist and says so itself — claiming it here would be a
-          // guess dressed as a receipt.
-          bf.innerHTML = "✓ Signed in — back in your setup, carrying on from where it was.";
+          // Says the one thing the checklist cannot: the trip is over and
+          // this is the same setup they left. The receipt — that a key now
+          // exists and where it lives — belongs to the sign-in row a few
+          // lines below, which lands with its own tick and holds still long
+          // enough to be read. Saying it in both places twice over, two
+          // lines apart, is not emphasis; it is noise.
+          bf.innerHTML = "✓ Signed in — picking up where your setup left off.";
           bf.hidden = false;
         }
       }
       var caughtUp = false;
-      (serverSteps || []).forEach(function (x) {
+      (serverSteps || []).forEach(function (x, i) {
         if (caughtUp) return;
+        // On a return: adopt down to and including the sign-in, then stop.
+        // The rows after it are the ones still worth watching happen.
+        if (resumeAt >= 0 && i > resumeAt) { caughtUp = true; return; }
         if (/ok|skip|fail/.test(x.state)) { shown[x.id] = x.state; return; }
         if (x.state === "running") { shown[x.id] = "running"; caughtUp = true; }
       });
+      // The sign-in result is on screen the moment the page paints. Start the
+      // dwell clock here so it stays there: the next row cannot begin until a
+      // full MIN_DWELL has passed, which is the beat the reader needs in order
+      // to read that the key is theirs before the checklist moves again.
+      if (resumeAt >= 0) lastFlip = Date.now();
       unlocked = 5; renderSteps(); if (!ticker) ticker = setInterval(tick, 250);
     }
     return true;
@@ -6439,7 +6567,27 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
     syncAgent(); syncModels(); syncCaps(); lockSelections();
     phase = s.phase; serverSteps = s.steps; lastStatus = s;
     var settled = phase === "done" || phase === "failed";
-    if (settled || VIEW === "done") {
+    // Coming back from the sign-in tab is not the same as arriving late.
+    //
+    // The reader left this page for exactly one row — the sign-in — and that
+    // row's outcome is the only thing they went away to get. Adopting it in
+    // silence with everything else meant the trip they had just taken had no
+    // visible result: the checklist was simply further along than they left
+    // it, and the one line that says the key is theirs went by unread.
+    //
+    // So the return resumes at the sign-in: everything above it is adopted
+    // at once (no replay from the top), the sign-in itself lands with its own
+    // tick and its own sentence, and only then does the run move on. This
+    // holds even for a run that finished while they were away — the rows are
+    // paced out rather than snapped to a finished checklist.
+    var resumeAt = -1;
+    if (CAME_BACK) {
+      (s.steps || []).forEach(function (x, i) { if (resumeAt < 0 && x.id === "signin") resumeAt = i; });
+      // Consume the marker: a manual reload later is an arrival, not a return,
+      // and should not replay a sign-in that happened minutes ago.
+      if (history.replaceState) history.replaceState(null, "", location.pathname);
+    }
+    if ((settled || VIEW === "done") && resumeAt < 0) {
       serverSteps.forEach(function (x) { shown[x.id] = x.state; });
       unlocked = 6; renderSteps(); finish();
       syncClientCard(s.steps);
@@ -6454,25 +6602,37 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
       //
       // The pacing exists to make a first viewing legible. A page that
       // arrives late has missed it, not earned the right to see it — so
-      // everything already settled is adopted at once and the animation
-      // picks up at the row that is actually working.
+      // everything already settled is adopted at once and the animation picks
+      // up at the row that is actually working. The one exception is the
+      // return from the sign-in (resumeAt), which is not an arrival: see the
+      // note where resumeAt is computed.
       if (CAME_BACK) {
         var bf = $("#backfrom");
         if (bf) {
-          // What is certain at this moment, and no more: the browser half is
-          // done. Whether the key was issued is a line or two further down
-          // the checklist and says so itself — claiming it here would be a
-          // guess dressed as a receipt.
-          bf.innerHTML = "✓ Signed in — back in your setup, carrying on from where it was.";
+          // Says the one thing the checklist cannot: the trip is over and
+          // this is the same setup they left. The receipt — that a key now
+          // exists and where it lives — belongs to the sign-in row a few
+          // lines below, which lands with its own tick and holds still long
+          // enough to be read. Saying it in both places twice over, two
+          // lines apart, is not emphasis; it is noise.
+          bf.innerHTML = "✓ Signed in — picking up where your setup left off.";
           bf.hidden = false;
         }
       }
       var caughtUp = false;
-      (serverSteps || []).forEach(function (x) {
+      (serverSteps || []).forEach(function (x, i) {
         if (caughtUp) return;
+        // On a return: adopt down to and including the sign-in, then stop.
+        // The rows after it are the ones still worth watching happen.
+        if (resumeAt >= 0 && i > resumeAt) { caughtUp = true; return; }
         if (/ok|skip|fail/.test(x.state)) { shown[x.id] = x.state; return; }
         if (x.state === "running") { shown[x.id] = "running"; caughtUp = true; }
       });
+      // The sign-in result is on screen the moment the page paints. Start the
+      // dwell clock here so it stays there: the next row cannot begin until a
+      // full MIN_DWELL has passed, which is the beat the reader needs in order
+      // to read that the key is theirs before the checklist moves again.
+      if (resumeAt >= 0) lastFlip = Date.now();
       unlocked = 5; renderSteps(); if (!ticker) ticker = setInterval(tick, 250);
     }
     return true;
