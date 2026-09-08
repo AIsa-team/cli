@@ -136,7 +136,7 @@ const STATIC: Record<string, Candidate[]> = {
     "institutional",
     "news",
   ].map((value) => ({ value })),
-  configKey: ["defaultModel", "baseUrl", "outputFormat", "twitterCookies", "twitterProxy"].map(
+  configKey: ["defaultModel", "baseUrl", "routerUrl", "outputFormat", "twitterCookies", "twitterProxy"].map(
     (value) => ({ value })
   ),
   template: ["default", "llm", "search", "finance", "twitter", "video"].map((value) => ({ value })),

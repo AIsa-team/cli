@@ -2,8 +2,9 @@ import chalk from "chalk";
 import { getConfig, setConfig, listConfig, resetConfig } from "../config.js";
 import { success, info, hint } from "../utils/display.js";
 import { resolveBases } from "../api.js";
+import { resolveRouterBase } from "../router.js";
 
-const VALID_KEYS = ["defaultModel", "baseUrl", "outputFormat", "twitterCookies", "twitterProxy", "lang"];
+const VALID_KEYS = ["defaultModel", "baseUrl", "routerUrl", "outputFormat", "twitterCookies", "twitterProxy", "lang"];
 
 export function configSetAction(key: string, value: string): void {
   if (!VALID_KEYS.includes(key)) {
@@ -12,8 +13,8 @@ export function configSetAction(key: string, value: string): void {
     process.exit(1);
   }
 
-  if (key === "baseUrl" && !/^https?:\/\/[^/]+/.test(value.trim())) {
-    console.error(`baseUrl must be an absolute http(s) URL, got: ${value}`);
+  if ((key === "baseUrl" || key === "routerUrl") && !/^https?:\/\/[^/]+/.test(value.trim())) {
+    console.error(`${key} must be an absolute http(s) URL, got: ${value}`);
     process.exit(1);
   }
 
@@ -25,6 +26,9 @@ export function configSetAction(key: string, value: string): void {
     hint(`LLM:         ${bases.llm}`);
     hint(`Integration: ${bases.domain}`);
     hint(`Catalog:     ${bases.info}`);
+  }
+  if (key === "routerUrl") {
+    hint(`Router:      ${resolveRouterBase()}`);
   }
 }
 
@@ -54,6 +58,7 @@ export function configListAction(): void {
   console.log(`  ${chalk.gray(`LLM         ${bases.llm}`)}`);
   console.log(`  ${chalk.gray(`Integration ${bases.domain}`)}`);
   console.log(`  ${chalk.gray(`Catalog     ${bases.info}`)}`);
+  console.log(`  ${chalk.gray(`Router      ${resolveRouterBase()}`)}`);
 }
 
 export function configResetAction(): void {

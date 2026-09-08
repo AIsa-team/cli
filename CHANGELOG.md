@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-09-08
+
+### Breaking
+
+- **`aisa search` is no longer an alias for `api search`.** It now calls the
+  Tool Router (`POST /v1/tool-router/aisa-search-tool`) and prints Router
+  results. The old catalog keyword search remains as `aisa api search`.
+
+### Added
+
+- **`aisa search` / `schema` / `quote` / `call`** — Unix-oriented entries for
+  the same four Router operations as MCP. Accept `--input '<json>'` and
+  `-f/--file` (including `-f -` for stdin). `--json` writes the unmodified
+  application response, including integer tokens outside JavaScript's safe
+  range. Quote never executes; none of the four retry or fall back to
+  provider shortcuts. Router origin is `AISA_ROUTER_BASE_URL`, else config
+  `routerUrl`, else `https://tools.aisa.one`. The LLM/catalog host
+  `https://api.aisa.one` is unchanged and is not a Router fallback.
+
+### Fixed
+
+- Router `search` / `schema` / `quote` / `call` do not follow HTTP redirects.
+  A 307/308 is a transport failure, so a quote response cannot become a use.
+- Human quote/call print each result's own micro-USD token, including values
+  above 2^53. `--json` was already lossless.
+- Full `--input` / `-f` envelopes reject unknown fields, duplicate `call_id`,
+  and non-unique or oversized `provider_filters` before dispatch.
+- Human search prints a returned `plan` (`plan_ref`, steps, pitfalls) when
+  the Router includes one.
+- Default Tool Router origin is `https://tools.aisa.one`. Anonymous
+  `/v1/tool-router/...` on `api.aisa.one` returns 404; the deployed nginx
+  front door is `tools.aisa.one`. Overrides (`AISA_ROUTER_BASE_URL`,
+  `routerUrl`) keep precedence. There is no origin fallback.
+
+### Changed
+
+- Human Router guidance and displayed plan steps/pitfalls project the four
+  exact MCP identifiers onto `aisa search` / `schema` / `quote` / `call`.
+  Surrounding policy text is unchanged. `--json` still prints the unmodified
+  application body, including MCP identifiers.
+- Root and Router command help include complete `--input` JSON examples
+  (`-f` / `-f -` too), configured-key resolution shared with `run`
+  (`AISA_API_KEY`, then `~/.aisa/key`, then legacy login), billable/approval
+  limits, and exits `0`/`2`/`1`/`3`. Manifest nodes for the four commands
+  include `mcp`, `auth`, `safety`, `exits`, and parseable `examples`; the
+  root node includes `router`. Shell `--input` examples use POSIX single
+  quotes. Help separates enforced key/input checks from caller instructions;
+  the CLI does not reject an unquoted call. Router `mcp` / `auth` / `exits` /
+  `examples` attach only to top-level `search` / `schema` / `quote` / `call`,
+  not nested `api search` / `twitter search` / `skills search`.
+
+### Deprecated
+
+- **`aisa api search`, `aisa api show`, and `aisa run`** keep their previous
+  behavior, stdout, and exit semantics. Help, one stderr warning, and
+  manifest `deprecated` / `replacement` / `migration` fields mark them as
+  not drop-in replacements. `api list`, `api code`, and specialized commands
+  are unchanged. Removal will be a separately announced breaking release.
+
 ### Added
 
 - **`aisa connect`** — a one-shot local page (`npx @aisa-one/cli connect`) to
@@ -42,9 +101,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   After the add (which the flag keeps free of OAuth popups), the entry is
   patched to a literal `http_headers` Authorization — the same thing the
   Claude Code path stores via `--header`.
-- CI on every push/PR (build + tests), and a tag-triggered release workflow that
-  publishes to npm via Trusted Publishing (OIDC — no stored token, 2FA stays on).
-  From the next release, `git push origin vX.Y.Z` is the publish button.
+- The npm tarball includes the MIT `LICENSE` text (Copyright (c) 2026
+  AIsa Team). License policy is unchanged.
+- CI on every push/PR builds, tests, and pack-smokes on Ubuntu Node
+  18/20 (legacy compatibility), 22/24 (maintained), and 26 (current).
+  `engines` stay `>=18`.
+  The tag-triggered publish job uses Node 24. Trusted Publisher on npmjs.com
+  is a publish-time prerequisite — this repo has no historical `release.yml`
+  success. `prepack` builds the tarball so a clean `npm pack` includes
+  `dist` and `LICENSE`. `git push origin vX.Y.Z` is the publish button.
 
 ## [0.3.0] — 2026-08-18
 
@@ -285,7 +350,9 @@ supports today; nothing here depends on a backend change.
 - Config commands (`aisa config get|set|list|reset`) and auth
   (`aisa login|logout|whoami`).
 
-[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/AIsa-team/cli/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/AIsa-team/cli/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/AIsa-team/cli/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/AIsa-team/cli/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/AIsa-team/cli/compare/v0.2.1...v0.2.2

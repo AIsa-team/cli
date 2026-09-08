@@ -22,6 +22,10 @@ function buildProgram(): Command {
     .option("-q, --query <params...>", "Query parameters")
     .option("--raw", "Raw JSON output");
 
+  program.command("search [query]").description("Discover published tools").option("--json", "Raw JSON");
+  program.command("schema [tools...]").description("Get published tool schemas").option("--json", "Raw JSON");
+  program.command("quote").description("Quote published tools").option("-f, --file <path>", "Request file");
+  program.command("call").description("Execute published tools").option("--input <json>", "Request JSON");
   program.command("web-search <query>").description("Search the web").option("--type <type>", "Search type", "tavily");
   const models = program.command("models").description("Browse models");
   models.command("list", { isDefault: true }).description("List models").option("--provider <p>", "Filter");
@@ -58,6 +62,10 @@ describe("shell completion", () => {
     const out = values([]);
     expect(out).toContain("api");
     expect(out).toContain("run");
+    expect(out).toContain("search");
+    expect(out).toContain("schema");
+    expect(out).toContain("quote");
+    expect(out).toContain("call");
     expect(out).not.toContain("__complete");
   });
 

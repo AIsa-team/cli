@@ -39,6 +39,22 @@ export AISA_API_KEY=sk-your-key
 
 ## Usage
 
+Published Router tools (same \`AISA_API_KEY\` as \`aisa login\` / \`aisa run\`):
+
+\`\`\`bash
+aisa search --input '{"query":"company facts"}' --json
+aisa schema --input '{"tools":["get_financial_company_facts"]}' --json
+aisa quote --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
+aisa call --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
+# or the same JSON from a file / stdin:
+aisa quote -f request.json --json
+aisa call -f - --json < request.json
+\`\`\`
+
+Quote is not authorization. \`aisa call\` is billable.
+
+Raw provider/LLM routing is deprecated for published tools and is not a drop-in for \`aisa call\`:
+
 \`\`\`bash
 aisa run <slug> <path> -q "param=value"
 \`\`\`

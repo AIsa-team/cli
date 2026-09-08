@@ -2,6 +2,9 @@
 
 import { Command, Option } from "commander";
 import { VERSION, DEFAULT_VIDEO_MODEL } from "./constants.js";
+import { CliError } from "./cli-error.js";
+import { warnDeprecated, withDeprecation } from "./deprecation.js";
+import type { RouterIoOptions } from "./commands/tool-input.js";
 
 // Auth
 import { loginAction, logoutAction, whoamiAction } from "./commands/auth.js";
@@ -16,6 +19,14 @@ import { chatAction } from "./commands/chat.js";
 // Models
 import { modelsListAction, modelsShowAction } from "./commands/models.js";
 // Search
+import { searchAction, schemaAction, quoteAction, callAction } from "./commands/tools.js";
+import {
+  callHelpAfter,
+  quoteHelpAfter,
+  rootHelpAfter,
+  schemaHelpAfter,
+  searchHelpAfter,
+} from "./commands/tool-help.js";
 import { webSearchAction, scholarAction } from "./commands/search.js";
 // Finance
 import { stockAction, cryptoAction, screenerAction } from "./commands/finance.js";
@@ -70,9 +81,26 @@ function wrap(fn: (...args: any[]) => Promise<void>): (...args: any[]) => void {
       // and whenever the answer is not already on disk within its budget.
       .then(() => announceUpdate())
       .catch((err: Error) => {
-        console.error(`Error: ${err.message}`);
-        process.exit(1);
+        const code = err instanceof CliError ? err.exitCode : 1;
+        if (err.message) console.error(`Error: ${err.message}`);
+        process.exit(code);
       });
+  };
+}
+
+function collectProvider(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
+function routerIo(opts: Record<string, unknown>): RouterIoOptions {
+  return {
+    input: opts.input as string | undefined,
+    file: opts.file as string | undefined,
+    json: Boolean(opts.json),
+    limit: opts.limit as string | undefined,
+    provider: opts.provider as string[] | undefined,
+    includeArgumentsSchema: opts.argumentsSchema === false ? false : undefined,
+    includeResponseSchema: opts.includeResponseSchema === true ? true : undefined,
   };
 }
 
@@ -123,6 +151,52 @@ program
   .option("--days <n>", "Lookback days")
   .action(wrap(usageAction));
 
+// ── Tool Router (same operations as MCP) ──
+
+program
+  .command("search [query]")
+  .description("Discover published tools via the Tool Router (MCP AISA_SEARCH_TOOL)")
+  .option("--input <json>", "Inline JSON request body (no file required)")
+  .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
+  .option("--limit <n>", "Max additional discovery results (1-20)")
+  .option("--provider <id>", "Exact catalog provider key (repeatable)", collectProvider, [] as string[])
+  .option("--json", "Write the unmodified application response to stdout (MCP identifiers unchanged)")
+  .addHelpText("after", searchHelpAfter())
+  .action((query: string | undefined, opts: Record<string, unknown>) =>
+    wrap(searchAction)(query, routerIo(opts))
+  );
+
+program
+  .command("schema [tools...]")
+  .description("Get published tool schemas via the Tool Router (MCP AISA_BATCH_GET_SCHEMA)")
+  .option("--input <json>", "Inline JSON request body (no file required)")
+  .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
+  .option("--no-arguments-schema", "Omit arguments_schema (at least one schema type is required)")
+  .option("--include-response-schema", "Include response_schema")
+  .option("--json", "Write the unmodified application response to stdout (MCP identifiers unchanged)")
+  .addHelpText("after", schemaHelpAfter())
+  .action((tools: string[] | undefined, opts: Record<string, unknown>) =>
+    wrap(schemaAction)(tools, routerIo(opts))
+  );
+
+program
+  .command("quote")
+  .description("Quote published tools via the Tool Router without executing them (MCP AISA_BATCH_QUOTE)")
+  .option("--input <json>", "Inline JSON request body, same shape as call (no file required)")
+  .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
+  .option("--json", "Write the unmodified application response to stdout (MCP identifiers unchanged)")
+  .addHelpText("after", quoteHelpAfter())
+  .action((opts: Record<string, unknown>) => wrap(quoteAction)(routerIo(opts)));
+
+program
+  .command("call")
+  .description("Execute published tools via the Tool Router (MCP AISA_BATCH_USE)")
+  .option("--input <json>", "Inline JSON request body, same shape as quote (no file required)")
+  .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
+  .option("--json", "Write the unmodified application response to stdout (MCP identifiers unchanged)")
+  .addHelpText("after", callHelpAfter())
+  .action((opts: Record<string, unknown>) => wrap(callAction)(routerIo(opts)));
+
 // ── API ──
 
 const api = program.command("api").description("Discover and inspect APIs");
@@ -138,22 +212,30 @@ api
 
 api
   .command("search <query>")
-  .description("Search APIs and endpoints by keyword")
+  .description("[deprecated] Search APIs and endpoints by keyword. Prefer: aisa search")
   .option("--provider <id>", "Restrict to one API")
   .option("--limit <n>", "Max results", "20")
   .option("--json", "Output raw JSON")
   .option("--refresh", "Bypass the cached catalog")
-  .action(wrap(apiSearchAction));
+  .addHelpText(
+    "after",
+    "\nDeprecated — not a drop-in for `aisa search` (AISA_SEARCH_TOOL). This command keeps the old catalog keyword search and result shape. api list and api code are unchanged. Removal will be a separately announced breaking release.\n"
+  )
+  .action(wrap(withDeprecation("api search", apiSearchAction)));
 
 api
   .command("show <api> [path]")
-  .description("Show an API's endpoints, or one endpoint's details")
+  .description("[deprecated] Show an API's endpoints, or one endpoint's details. Prefer: aisa schema")
   .option("--all", "Show every endpoint instead of the first 40")
   .option("--group", "Group by the provider's raw endpoint groups")
   .option("--health", "Include provider health status")
   .option("--json", "Output raw JSON")
   .option("--refresh", "Bypass the cached catalog")
-  .action(wrap(apiShowAction));
+  .addHelpText(
+    "after",
+    "\nDeprecated — not equivalent to `aisa schema` (AISA_BATCH_GET_SCHEMA). This command still browses a provider catalog by id/path. Removal will be a separately announced breaking release.\n"
+  )
+  .action(wrap(withDeprecation("api show", apiShowAction)));
 
 api
   .command("code <slug> <path>")
@@ -167,7 +249,7 @@ api
 
 program
   .command("run <slug> <path>")
-  .description("Execute an API call")
+  .description("[deprecated] Execute a raw API call. Prefer: aisa call for published Router tools")
   .option("-q, --query <params...>", "Query parameters (key=value)")
   .option("-d, --data <json>", "JSON request body")
   .option("--method <method>", "HTTP method")
@@ -176,7 +258,12 @@ program
   .option("--domain", "Force the integration API base (/apis/v1) — the default")
   .option("--llm", "Force the LLM gateway base (/v1)")
   .option("--show-cost", "Print the billing headers the gateway reported (stderr)")
-  .action((slug: string, path: string, opts: Record<string, unknown>) =>
+  .addHelpText(
+    "after",
+    "\nDeprecated — not a drop-in for `aisa call` (AISA_BATCH_USE). This command still performs raw provider and LLM routing. Specialized commands are unchanged. Removal will be a separately announced breaking release.\n"
+  )
+  .action((slug: string, path: string, opts: Record<string, unknown>) => {
+    warnDeprecated("run");
     wrap(runAction)(slug, path, {
       q: opts.query as string[] | undefined,
       d: opts.data as string | undefined,
@@ -186,8 +273,8 @@ program
       llm: opts.llm as boolean | undefined,
       domain: opts.domain as boolean | undefined,
       showCost: opts.showCost as boolean | undefined,
-    })
-  );
+    });
+  });
 
 // ── Chat (LLM Gateway) ──
 
@@ -665,15 +752,6 @@ configCmd
 // ── Top-level aliases ──
 
 program
-  .command("search <query>")
-  .description("Search APIs (alias for 'api search')")
-  .option("--provider <id>", "Restrict to one API")
-  .option("--limit <n>", "Max results", "20")
-  .option("--json", "Output raw JSON")
-  .option("--refresh", "Bypass the cached catalog")
-  .action(wrap(apiSearchAction));
-
-program
   .command("code <slug> <path>")
   .description("Generate a request snippet (alias for 'api code')")
   .option("--lang <language>", "Language: curl, python, node, typescript", "curl")
@@ -754,15 +832,7 @@ function applyHelpStyle(cmd: Command): void {
 }
 // The root page also gets worked examples: the fastest way to convey that
 // `run` takes repeated -q pairs is to show one.
-program.addHelpText(
-  "after",
-  `
-Examples:
-  $ aisa connect                      wire your coding agent to AIsa (start here)
-  $ aisa twitter search "ai" --raw    search X, full JSON out
-  $ aisa api show coingecko           list one API's endpoints
-  $ aisa run coingecko simple/price -q ids=bitcoin -q vs_currencies=usd`
-);
+program.addHelpText("after", rootHelpAfter());
 
 // Last, after the human-facing examples: it is the line an agent scanning to
 // the end of the page will find.

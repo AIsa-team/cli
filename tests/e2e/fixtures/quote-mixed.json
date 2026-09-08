@@ -1,0 +1,8 @@
+{
+  "search_id": "srch_parity",
+  "calls": [
+    { "call_id": "facts", "tool": "getFacts", "arguments": { "ticker": "NVDA" } },
+    { "call_id": "submit", "tool": "createNote", "arguments": { "text": "hello" } },
+    { "call_id": "fail", "tool": "getFacts", "arguments": { "ticker": "FAIL" } }
+  ]
+}
