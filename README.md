@@ -61,30 +61,35 @@ directly.
 `--json` prints the unmodified application body (MCP identifiers stay).
 Human output maps only those four identifiers onto CLI names. `aisa manifest`
 and `aisa manifest search` / `schema` / `quote` / `call` expose `mcp`, `auth`,
-`safety`, `exits`, and parseable `examples` (the root node also has `router`).
+`enforced`, `safety`, `exits`, and parseable `examples` (the root node also
+has `router`).
 
-Flow: discover a tool → `aisa schema` when `has_full_schema=false` → `aisa quote`
-→ authorized `aisa call`. Quote and call share one request shape. Quote is a
+Recommended sequence: discover a tool → `aisa schema` when
+`has_full_schema=false` → `aisa quote` → `aisa call`. Quote and call share
+one request shape. **Enforced:** invalid local input exits 2 and is not sent;
+quote and call refuse to run without a configured AIsa API key. **Not
+enforced:** the CLI does not record quotes, approvals, or budget caps and
+does not reject an unquoted call. **Instruction:** do not execute unquoted
+calls; the caller must ensure a matching quote and approval. Quote is a
 price observation, not authorization. A data request or credentials alone is
 not spending approval. Do not invent tool names or guess required values.
-`aisa call` is billable and needs a matching quote plus explicit approval
-covering that cost and any uncertainty. A missing or failed quote is never
-free. Estimated cost is not a limit. If a hard monetary cap is required, do
-not execute calls with no guaranteed maximum. A partial quote is not a
-full-batch total; call only an independently approved successful subset, and
-do not silently retry. Without `AISA_API_KEY`, search and schema may be
-anonymous; quote and call will not run — do not invent a business result.
+`aisa call` is billable. A missing or failed quote is never free. Estimated
+cost is not a limit. If a hard monetary cap is required, do not execute
+calls with no guaranteed maximum. A partial quote is not a full-batch total;
+call only an independently approved successful subset, and do not silently
+retry. Without a configured AIsa API key, do not invent a business result.
 
-`--input` is inline JSON (no file required). Apostrophes and Unicode are part
-of the JSON text; quote the argument so the shell preserves them.
+`--input` is inline JSON (no file required). Documented shell examples use
+POSIX single quotes so apostrophes, Unicode, `$()`, and backticks stay
+literal.
 
 `get_financial_company_facts` is a published tool whose schema includes
 `ticker`. Do not invent unpublished tool names.
 
-```bash
+```sh
 aisa search "company facts" --json
 aisa search --input '{"query":"company facts","limit":5}' --json
-aisa search --input "{\"query\":\"company facts\",\"known_fields\":{\"name\":\"O'Reilly — 苹果\"}}" --json
+aisa search --input '{"query":"company facts","known_fields":{"name":"O'\''Reilly — 苹果"}}' --json
 aisa search -f request.json --json
 aisa search -f - --json < request.json
 aisa schema get_financial_company_facts --json
@@ -100,8 +105,10 @@ local input was invalid and nothing was sent; `1` is transport, auth, or an
 HTTP error; `3` means the Router returned a batch with at least one failed
 item.
 
-`search` and `schema` may be anonymous. `quote` and `call` require
-`AISA_API_KEY` (the same key as `aisa login` / `aisa run`). The default Router
+`search` and `schema` may be anonymous. `quote` and `call` require a
+configured AIsa API key, same resolution as `aisa run`: `AISA_API_KEY`, then
+`~/.aisa/key`, then legacy login. `aisa login` and `AISA_API_KEY` are
+alternatives. The default Router
 origin is `https://tools.aisa.one` (independent of `baseUrl` /
 `https://api.aisa.one`). Point a test Router at `AISA_ROUTER_BASE_URL` (origin
 or prefix before `/v1/tool-router/...`), or `aisa config set routerUrl`. There

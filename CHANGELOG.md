@@ -48,11 +48,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Surrounding policy text is unchanged. `--json` still prints the unmodified
   application body, including MCP identifiers.
 - Root and Router command help include complete `--input` JSON examples
-  (`-f` / `-f -` too), shared `AISA_API_KEY`, billable/approval limits, and
-  exits `0`/`2`/`1`/`3`. Manifest nodes for the four commands include `mcp`,
-  `auth`, `safety`, `exits`, and parseable `examples`; the root node includes
-  `router`. `--input` documents inline JSON with apostrophes/Unicode and does
-  not require a file.
+  (`-f` / `-f -` too), configured-key resolution shared with `run`
+  (`AISA_API_KEY`, then `~/.aisa/key`, then legacy login), billable/approval
+  limits, and exits `0`/`2`/`1`/`3`. Manifest nodes for the four commands
+  include `mcp`, `auth`, `safety`, `exits`, and parseable `examples`; the
+  root node includes `router`. Shell `--input` examples use POSIX single
+  quotes. Help separates enforced key/input checks from caller instructions;
+  the CLI does not reject an unquoted call.
 
 ### Deprecated
 

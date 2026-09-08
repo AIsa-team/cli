@@ -44,6 +44,9 @@ export interface RouterCommandContract {
   auth: "optional" | "required";
   sameRequestShapeAs?: "quote" | "call";
   flow: string;
+  /** Runtime checks that actually stop the command. */
+  enforced: string[];
+  /** Caller instructions. The CLI does not enforce these. */
   safety: string[];
   examples: RouterExample[];
 }
@@ -51,6 +54,7 @@ export interface RouterCommandContract {
 export interface RouterRootContract {
   operations: Record<RouterOperation, { identifier: string; path: string; auth: "optional" | "required" }>;
   flow: string;
+  enforced: string[];
   safety: string[];
   exits: typeof ROUTER_EXITS;
   legacy: {
@@ -61,27 +65,40 @@ export interface RouterRootContract {
 }
 
 const FLOW =
-  "Discover with aisa search → aisa schema when has_full_schema=false → aisa quote → aisa call only after a matching quote and explicit approval covering that cost and uncertainty.";
+  "Recommended sequence: aisa search → aisa schema when has_full_schema=false → aisa quote → aisa call.";
 
 const INLINE =
-  "--input is inline JSON text (no file required). The CLI parses the argument as given, including apostrophes and Unicode; quote it so the shell does not eat characters. -f FILE and -f - remain available.";
+  "--input is inline JSON text (no file required). Shell examples are POSIX sh with single-quoted --input; apostrophes are written as '\\'' so $(), backticks, and other expansions stay literal. -f FILE and -f - remain available.";
 
 const JSON_CONTRACT =
   "--json writes the unmodified application body, including MCP identifiers and numeric tokens. Human output maps only AISA_SEARCH_TOOL, AISA_BATCH_GET_SCHEMA, AISA_BATCH_QUOTE, and AISA_BATCH_USE to aisa search / schema / quote / call.";
 
-const SHARED_KEY =
-  "quote and call require AISA_API_KEY (same key as aisa login and aisa run). search and schema may be anonymous.";
+const KEY_RESOLUTION =
+  "AISA_API_KEY, then ~/.aisa/key, then legacy login. aisa login and AISA_API_KEY are alternatives.";
+
+const ENFORCED_OPTIONAL = `Enforced: invalid local input exits 2 and is not sent. A configured AIsa API key is optional (${KEY_RESOLUTION}).`;
+
+const ENFORCED_REQUIRED = `Enforced: quote and call refuse to run without a configured AIsa API key (${KEY_RESOLUTION}). Invalid local input exits 2 and is not sent. search and schema may be anonymous.`;
+
+const NOT_ENFORCED =
+  "Not enforced: the CLI does not record quotes, approvals, or budget caps and does not reject an unquoted aisa call.";
+
+const INSTRUCTION_UNQUOTED =
+  "Instruction: Do not execute unquoted calls; the caller must ensure a matching quote and approval.";
 
 const EXITS =
   "Exits: 0 success; 2 invalid local input (nothing sent); 1 transport, auth, or HTTP error; 3 HTTP 200 with any failed batch item.";
 
+const ROOT_ENFORCED = [ENFORCED_REQUIRED, NOT_ENFORCED];
+
 const ROOT_SAFETY = [
-  "Quote is a price observation, not authorization to execute. A data request or credentials alone is not spending approval.",
-  "Do not invent tool names. Do not guess required unresolved values; ask, and do not call.",
-  "A missing or failed quote is never free. Unquoted calls cannot be executed. Estimated cost is not a limit.",
-  "If a hard monetary cap is required, do not execute calls that have no guaranteed maximum.",
-  "A partial quote is not a full-batch total. Call only an independently approved successful subset. Do not silently retry or expand the set.",
-  "Without AISA_API_KEY, search and schema may be anonymous; quote and call will not run. Do not invent a business result.",
+  INSTRUCTION_UNQUOTED,
+  "Instruction: Quote is a price observation, not authorization to execute. A data request or credentials alone is not spending approval.",
+  "Instruction: Do not invent tool names. Do not guess required unresolved values; ask, and do not call.",
+  "Instruction: A missing or failed quote is never free. Estimated cost is not a limit.",
+  "Instruction: If a hard monetary cap is required, do not execute calls that have no guaranteed maximum.",
+  "Instruction: A partial quote is not a full-batch total. Call only an independently approved successful subset. Do not silently retry or expand the set.",
+  "Instruction: Without a configured AIsa API key, do not invent a business result.",
 ];
 
 function example(kind: RouterOperation, input: Record<string, unknown>): RouterExample {
@@ -94,9 +111,9 @@ export function routerContract(kind: RouterOperation): RouterCommandContract {
       return {
         auth: "optional",
         flow: FLOW,
+        enforced: [ENFORCED_OPTIONAL],
         safety: [
-          SHARED_KEY,
-          "Do not invent tool names. Do not guess required unresolved values; ask, and do not call.",
+          "Instruction: Do not invent tool names. Do not guess required unresolved values; ask, and do not call.",
         ],
         examples: [
           example("search", EXAMPLE_SEARCH),
@@ -108,9 +125,9 @@ export function routerContract(kind: RouterOperation): RouterCommandContract {
       return {
         auth: "optional",
         flow: `Use after search when has_full_schema=false. Pass exact tool names from search. ${EXAMPLE_PUBLISHED_TOOL} is a published tool whose schema includes ticker.`,
+        enforced: [ENFORCED_OPTIONAL],
         safety: [
-          SHARED_KEY,
-          "Do not invent tool names. Do not guess arguments; read the returned schema.",
+          "Instruction: Do not invent tool names. Do not guess arguments; read the returned schema.",
         ],
         examples: [example("schema", EXAMPLE_SCHEMA)],
       };
@@ -119,14 +136,15 @@ export function routerContract(kind: RouterOperation): RouterCommandContract {
         auth: "required",
         sameRequestShapeAs: "call",
         flow: FLOW,
+        enforced: [ENFORCED_REQUIRED],
         safety: [
-          SHARED_KEY,
+          NOT_ENFORCED,
           "Same request shape as aisa call.",
           "Quote does not execute. Quote is not authorization to execute.",
           "A data request or credentials alone is not spending approval.",
-          "A missing or failed quote is never free. Unquoted calls cannot be executed.",
-          "Estimated cost is not a limit. If a hard monetary cap is required, do not execute calls that have no guaranteed maximum.",
-          "A partial quote is not a full-batch total. Do not treat a successful-subset subtotal as the full-batch total.",
+          INSTRUCTION_UNQUOTED,
+          "Instruction: A missing or failed quote is never free. Estimated cost is not a limit. If a hard monetary cap is required, do not execute calls that have no guaranteed maximum.",
+          "Instruction: A partial quote is not a full-batch total. Do not treat a successful-subset subtotal as the full-batch total.",
         ],
         examples: [example("quote", EXAMPLE_BATCH)],
       };
@@ -135,14 +153,16 @@ export function routerContract(kind: RouterOperation): RouterCommandContract {
         auth: "required",
         sameRequestShapeAs: "quote",
         flow: FLOW,
+        enforced: [ENFORCED_REQUIRED],
         safety: [
-          SHARED_KEY,
+          NOT_ENFORCED,
           "Same request shape as aisa quote. Re-quote if tools, arguments, or scope change.",
-          "aisa call is billable and needs a matching quote plus explicit approval covering that cost and any uncertainty.",
-          "A missing or failed quote is never free. Unquoted calls cannot be executed.",
+          INSTRUCTION_UNQUOTED,
+          "Instruction: aisa call is billable; the caller must ensure a matching quote plus explicit approval covering that cost and any uncertainty.",
+          "Instruction: A missing or failed quote is never free.",
           "A data request or credentials alone is not spending approval.",
-          "Call only an independently approved successful subset. Do not silently retry or expand the set.",
-          "Without a key, do not invent a business result.",
+          "Instruction: Call only an independently approved successful subset. Do not silently retry or expand the set.",
+          "Instruction: Without a configured AIsa API key, do not invent a business result.",
         ],
         examples: [example("call", EXAMPLE_BATCH)],
       };
@@ -158,6 +178,7 @@ export function routerRootContract(): RouterRootContract {
       call: { ...MCP_CLI_MAP.call, auth: "required" },
     },
     flow: FLOW,
+    enforced: ROOT_ENFORCED,
     safety: ROOT_SAFETY,
     exits: ROUTER_EXITS,
     legacy: {
@@ -180,10 +201,17 @@ function mcpLine(kind: RouterOperation): string {
   return `MCP: ${op.identifier} → ${op.cli} (POST ${op.path})`;
 }
 
-/** Shell-safe --input flag. Apostrophes use a double-quoted JSON string. */
+/**
+ * POSIX sh single-quoting. Nothing inside single quotes expands ($(),
+ * backticks, parameters). A literal apostrophe is '\'' (end, escaped quote, resume).
+ */
+export function posixSingleQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+/** `--input` plus POSIX-single-quoted JSON for documented shell examples. */
 export function shellInputFlag(json: string): string {
-  if (json.includes("'")) return `--input ${JSON.stringify(json)}`;
-  return `--input '${json}'`;
+  return `--input ${posixSingleQuote(json)}`;
 }
 
 function humanExamples(kind: RouterOperation, extras: string[]): string {
@@ -203,10 +231,11 @@ ${mcpLine(kind)}
 ${JSON_CONTRACT}
 
 ${c.flow}
+${c.enforced.join("\n")}
 ${c.safety.join("\n")}
 ${INLINE}
 
-Examples:
+Examples (POSIX sh; single-quoted --input):
 ${humanExamples(kind, extras)}
 
 ${EXITS}
@@ -233,7 +262,7 @@ export function callHelpAfter(): string {
 export function rootHelpAfter(): string {
   const root = routerRootContract();
   return `
-Examples:
+Examples (POSIX sh; single-quoted --input):
   $ aisa connect                      wire your coding agent to AIsa (start here)
   $ aisa search "company facts" --json
   $ aisa schema ${EXAMPLE_PUBLISHED_TOOL} --json
@@ -243,7 +272,7 @@ Examples:
 
 Router: ${MCP_CLI_MAP.search.identifier}→search, ${MCP_CLI_MAP.schema.identifier}→schema, ${MCP_CLI_MAP.quote.identifier}→quote, ${MCP_CLI_MAP.call.identifier}→call.
 --json keeps MCP identifiers. Human output maps those four names to CLI commands.
-${SHARED_KEY}
+${root.enforced.join("\n")}
 ${root.safety.join("\n")}
 ${INLINE}
 ${EXITS}

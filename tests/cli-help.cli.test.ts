@@ -76,8 +76,12 @@ describe("compiled --help and manifest", () => {
     for (const [name, text] of Object.entries(pages)) {
       expect(text, name).not.toMatch(/similarweb_get_company/);
       expect(text, name).not.toMatch(/--input '[^']*\.\.\.[^']*'/);
+      expect(text, name).not.toMatch(/Unquoted calls cannot be executed/);
       expect(text, name).toContain("AISA_API_KEY");
+      expect(text, name).toContain("~/.aisa/key");
+      expect(text, name).toMatch(/Enforced:/);
       expect(text, name).toMatch(/Exits: 0 success/);
+      expect(text, name).toMatch(/POSIX sh/);
     }
 
     expect(pages.root).toContain(EXAMPLE_BATCH_JSON);
@@ -87,7 +91,7 @@ describe("compiled --help and manifest", () => {
 
     expect(pages.search).toContain(EXAMPLE_SEARCH_JSON);
     expect(pages.search).toContain(EXAMPLE_SEARCH_LIMIT_JSON);
-    expect(pages.search).toContain("O'Reilly");
+    expect(pages.search).toContain("O'\\''Reilly");
     expect(pages.search).toContain("苹果");
     expect(pages.search).toMatch(/no file required/i);
     expect(pages.search).toContain("-f request.json");
@@ -109,7 +113,10 @@ describe("compiled --help and manifest", () => {
     expect(pages.quote).toMatch(/no guaranteed maximum/);
     expect(pages.quote).toMatch(/partial quote is not a full-batch total/i);
     expect(pages.call).toMatch(/Do not silently retry/);
-    expect(pages.root).toMatch(/Do not invent a business result/);
+    expect(pages.root).toMatch(/do not invent a business result/i);
+    expect(pages.root).toMatch(/Do not execute unquoted calls/);
+    expect(pages.quote).toMatch(/Do not execute unquoted calls/);
+    expect(pages.call).toMatch(/does not reject an unquoted aisa call/);
 
     const extracted = extractInputObjects(`${pages.root}\n${pages.search}\n${pages.schema}\n${pages.quote}\n${pages.call}`);
     expect(extracted.length).toBeGreaterThan(3);
@@ -131,6 +138,8 @@ describe("compiled --help and manifest", () => {
       expect(node.mcp?.identifier).toBe(MCP_CLI_MAP[name].identifier);
       expect(node.mcp?.path).toBe(MCP_CLI_MAP[name].path);
       expect(node.auth).toBe(name === "quote" || name === "call" ? "required" : "optional");
+      expect(node.enforced?.some((line) => line.startsWith("Enforced:"))).toBe(true);
+      expect(node.enforced?.join("\n")).not.toMatch(/Unquoted calls cannot be executed/);
       expect(node.safety?.length).toBeGreaterThan(0);
       expect(node.exits?.["2"]).toMatch(/nothing sent/);
       expect(node.deprecated).toBeUndefined();
@@ -179,6 +188,7 @@ interface ManifestNode {
   migration?: string;
   mcp?: { identifier: string; path: string };
   auth?: "optional" | "required";
+  enforced?: string[];
   safety?: string[];
   exits?: Record<string, string>;
   examples?: Array<{ argv: string[]; input?: Record<string, unknown> }>;
@@ -197,11 +207,41 @@ function find(node: ManifestNode, path: string): ManifestNode | undefined {
 
 function extractInputObjects(help: string): unknown[] {
   const out: unknown[] = [];
-  const re = /--input '(\{.*?\})'/g;
-  for (const match of help.matchAll(re)) {
-    out.push(JSON.parse(match[1] as string));
+  let idx = 0;
+  while ((idx = help.indexOf("--input ", idx)) !== -1) {
+    const start = idx + "--input ".length;
+    if (help[start] !== "'") {
+      idx = start;
+      continue;
+    }
+    try {
+      const { value, next } = decodePosixSingleQuoted(help, start);
+      out.push(JSON.parse(value));
+      idx = next;
+    } catch {
+      idx = start + 1;
+    }
   }
   return out;
+}
+
+function decodePosixSingleQuoted(src: string, from: number): { value: string; next: number } {
+  if (src[from] !== "'") throw new Error("expected '");
+  let i = from + 1;
+  let out = "";
+  while (i < src.length) {
+    if (src[i] !== "'") {
+      out += src[i++];
+      continue;
+    }
+    if (src.startsWith("'\\''", i)) {
+      out += "'";
+      i += 4;
+      continue;
+    }
+    return { value: out, next: i + 1 };
+  }
+  throw new Error("unterminated");
 }
 
 function runCompiledCli(

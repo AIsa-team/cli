@@ -59,6 +59,7 @@ interface ManifestCommand {
   mcp?: { identifier: string; path: string };
   auth?: RouterCommandContract["auth"];
   flow?: string;
+  enforced?: string[];
   safety?: string[];
   exits?: typeof ROUTER_EXITS;
   sameRequestShapeAs?: RouterCommandContract["sameRequestShapeAs"];
@@ -126,6 +127,7 @@ export function buildManifest(program: Command, prefix = ""): ManifestCommand {
       ? {
           auth: contract.auth,
           flow: contract.flow,
+          enforced: contract.enforced,
           safety: contract.safety,
           exits: ROUTER_EXITS,
           examples: contract.examples,
