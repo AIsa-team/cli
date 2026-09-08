@@ -325,8 +325,12 @@ ${restChips}
   const body = `
 <div class="wrap">
 <div id="superseded" class="ssup" style="display:none"><div class="ssbox">
-  <h2>${T(SUPERSEDED.title)}</h2>
-  <p>${T(SUPERSEDED.body)} <b id="sscount">60</b> ${T(SUPERSEDED.seconds)}.</p>
+  <h2 id="sstitle">${T(SUPERSEDED.title)}</h2>
+  <p id="ssbody">${T(SUPERSEDED.body)} <b id="sscount">60</b> ${T(SUPERSEDED.seconds)}.</p>
+  <div class="sscta">
+    <p>${T(SUPERSEDED.console)} <a href="https://${SUPERSEDED.consoleDomain}?source=aisa_cli_connect" target="_blank" rel="noopener">${SUPERSEDED.consoleDomain}</a>.</p>
+    <p>${T(SUPERSEDED.againBefore)} <code>${SUPERSEDED.againCmd}</code> ${T(SUPERSEDED.againAfter)}</p>
+  </div>
 </div></div>
 <nav class="rail">
   <a class="railhead" href="https://aisa.one/?source=aisa_cli_connect" target="_blank" rel="noopener">${LOGO_INK}<span>Connect</span></a>
@@ -555,6 +559,20 @@ ${restChips}
     pollTimer = setTimeout(pollOnce, pollDelay(s));
   }
 
+  /**
+   * Everything behind the dialog stops pretending to work.
+   *
+   * The dialog says the page is over; the button under it was still saying
+   * "Signing in…" with its spinner turning, which is the page arguing with
+   * itself. Whatever was in flight is not going to finish — the run that
+   * would have finished it is gone.
+   */
+  function settle() {
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    document.body.classList.add("settled");
+    if (nextBtn) { nextBtn.disabled = true; }
+  }
+
   function giveUp() {
     pollStopped = true;
     if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
@@ -562,8 +580,9 @@ ${restChips}
     var box = $("#superseded");
     if (box) {
       box.style.display = "flex";
-      box.querySelector("h2").textContent = ${JSON.stringify(T(SUPERSEDED.expiringTitle))};
-      box.querySelector("p").textContent = ${JSON.stringify(T(SUPERSEDED.closed))};
+      $("#sstitle").textContent = ${JSON.stringify(T(SUPERSEDED.expiringTitle))};
+      $("#ssbody").textContent = ${JSON.stringify(T(SUPERSEDED.closed))};
+      settle();
     }
   }
 
@@ -576,12 +595,13 @@ ${restChips}
     if (!s.superseded && left > 60) return;
     var box = $("#superseded");
     box.style.display = "flex";
-    box.querySelector("h2").textContent = s.superseded
+    settle();
+    $("#sstitle").textContent = s.superseded
       ? ${JSON.stringify(T(SUPERSEDED.title))}
       : ${JSON.stringify(T(SUPERSEDED.expiringTitle))};
     if (!s.superseded && !box.dataset.reworded) {
       box.dataset.reworded = "1";
-      box.querySelector("p").innerHTML =
+      $("#ssbody").innerHTML =
         ${JSON.stringify(T(SUPERSEDED.expiringBody))} +
         ' <b id="sscount"></b> ' + ${JSON.stringify(T(SUPERSEDED.seconds))} + ".";
     }
@@ -1244,6 +1264,22 @@ function shellT2(title: string, body: string): string {
   .ssbox h2 { margin: 0 0 .6rem; font-size: 1.15rem; }
   .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
   .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+  /* Set apart from the sentence above, because it is not about what just
+     happened — it is the two things still worth knowing afterwards. */
+  .sscta { margin: 1.05rem 0 0; padding: .9rem 0 0; border-top: 1px solid var(--line); }
+  .sscta p { margin: 0 0 .38rem; font-size: .9rem; line-height: 1.55; }
+  .sscta p:last-child { margin-bottom: 0; }
+  .sscta a { color: var(--red-cta); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--red-cta) 38%, transparent); }
+  .sscta a:hover { border-bottom-color: var(--red-cta); }
+  .sscta code { font-size: .88rem; background: var(--paper); border: 1px solid var(--line);
+    border-radius: 5px; padding: .06rem .34rem; }
+  /* Nothing behind the dialog is still happening. The spinner on a running
+     step is the loudest of these: it says work is under way at the same
+     moment the dialog says the run is gone. */
+  .settled .step.running .mark { animation: none; border-top-color: var(--line); opacity: .5; }
+  .settled .barfill { transition: none; }
+  .settled #next { opacity: .5; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
   .more { position: relative; display: inline-flex; }
   .morebtn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0;

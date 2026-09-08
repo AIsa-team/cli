@@ -700,9 +700,15 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
       });
       await pause(1000);
     }
+    // With a deadline in it. Ten minutes of a turning spinner and no stated
+    // end is indistinguishable from a hang — and this is the one step where
+    // the run genuinely cannot proceed on its own, so it is the one place a
+    // reader most needs to know that waiting is bounded.
+    const until = new Date(Date.now() + SIGNIN_CATCH_TIMEOUT_MS);
+    const hhmm = `${String(until.getHours()).padStart(2, "0")}:${String(until.getMinutes()).padStart(2, "0")}`;
     setStep(state, "signin", {
       state: "running",
-      detail: "sign in or create your account in the new tab — this setup waits here",
+      detail: `sign in or create your account in the new tab — this setup waits until ${hhmm}`,
     });
     try {
       if (input.dryRun) {
@@ -728,7 +734,10 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
       failures++;
       setStep(state, "signin", {
         state: "fail",
-        detail: `${(e as Error).message} — continuing without a key; retry later with 'aisa login'`,
+        // Says what still happened, not only what did not. Everything after
+        // this step runs; what is missing is the key, and the sentence that
+        // matters is the one command that gets it.
+        detail: `${(e as Error).message} — the rest of the setup still ran; finish with 'aisa login'`,
       });
       log.line("fail", "Sign in to AIsa", (e as Error).message);
       if (input.clients.includes("claude-code")) {

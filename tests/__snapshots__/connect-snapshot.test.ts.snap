@@ -62,6 +62,22 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
   .ssbox h2 { margin: 0 0 .6rem; font-size: 1.15rem; }
   .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
   .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+  /* Set apart from the sentence above, because it is not about what just
+     happened — it is the two things still worth knowing afterwards. */
+  .sscta { margin: 1.05rem 0 0; padding: .9rem 0 0; border-top: 1px solid var(--line); }
+  .sscta p { margin: 0 0 .38rem; font-size: .9rem; line-height: 1.55; }
+  .sscta p:last-child { margin-bottom: 0; }
+  .sscta a { color: var(--red-cta); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--red-cta) 38%, transparent); }
+  .sscta a:hover { border-bottom-color: var(--red-cta); }
+  .sscta code { font-size: .88rem; background: var(--paper); border: 1px solid var(--line);
+    border-radius: 5px; padding: .06rem .34rem; }
+  /* Nothing behind the dialog is still happening. The spinner on a running
+     step is the loudest of these: it says work is under way at the same
+     moment the dialog says the run is gone. */
+  .settled .step.running .mark { animation: none; border-top-color: var(--line); opacity: .5; }
+  .settled .barfill { transition: none; }
+  .settled #next { opacity: .5; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
   .more { position: relative; display: inline-flex; }
   .morebtn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
@@ -318,8 +334,12 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
 
 <div class="wrap">
 <div id="superseded" class="ssup" style="display:none"><div class="ssbox">
-  <h2>A newer setup is running</h2>
-  <p>You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
+  <h2 id="sstitle">A newer setup is running</h2>
+  <p id="ssbody">You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
+  <div class="sscta">
+    <p>Usage, spending and top-ups live at <a href="https://console.aisa.one?source=aisa_cli_connect" target="_blank" rel="noopener">console.aisa.one</a>.</p>
+    <p>Run <code>aisa connect</code> any time — add servers, switch models, or connect another agent.</p>
+  </div>
 </div></div>
 <nav class="rail">
   <a class="railhead" href="https://aisa.one/?source=aisa_cli_connect" target="_blank" rel="noopener"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -710,6 +730,20 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
     pollTimer = setTimeout(pollOnce, pollDelay(s));
   }
 
+  /**
+   * Everything behind the dialog stops pretending to work.
+   *
+   * The dialog says the page is over; the button under it was still saying
+   * "Signing in…" with its spinner turning, which is the page arguing with
+   * itself. Whatever was in flight is not going to finish — the run that
+   * would have finished it is gone.
+   */
+  function settle() {
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    document.body.classList.add("settled");
+    if (nextBtn) { nextBtn.disabled = true; }
+  }
+
   function giveUp() {
     pollStopped = true;
     if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
@@ -717,8 +751,9 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
     var box = $("#superseded");
     if (box) {
       box.style.display = "flex";
-      box.querySelector("h2").textContent = "This page is about to close";
-      box.querySelector("p").textContent = "This page has closed. The newer run has its own.";
+      $("#sstitle").textContent = "This page is about to close";
+      $("#ssbody").textContent = "This page has closed. The newer run has its own.";
+      settle();
     }
   }
 
@@ -731,12 +766,13 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
     if (!s.superseded && left > 60) return;
     var box = $("#superseded");
     box.style.display = "flex";
-    box.querySelector("h2").textContent = s.superseded
+    settle();
+    $("#sstitle").textContent = s.superseded
       ? "A newer setup is running"
       : "This page is about to close";
     if (!s.superseded && !box.dataset.reworded) {
       box.dataset.reworded = "1";
-      box.querySelector("p").innerHTML =
+      $("#ssbody").innerHTML =
         "The run that opened it has finished. Nothing here needs you any more; the page closes in" +
         ' <b id="sscount"></b> ' + "seconds" + ".";
     }
@@ -1397,6 +1433,22 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
   .ssbox h2 { margin: 0 0 .6rem; font-size: 1.15rem; }
   .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
   .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+  /* Set apart from the sentence above, because it is not about what just
+     happened — it is the two things still worth knowing afterwards. */
+  .sscta { margin: 1.05rem 0 0; padding: .9rem 0 0; border-top: 1px solid var(--line); }
+  .sscta p { margin: 0 0 .38rem; font-size: .9rem; line-height: 1.55; }
+  .sscta p:last-child { margin-bottom: 0; }
+  .sscta a { color: var(--red-cta); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--red-cta) 38%, transparent); }
+  .sscta a:hover { border-bottom-color: var(--red-cta); }
+  .sscta code { font-size: .88rem; background: var(--paper); border: 1px solid var(--line);
+    border-radius: 5px; padding: .06rem .34rem; }
+  /* Nothing behind the dialog is still happening. The spinner on a running
+     step is the loudest of these: it says work is under way at the same
+     moment the dialog says the run is gone. */
+  .settled .step.running .mark { animation: none; border-top-color: var(--line); opacity: .5; }
+  .settled .barfill { transition: none; }
+  .settled #next { opacity: .5; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
   .more { position: relative; display: inline-flex; }
   .morebtn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
@@ -1653,8 +1705,12 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
 
 <div class="wrap">
 <div id="superseded" class="ssup" style="display:none"><div class="ssbox">
-  <h2>A newer setup is running</h2>
-  <p>You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
+  <h2 id="sstitle">A newer setup is running</h2>
+  <p id="ssbody">You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
+  <div class="sscta">
+    <p>Usage, spending and top-ups live at <a href="https://console.aisa.one?source=aisa_cli_connect" target="_blank" rel="noopener">console.aisa.one</a>.</p>
+    <p>Run <code>aisa connect</code> any time — add servers, switch models, or connect another agent.</p>
+  </div>
 </div></div>
 <nav class="rail">
   <a class="railhead" href="https://aisa.one/?source=aisa_cli_connect" target="_blank" rel="noopener"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -2033,6 +2089,20 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
     pollTimer = setTimeout(pollOnce, pollDelay(s));
   }
 
+  /**
+   * Everything behind the dialog stops pretending to work.
+   *
+   * The dialog says the page is over; the button under it was still saying
+   * "Signing in…" with its spinner turning, which is the page arguing with
+   * itself. Whatever was in flight is not going to finish — the run that
+   * would have finished it is gone.
+   */
+  function settle() {
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    document.body.classList.add("settled");
+    if (nextBtn) { nextBtn.disabled = true; }
+  }
+
   function giveUp() {
     pollStopped = true;
     if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
@@ -2040,8 +2110,9 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
     var box = $("#superseded");
     if (box) {
       box.style.display = "flex";
-      box.querySelector("h2").textContent = "This page is about to close";
-      box.querySelector("p").textContent = "This page has closed. The newer run has its own.";
+      $("#sstitle").textContent = "This page is about to close";
+      $("#ssbody").textContent = "This page has closed. The newer run has its own.";
+      settle();
     }
   }
 
@@ -2054,12 +2125,13 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
     if (!s.superseded && left > 60) return;
     var box = $("#superseded");
     box.style.display = "flex";
-    box.querySelector("h2").textContent = s.superseded
+    settle();
+    $("#sstitle").textContent = s.superseded
       ? "A newer setup is running"
       : "This page is about to close";
     if (!s.superseded && !box.dataset.reworded) {
       box.dataset.reworded = "1";
-      box.querySelector("p").innerHTML =
+      $("#ssbody").innerHTML =
         "The run that opened it has finished. Nothing here needs you any more; the page closes in" +
         ' <b id="sscount"></b> ' + "seconds" + ".";
     }
@@ -2720,6 +2792,22 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
   .ssbox h2 { margin: 0 0 .6rem; font-size: 1.15rem; }
   .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
   .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+  /* Set apart from the sentence above, because it is not about what just
+     happened — it is the two things still worth knowing afterwards. */
+  .sscta { margin: 1.05rem 0 0; padding: .9rem 0 0; border-top: 1px solid var(--line); }
+  .sscta p { margin: 0 0 .38rem; font-size: .9rem; line-height: 1.55; }
+  .sscta p:last-child { margin-bottom: 0; }
+  .sscta a { color: var(--red-cta); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--red-cta) 38%, transparent); }
+  .sscta a:hover { border-bottom-color: var(--red-cta); }
+  .sscta code { font-size: .88rem; background: var(--paper); border: 1px solid var(--line);
+    border-radius: 5px; padding: .06rem .34rem; }
+  /* Nothing behind the dialog is still happening. The spinner on a running
+     step is the loudest of these: it says work is under way at the same
+     moment the dialog says the run is gone. */
+  .settled .step.running .mark { animation: none; border-top-color: var(--line); opacity: .5; }
+  .settled .barfill { transition: none; }
+  .settled #next { opacity: .5; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
   .more { position: relative; display: inline-flex; }
   .morebtn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
@@ -2976,8 +3064,12 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
 
 <div class="wrap">
 <div id="superseded" class="ssup" style="display:none"><div class="ssbox">
-  <h2>A newer setup is running</h2>
-  <p>You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
+  <h2 id="sstitle">A newer setup is running</h2>
+  <p id="ssbody">You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
+  <div class="sscta">
+    <p>Usage, spending and top-ups live at <a href="https://console.aisa.one?source=aisa_cli_connect" target="_blank" rel="noopener">console.aisa.one</a>.</p>
+    <p>Run <code>aisa connect</code> any time — add servers, switch models, or connect another agent.</p>
+  </div>
 </div></div>
 <nav class="rail">
   <a class="railhead" href="https://aisa.one/?source=aisa_cli_connect" target="_blank" rel="noopener"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -3356,6 +3448,20 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
     pollTimer = setTimeout(pollOnce, pollDelay(s));
   }
 
+  /**
+   * Everything behind the dialog stops pretending to work.
+   *
+   * The dialog says the page is over; the button under it was still saying
+   * "Signing in…" with its spinner turning, which is the page arguing with
+   * itself. Whatever was in flight is not going to finish — the run that
+   * would have finished it is gone.
+   */
+  function settle() {
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    document.body.classList.add("settled");
+    if (nextBtn) { nextBtn.disabled = true; }
+  }
+
   function giveUp() {
     pollStopped = true;
     if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
@@ -3363,8 +3469,9 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
     var box = $("#superseded");
     if (box) {
       box.style.display = "flex";
-      box.querySelector("h2").textContent = "This page is about to close";
-      box.querySelector("p").textContent = "This page has closed. The newer run has its own.";
+      $("#sstitle").textContent = "This page is about to close";
+      $("#ssbody").textContent = "This page has closed. The newer run has its own.";
+      settle();
     }
   }
 
@@ -3377,12 +3484,13 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
     if (!s.superseded && left > 60) return;
     var box = $("#superseded");
     box.style.display = "flex";
-    box.querySelector("h2").textContent = s.superseded
+    settle();
+    $("#sstitle").textContent = s.superseded
       ? "A newer setup is running"
       : "This page is about to close";
     if (!s.superseded && !box.dataset.reworded) {
       box.dataset.reworded = "1";
-      box.querySelector("p").innerHTML =
+      $("#ssbody").innerHTML =
         "The run that opened it has finished. Nothing here needs you any more; the page closes in" +
         ' <b id="sscount"></b> ' + "seconds" + ".";
     }
@@ -4043,6 +4151,22 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
   .ssbox h2 { margin: 0 0 .6rem; font-size: 1.15rem; }
   .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
   .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+  /* Set apart from the sentence above, because it is not about what just
+     happened — it is the two things still worth knowing afterwards. */
+  .sscta { margin: 1.05rem 0 0; padding: .9rem 0 0; border-top: 1px solid var(--line); }
+  .sscta p { margin: 0 0 .38rem; font-size: .9rem; line-height: 1.55; }
+  .sscta p:last-child { margin-bottom: 0; }
+  .sscta a { color: var(--red-cta); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--red-cta) 38%, transparent); }
+  .sscta a:hover { border-bottom-color: var(--red-cta); }
+  .sscta code { font-size: .88rem; background: var(--paper); border: 1px solid var(--line);
+    border-radius: 5px; padding: .06rem .34rem; }
+  /* Nothing behind the dialog is still happening. The spinner on a running
+     step is the loudest of these: it says work is under way at the same
+     moment the dialog says the run is gone. */
+  .settled .step.running .mark { animation: none; border-top-color: var(--line); opacity: .5; }
+  .settled .barfill { transition: none; }
+  .settled #next { opacity: .5; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
   .more { position: relative; display: inline-flex; }
   .morebtn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
@@ -4299,8 +4423,12 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
 
 <div class="wrap">
 <div id="superseded" class="ssup" style="display:none"><div class="ssbox">
-  <h2>A newer setup is running</h2>
-  <p>You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
+  <h2 id="sstitle">A newer setup is running</h2>
+  <p id="ssbody">You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
+  <div class="sscta">
+    <p>Usage, spending and top-ups live at <a href="https://console.aisa.one?source=aisa_cli_connect" target="_blank" rel="noopener">console.aisa.one</a>.</p>
+    <p>Run <code>aisa connect</code> any time — add servers, switch models, or connect another agent.</p>
+  </div>
 </div></div>
 <nav class="rail">
   <a class="railhead" href="https://aisa.one/?source=aisa_cli_connect" target="_blank" rel="noopener"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -4691,6 +4819,20 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
     pollTimer = setTimeout(pollOnce, pollDelay(s));
   }
 
+  /**
+   * Everything behind the dialog stops pretending to work.
+   *
+   * The dialog says the page is over; the button under it was still saying
+   * "Signing in…" with its spinner turning, which is the page arguing with
+   * itself. Whatever was in flight is not going to finish — the run that
+   * would have finished it is gone.
+   */
+  function settle() {
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    document.body.classList.add("settled");
+    if (nextBtn) { nextBtn.disabled = true; }
+  }
+
   function giveUp() {
     pollStopped = true;
     if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
@@ -4698,8 +4840,9 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
     var box = $("#superseded");
     if (box) {
       box.style.display = "flex";
-      box.querySelector("h2").textContent = "This page is about to close";
-      box.querySelector("p").textContent = "This page has closed. The newer run has its own.";
+      $("#sstitle").textContent = "This page is about to close";
+      $("#ssbody").textContent = "This page has closed. The newer run has its own.";
+      settle();
     }
   }
 
@@ -4712,12 +4855,13 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
     if (!s.superseded && left > 60) return;
     var box = $("#superseded");
     box.style.display = "flex";
-    box.querySelector("h2").textContent = s.superseded
+    settle();
+    $("#sstitle").textContent = s.superseded
       ? "A newer setup is running"
       : "This page is about to close";
     if (!s.superseded && !box.dataset.reworded) {
       box.dataset.reworded = "1";
-      box.querySelector("p").innerHTML =
+      $("#ssbody").innerHTML =
         "The run that opened it has finished. Nothing here needs you any more; the page closes in" +
         ' <b id="sscount"></b> ' + "seconds" + ".";
     }
@@ -5378,6 +5522,22 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
   .ssbox h2 { margin: 0 0 .6rem; font-size: 1.15rem; }
   .ssbox p { margin: 0; color: var(--muted); line-height: 1.6; }
   .ssbox #sscount { color: var(--red); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+  /* Set apart from the sentence above, because it is not about what just
+     happened — it is the two things still worth knowing afterwards. */
+  .sscta { margin: 1.05rem 0 0; padding: .9rem 0 0; border-top: 1px solid var(--line); }
+  .sscta p { margin: 0 0 .38rem; font-size: .9rem; line-height: 1.55; }
+  .sscta p:last-child { margin-bottom: 0; }
+  .sscta a { color: var(--red-cta); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--red-cta) 38%, transparent); }
+  .sscta a:hover { border-bottom-color: var(--red-cta); }
+  .sscta code { font-size: .88rem; background: var(--paper); border: 1px solid var(--line);
+    border-radius: 5px; padding: .06rem .34rem; }
+  /* Nothing behind the dialog is still happening. The spinner on a running
+     step is the loudest of these: it says work is under way at the same
+     moment the dialog says the run is gone. */
+  .settled .step.running .mark { animation: none; border-top-color: var(--line); opacity: .5; }
+  .settled .barfill { transition: none; }
+  .settled #next { opacity: .5; }
   .topnav { min-height: 3rem; margin-bottom: 2.4rem; display: flex; align-items: center; justify-content: space-between; }
   .more { position: relative; display: inline-flex; }
   .morebtn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
@@ -5634,8 +5794,12 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
 
 <div class="wrap">
 <div id="superseded" class="ssup" style="display:none"><div class="ssbox">
-  <h2>A newer setup is running</h2>
-  <p>You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
+  <h2 id="sstitle">A newer setup is running</h2>
+  <p id="ssbody">You started <b>aisa connect</b> again, and this page describes the run before it. It closes in <b id="sscount">60</b> seconds.</p>
+  <div class="sscta">
+    <p>Usage, spending and top-ups live at <a href="https://console.aisa.one?source=aisa_cli_connect" target="_blank" rel="noopener">console.aisa.one</a>.</p>
+    <p>Run <code>aisa connect</code> any time — add servers, switch models, or connect another agent.</p>
+  </div>
 </div></div>
 <nav class="rail">
   <a class="railhead" href="https://aisa.one/?source=aisa_cli_connect" target="_blank" rel="noopener"><svg width="76" height="26" role="img" aria-label="AIsa" viewBox="0 0 176 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -6026,6 +6190,20 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
     pollTimer = setTimeout(pollOnce, pollDelay(s));
   }
 
+  /**
+   * Everything behind the dialog stops pretending to work.
+   *
+   * The dialog says the page is over; the button under it was still saying
+   * "Signing in…" with its spinner turning, which is the page arguing with
+   * itself. Whatever was in flight is not going to finish — the run that
+   * would have finished it is gone.
+   */
+  function settle() {
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    document.body.classList.add("settled");
+    if (nextBtn) { nextBtn.disabled = true; }
+  }
+
   function giveUp() {
     pollStopped = true;
     if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
@@ -6033,8 +6211,9 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
     var box = $("#superseded");
     if (box) {
       box.style.display = "flex";
-      box.querySelector("h2").textContent = "This page is about to close";
-      box.querySelector("p").textContent = "This page has closed. The newer run has its own.";
+      $("#sstitle").textContent = "This page is about to close";
+      $("#ssbody").textContent = "This page has closed. The newer run has its own.";
+      settle();
     }
   }
 
@@ -6047,12 +6226,13 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
     if (!s.superseded && left > 60) return;
     var box = $("#superseded");
     box.style.display = "flex";
-    box.querySelector("h2").textContent = s.superseded
+    settle();
+    $("#sstitle").textContent = s.superseded
       ? "A newer setup is running"
       : "This page is about to close";
     if (!s.superseded && !box.dataset.reworded) {
       box.dataset.reworded = "1";
-      box.querySelector("p").innerHTML =
+      $("#ssbody").innerHTML =
         "The run that opened it has finished. Nothing here needs you any more; the page closes in" +
         ' <b id="sscount"></b> ' + "seconds" + ".";
     }

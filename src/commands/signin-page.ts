@@ -20,22 +20,49 @@
 
 
 /** Fixed to the bottom; quiet until the final minute. */
-const EXPIRY_MARKUP = [
-  '<div class="expiry" id="expiry"></div>',
+/**
+ * What every ending looks like, here and in the connect page.
+ *
+ * This was a line along the bottom, silent until the last minute. It was
+ * honest and it was also easy to miss — a page nobody is watching any more
+ * ends without saying so, and the reader comes back to a tab that has
+ * quietly stopped working. A dialog cannot be missed, and it is the shape
+ * the connect page already uses when its own time runs out, so the two
+ * surfaces end the same way.
+ *
+ * It carries the two lines every ending carries: where the account lives,
+ * and the command that starts the next one. Addresses rather than buttons —
+ * a button is clicked once and forgotten; `console.aisa.one` and
+ * `aisa connect` are things someone can still type next week.
+ */
+const ENDING_MARKUP = [
+  '<div class="ending" id="ending" hidden><div class="endbox">',
+  '  <h2 id="endtitle"></h2>',
+  '  <p id="endbody"></p>',
+  '  <div class="endcta">',
+  '    <p>Usage, spending and top-ups live at <a href="https://console.aisa.one?source=aisa_cli_signin">console.aisa.one</a>.</p>',
+  '    <p>Run <code>aisa connect</code> any time \u2014 add servers, switch models, or connect another agent.</p>',
+  "  </div>",
+  "</div></div>",
   "<scr" + "ipt>",
   "(function () {",
   "  var until = __UNTIL__;",
-  '  var el = document.getElementById("expiry");',
+  '  var box = document.getElementById("ending");',
+  '  var t = document.getElementById("endtitle"), b = document.getElementById("endbody");',
+  "  function show(title, body) {",
+  "    t.textContent = title; b.textContent = body; box.hidden = false;",
+  "  }",
   "  function tick() {",
   "    var left = Math.ceil((until - Date.now()) / 1000);",
   "    if (left <= 0) {",
-  '      el.textContent = "This page has expired. You can close it \u2014 nothing here is needed any more.";',
-  '      el.className = "expiry on";',
+  '      show("This page has closed", "Nothing here is needed any more \u2014 your key was saved on the machine you signed in from.");',
   "      return;",
   "    }",
+  // Silent until the last minute, as before: a countdown running for five
+  // minutes is furniture. What changed is that it ends in a dialog rather
+  // than in a line nobody was looking at.
   "    if (left > 60) { setTimeout(tick, 1000); return; }",
-  '    el.textContent = "This page stops working in " + left + " seconds. You can close it at any time \u2014 your key is already saved.";',
-  '    el.className = "expiry on";',
+  '    show("This page closes in " + left + " seconds", "You can close it now \u2014 your key is already saved.");',
   "    setTimeout(tick, 1000);",
   "  }",
   "  tick();",
@@ -128,14 +155,21 @@ export function renderSignInPage(outcome: SignInOutcome, closesAt?: number): str
   p{margin:0;font-size:18px;color:var(--dim);max-width:32em}
   code{font-family:var(--mono);font-size:16px;color:var(--fg)}
   .cta{margin:22px 0 0;font-size:17px;color:var(--dim);max-width:32em}
-  /* Along the bottom, out of the way, and silent until there is something
-     worth saying. A countdown running for five minutes is not a warning, it
-     is furniture — and this one exists to remove a worry, not create one. */
-  .expiry{position:fixed;left:0;right:0;bottom:0;padding:14px 32px;
-    font-size:13.5px;color:var(--faint);text-align:center;
-    border-top:1px solid var(--line);background:var(--bg);
-    opacity:0;transition:opacity .4s ease;pointer-events:none}
-  .expiry.on{opacity:1}
+  .ending{position:fixed;inset:0;z-index:9;display:flex;align-items:center;justify-content:center;
+    padding:32px;background:color-mix(in srgb,var(--bg) 78%,transparent);backdrop-filter:blur(3px)}
+  .ending[hidden]{display:none}
+  .endbox{width:min(520px,100%);background:var(--bg);border:1px solid var(--line);
+    border-radius:14px;padding:26px 28px;box-shadow:0 18px 48px rgba(0,0,0,.14)}
+  .endbox h2{font-size:21px;margin:0 0 10px;letter-spacing:-.012em}
+  .endbox p{font-size:15.5px;margin:0}
+  .endcta{margin:18px 0 0;padding:15px 0 0;border-top:1px solid var(--line)}
+  .endcta p{font-size:14px;line-height:1.55;margin:0 0 6px;color:var(--dim)}
+  .endcta p:last-child{margin-bottom:0}
+  .endcta a{color:var(--accent);font-family:var(--mono);text-decoration:none;
+    border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent)}
+  .endcta a:hover{border-bottom-color:var(--accent)}
+  .endcta code{font-family:var(--mono);font-size:13.5px;color:var(--fg);
+    background:color-mix(in srgb,var(--fg) 6%,transparent);border-radius:5px;padding:1px 5px}
   .cta a{color:var(--accent);text-decoration:none;font-family:var(--mono);
     font-size:16px;border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent)}
   .cta a:hover{border-bottom-color:var(--accent)}
@@ -155,7 +189,7 @@ export function renderSignInPage(outcome: SignInOutcome, closesAt?: number): str
       ? `<p class="cta">${c.cta.before}<a href="${c.cta.href}" rel="noopener">${c.cta.domain}</a>${c.cta.after}</p>`
       : ""}
   </div>
-  ${closesAt ? EXPIRY_MARKUP.replace("__UNTIL__", String(closesAt)) : ""}
+  ${closesAt ? ENDING_MARKUP.replace("__UNTIL__", String(closesAt)) : ""}
 </body>
 </html>`;
 }

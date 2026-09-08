@@ -704,6 +704,26 @@ export const SUPERSEDED = {
     en: "This page has closed. The newer run has its own.",
     zh: "本页面已关闭。新的运行有它自己的页面。",
   },
+  /**
+   * The two lines every ending carries, whatever ended.
+   *
+   * A surface that is closing has the reader's attention and nothing left to
+   * spend it on — which is the one moment these are useful rather than in the
+   * way. Both are addresses, not buttons: a button is clicked once and
+   * forgotten, while `console.aisa.one` and `aisa connect` are things someone
+   * can still type next week. That is the whole point of putting them here.
+   */
+  console: {
+    en: "Usage, spending and top-ups live at",
+    zh: "用量、消费和充值都在",
+  },
+  consoleDomain: "console.aisa.one",
+  againBefore: { en: "Run", zh: "随时再跑" },
+  againCmd: "aisa connect",
+  againAfter: {
+    en: "any time — add servers, switch models, or connect another agent.",
+    zh: "—— 加 server、换模型、接另一个 agent。",
+  },
 };
 
 /**
