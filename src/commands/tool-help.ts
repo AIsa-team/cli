@@ -51,19 +51,6 @@ export interface RouterCommandContract {
   examples: RouterExample[];
 }
 
-export interface RouterRootContract {
-  operations: Record<RouterOperation, { identifier: string; path: string; auth: "optional" | "required" }>;
-  flow: string;
-  enforced: string[];
-  safety: string[];
-  exits: typeof ROUTER_EXITS;
-  legacy: {
-    deprecated: string[];
-    unchanged: string[];
-    note: string;
-  };
-}
-
 const FLOW =
   "Recommended sequence: aisa search → aisa schema when has_full_schema=false → aisa quote → aisa call.";
 
@@ -88,18 +75,6 @@ const INSTRUCTION_UNQUOTED =
 
 const EXITS =
   "Exits: 0 success; 2 invalid local input (nothing sent); 1 transport, auth, or HTTP error; 3 HTTP 200 with any failed batch item.";
-
-const ROOT_ENFORCED = [ENFORCED_REQUIRED, NOT_ENFORCED];
-
-const ROOT_SAFETY = [
-  INSTRUCTION_UNQUOTED,
-  "Instruction: Quote is a price observation, not authorization to execute. A data request or credentials alone is not spending approval.",
-  "Instruction: Do not invent tool names. Do not guess required unresolved values; ask, and do not call.",
-  "Instruction: A missing or failed quote is never free. Estimated cost is not a limit.",
-  "Instruction: If a hard monetary cap is required, do not execute calls that have no guaranteed maximum.",
-  "Instruction: A partial quote is not a full-batch total. Call only an independently approved successful subset. Do not silently retry or expand the set.",
-  "Instruction: Without a configured AIsa API key, do not invent a business result.",
-];
 
 function example(kind: RouterOperation, input: Record<string, unknown>): RouterExample {
   return { argv: [kind, "--input", JSON.stringify(input), "--json"], input };
@@ -167,26 +142,6 @@ export function routerContract(kind: RouterOperation): RouterCommandContract {
         examples: [example("call", EXAMPLE_BATCH)],
       };
   }
-}
-
-export function routerRootContract(): RouterRootContract {
-  return {
-    operations: {
-      search: { ...MCP_CLI_MAP.search, auth: "optional" },
-      schema: { ...MCP_CLI_MAP.schema, auth: "optional" },
-      quote: { ...MCP_CLI_MAP.quote, auth: "required" },
-      call: { ...MCP_CLI_MAP.call, auth: "required" },
-    },
-    flow: FLOW,
-    enforced: ROOT_ENFORCED,
-    safety: ROOT_SAFETY,
-    exits: ROUTER_EXITS,
-    legacy: {
-      deprecated: ["api search", "api show", "run"],
-      unchanged: ["api list", "api code"],
-      note: "Deprecated commands are not drop-in replacements. Removal will be a separately announced breaking release.",
-    },
-  };
 }
 
 /** Path after `aisa`. Only the four top-level Router commands. */

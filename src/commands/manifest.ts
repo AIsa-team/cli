@@ -4,9 +4,7 @@ import { deprecationFor } from "../deprecation.js";
 import {
   ROUTER_EXITS,
   routerContractFor,
-  routerRootContract,
   type RouterCommandContract,
-  type RouterRootContract,
 } from "./tool-help.js";
 
 /**
@@ -64,8 +62,6 @@ interface ManifestCommand {
   exits?: typeof ROUTER_EXITS;
   sameRequestShapeAs?: RouterCommandContract["sameRequestShapeAs"];
   examples?: RouterCommandContract["examples"];
-  /** Present on the root `aisa` node for one-shot machine discovery. */
-  router?: RouterRootContract;
 }
 
 /**

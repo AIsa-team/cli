@@ -64,7 +64,7 @@ describe("compiled --help and manifest", () => {
     return home;
   }
 
-  it("root and four command help expose complete JSON, mapping, auth, exits, and file/stdin", async () => {
+  it("root links to complete command help with JSON, mapping, auth, exits, and file/stdin", async () => {
     const home = isolatedHome();
     const pages: Record<string, string> = {};
     for (const args of [[], ["search"], ["schema"], ["quote"], ["call"]]) {
@@ -77,13 +77,16 @@ describe("compiled --help and manifest", () => {
       expect(text, name).not.toMatch(/similarweb_get_company/);
       expect(text, name).not.toMatch(/--input '[^']*\.\.\.[^']*'/);
       expect(text, name).not.toMatch(/Unquoted calls cannot be executed/);
-      expect(text, name).toContain("AISA_API_KEY");
-      expect(text, name).toContain("~/.aisa/key");
-      expect(text, name).toMatch(/Enforced:/);
-      expect(text, name).toMatch(/Exits: 0 success/);
+      if (name !== "root") {
+        expect(text, name).toContain("AISA_API_KEY");
+        expect(text, name).toContain("~/.aisa/key");
+        expect(text, name).toMatch(/Enforced:/);
+        expect(text, name).toMatch(/Exits: 0 success/);
+      }
       expect(text, name).toMatch(/POSIX sh/);
     }
 
+    expect(pages.root).toContain("aisa <command> --help or aisa manifest <command>");
     expect(pages.root).toContain(EXAMPLE_BATCH_JSON);
     expect(pages.root).toContain(EXAMPLE_PUBLISHED_TOOL);
     expect(pages.root).toMatch(/not drop-in/);
@@ -113,8 +116,7 @@ describe("compiled --help and manifest", () => {
     expect(pages.quote).toMatch(/no guaranteed maximum/);
     expect(pages.quote).toMatch(/partial quote is not a full-batch total/i);
     expect(pages.call).toMatch(/Do not silently retry/);
-    expect(pages.root).toMatch(/do not invent a business result/i);
-    expect(pages.root).toMatch(/Do not execute unquoted calls/);
+    expect(pages.call).toMatch(/do not invent a business result/i);
     expect(pages.quote).toMatch(/Do not execute unquoted calls/);
     expect(pages.call).toMatch(/does not reject an unquoted aisa call/);
 
@@ -155,8 +157,7 @@ describe("compiled --help and manifest", () => {
       }
     }
 
-    expect(tree.router?.legacy.deprecated).toEqual(["api search", "api show", "run"]);
-    expect(tree.router?.safety.join("\n")).toMatch(/not spending approval/);
+    expect(find(tree, "aisa call")?.safety?.join("\n")).toMatch(/not spending approval/);
     const searchNode = JSON.parse((await runCompiledCli(["manifest", "search"], { HOME: home })).stdout) as ManifestNode;
     const quoted = searchNode.examples?.find((ex) => JSON.stringify(ex.input).includes("O'Reilly"));
     expect(quoted?.input).toEqual(EXAMPLE_SEARCH_QUOTED);
