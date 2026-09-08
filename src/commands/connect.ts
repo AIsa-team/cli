@@ -2561,10 +2561,44 @@ export async function connectAction(options: {
     | { state: string; resolve: (code: string) => void; reject: (e: Error) => void }
     | undefined;
 
+  /** True only while the run is parked on a browser sign-in. */
+  let awaitingSignIn = false;
   /** Set once the plan has run; the page's "Log in again" calls it. */
   let retrySignIn: (() => Promise<boolean>) | undefined;
   /** One at a time. */
   let retrying = false;
+
+  /**
+   * Give the page a working "Log in again", for a given plan.
+   *
+   * Called twice over a run's life: once when the plan is first built, and
+   * again by a process that inherited a run whose terminal went away mid
+   * sign-in. The second is the point — a handed-over run keeps its page, and
+   * a page whose only useful button does nothing is not much of a page.
+   */
+  const armRetry = (planInput: RunInput): void => {
+    retrySignIn = async () => {
+      if (!state.needsSignIn || retrying) return false;
+      retrying = true;
+      state.needsSignIn = false;
+      state.phase = "applying";
+      // Everything the stop left behind goes back to pending; the sign-in
+      // itself is the step being retried.
+      for (const step of state.steps) {
+        if (step.state === "skip" || step.id === "signin") {
+          setStep(state, step.id, { state: "pending", detail: "" });
+        }
+      }
+      log.line("step", "Trying the sign-in again", "at your request, from the page");
+      try {
+        const again = await runPlan(state, planInput, log);
+        state.phase = again > 0 ? "failed" : "done";
+      } finally {
+        retrying = false;
+      }
+      return true;
+    };
+  };
 
   /**
    * Hand the run's own address to the sign-in.
@@ -2582,6 +2616,7 @@ export async function connectAction(options: {
           return `http://127.0.0.1:${port}/callback`;
         },
         wait(expected: string) {
+          awaitingSignIn = true;
           return new Promise<string>((resolve, reject) => {
             // The same deadline the standalone sign-in uses. A tab that is
             // never approved must not hold a run open for ever.
@@ -2595,10 +2630,12 @@ export async function connectAction(options: {
               state: expected,
               resolve: (code) => {
                 clearTimeout(giveUp);
+                awaitingSignIn = false;
                 resolve(code);
               },
               reject: (e) => {
                 clearTimeout(giveUp);
+                awaitingSignIn = false;
                 reject(e);
               },
             };
@@ -2933,28 +2970,6 @@ export async function connectAction(options: {
        * agent, the servers, the model choice — so they are kept rather than
        * recomputed from a page that may have been reloaded since.
        */
-      const runAgain = (): Promise<number> => runPlan(state, planInput, log);
-      retrySignIn = async () => {
-        if (!state.needsSignIn || retrying) return false;
-        retrying = true;
-        state.needsSignIn = false;
-        state.phase = "applying";
-        // Everything the stop left behind goes back to pending; the sign-in
-        // itself is the step being retried.
-        for (const step of state.steps) {
-          if (step.state === "skip" || step.id === "signin") {
-            setStep(state, step.id, { state: "pending", detail: "" });
-          }
-        }
-        log.line("step", "Trying the sign-in again", "at your request, from the page");
-        try {
-          const again = await runAgain();
-          state.phase = again > 0 ? "failed" : "done";
-        } finally {
-          retrying = false;
-        }
-        return true;
-      };
       const planInput: RunInput = {
         install: [...wantInstall],
         clients: chosenClients,
@@ -2968,6 +2983,7 @@ export async function connectAction(options: {
         llmMode,
         lang,
       };
+      armRetry(planInput);
       const failures = await runPlan(state, planInput, log);
       const results = state.results;
       // Long since settled by now (fired at the top of connectAction) — this
@@ -3164,6 +3180,25 @@ export async function connectAction(options: {
   });
   const addr = srv.address();
   port = typeof addr === "object" && addr ? addr.port : 0;
+
+  // A run inherited mid sign-in arrives with its plan already decided and its
+  // only useful button pointing at a function this process has not built yet.
+  // The selection is in the state it inherited, so rebuild the plan from that
+  // rather than asking a page that may since have been reloaded.
+  if (resumed && state.needsSignIn && state.selection) {
+    const sel = state.selection;
+    armRetry({
+      install: [...sel.install],
+      clients: [...sel.clients],
+      servers: servers.filter((x) => sel.servers.includes(x.slug)),
+      key: liveKey(),
+      catcher: signInCatcher,
+      signinShown: signinShownP,
+      dryRun: Boolean(options.dryRun),
+      llmMode: sel.llmMode,
+      lang,
+    });
+  }
   const pageUrl = `http://127.0.0.1:${port}/?token=${token}`;
   // Publish the address for a second invocation, and take it back on every
   // way out: normal exit, Ctrl-C, or an unhandled crash.
@@ -3221,7 +3256,38 @@ export async function connectAction(options: {
       // to close, and taking it down was the one thing the page could not
       // recover from. Anything already being written is a different matter:
       // that work lives in this process and cannot be moved mid-flight.
-      if (state.phase === "selecting" && pageOpened) {
+      //
+      // Waiting for a sign-in is not that. Nothing is being written — the run
+      // is parked on a promise that only a browser can resolve — so the
+      // "cannot be moved" reasoning does not reach it, and the page has every
+      // reason to outlive the terminal here: the reader is in another tab
+      // signing in. The wait itself cannot be carried across, so it is ended
+      // honestly and the page is handed over offering to start it again.
+      const wasAwaiting = awaitingSignIn;
+      if (wasAwaiting) {
+        awaitingSignIn = false;
+        // Marked here rather than left to runPlan's catch: rejecting the
+        // promise settles on a microtask, and this handler decides what to
+        // hand over on the line below. The state the child inherits has to be
+        // the true one — a sign-in that ended, not one still turning.
+        setStep(state, "signin", {
+          state: "fail",
+          detail: "the terminal was closed while the sign-in was open — nothing was written",
+        });
+        for (const step of state.steps) {
+          if (step.state === "pending") {
+            setStep(state, step.id, { state: "skip", detail: "waiting for the sign-in" });
+          }
+        }
+        state.needsSignIn = true;
+        state.phase = "failed";
+        if (pendingSignIn) {
+          const p = pendingSignIn;
+          pendingSignIn = undefined;
+          p.reject(new Error("the terminal was closed while the sign-in was open"));
+        }
+      }
+      if ((state.phase === "selecting" || wasAwaiting) && pageOpened) {
         const until = Date.now() + LINGER_AFTER_DONE_MS;
         if (
           handOverRun(
@@ -3231,7 +3297,13 @@ export async function connectAction(options: {
         ) {
           handedOver = true;
           console.log("");
-          log.line("info", "Terminal released", "the page carries on without it");
+          log.line(
+            "info",
+            "Terminal released",
+            wasAwaiting
+              ? "the sign-in was not finished — the page offers to start it again"
+              : "the page carries on without it"
+          );
           console.log(`  ${chalk.cyan(pageUrl)}`);
           log.note(`open for another ${Math.round(LINGER_AFTER_DONE_MS / 60_000)} minutes`);
           log.command("aisa connect", "come back to it");
