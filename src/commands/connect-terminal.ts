@@ -720,16 +720,41 @@ export async function runTerminalFlow(
       if (fresh) rev = fresh.rev;
       const chosen = new Set(draft.servers);
       if (interactive()) {
-        const initial = o.servers.map((s, i) => (chosen.has(s.slug) ? i : -1)).filter((i) => i >= 0);
+        // Grouped by area, with the area named once above its rows.
+        //
+        // A category column beside every row said "SEO & Search Data" twelve
+        // times out of twenty-five — the same word repeated is not something
+        // to read, and the list is sorted by slug so it could not even group.
+        // Said once over a run of rows it does both jobs at once.
+        //
+        // The rows a user can act on are a subset of the rows on screen from
+        // here on, so everything that indexes them goes through `rowOf`.
+        const grouped: Array<{ cat?: string; server?: LiveServer }> = [];
+        const ordered = [...o.servers].sort(
+          (a, b) => a.category.localeCompare(b.category) || a.slug.localeCompare(b.slug)
+        );
+        let area = "";
+        for (const srv of ordered) {
+          if (srv.category !== area) { area = srv.category; grouped.push({ cat: area }); }
+          grouped.push({ server: srv });
+        }
+        /** Row index → server, for the rows that carry one. */
+        const rowOf = grouped.map((g) => g.server);
+        const rowFor = (slug: string) => rowOf.findIndex((s) => s?.slug === slug);
+        const initial = [...chosen].map(rowFor).filter((i) => i >= 0);
         const a3 = await pickOrWatch(o, rev, 4,
-          o.servers.map((s) => ({
-            label: s.slug,
-            meta: `${s.toolCount} ${t(STEP_CAPS.toolsWord, o.lang)}`,
-            // Straight from the host, the same sentence the page shows. A
-            // hand-written table here would be a second source of truth for
-            // something that ships with the server.
-            detail: s.description,
-          })),
+          grouped.map((g) =>
+            g.cat
+              ? { header: true, label: g.cat }
+              : {
+                  label: g.server!.slug,
+                  meta: `${g.server!.toolCount} ${t(STEP_CAPS.toolsWord, o.lang)}`,
+                  // Straight from the host, the same sentence the page shows.
+                  // A hand-written table here would be a second source of
+                  // truth for something that ships with the server.
+                  detail: g.server!.description,
+                }
+          ),
           true, initial,
           o.lang === "zh"
             ? "↑↓ 移动 · 空格勾选 · a 全选/全不选 · 回车确认 · esc 返回上一步"
@@ -737,11 +762,9 @@ export async function runTerminalFlow(
           3,
           {
             read: (d) =>
-              d.servers === undefined
-                ? undefined
-                : o.servers.map((s, i) => (d.servers!.includes(s.slug) ? i : -1)).filter((i) => i >= 0),
+              d.servers === undefined ? undefined : d.servers.map(rowFor).filter((i) => i >= 0),
             write: async (indexes) => {
-              const next = indexes.map((i) => o.servers[i].slug);
+              const next = indexes.map((i) => rowOf[i]?.slug).filter((x): x is string => Boolean(x));
               ({ rev } = await push(o, rev, { draft: { servers: next } }));
               return rev;
             },
@@ -756,7 +779,7 @@ export async function runTerminalFlow(
           console.log("\n" + dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 已在页面中选择" : "↩ chosen in the page"));
         } else {
           chosen.clear();
-          for (const i of a3.picked ?? []) chosen.add(o.servers[i].slug);
+          for (const i of a3.picked ?? []) { const srv = rowOf[i]; if (srv) chosen.add(srv.slug); }
         }
       } else {
         o.servers.forEach((s, i) => {

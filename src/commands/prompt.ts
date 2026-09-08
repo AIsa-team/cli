@@ -97,6 +97,19 @@ export function interactive(): boolean {
 }
 
 export interface Choice {
+  /**
+   * A group heading rather than a choice.
+   *
+   * The capability list is twenty-five rows over eight areas, and a category
+   * column repeated down the side said "SEO & Search Data" twelve times —
+   * which is not information, it is the same word twelve times. Said once
+   * over a group it is a heading, and the rows under it inherit it.
+   *
+   * Everything that acts on a row skips these: the cursor steps over them,
+   * space cannot tick them, "all" does not count them, and they are never
+   * returned as a pick. They occupy a row and nothing else.
+   */
+  header?: boolean;
   /** Left column, already coloured. */
   label: string;
   /** Right column, dimmed. Cut before it can wrap. */
@@ -207,13 +220,20 @@ function frame(o: RenderOptions): string[] {
   // "Add AIsa beside it (recommended)" — a four-row menu whose rows carry
   // nothing but their label, paying for a second column that was never drawn.
   const anyMeta = o.choices.some((c) => c.meta);
+  const pickable = o.choices.filter((c) => !c.header);
   const labelW = Math.min(
-    Math.max(...o.choices.map((c) => cells(c.label))),
+    Math.max(...(pickable.length ? pickable : o.choices).map((c) => cells(c.label))),
     Math.max(8, width - (anyMeta ? 24 : 4))
   );
   const metaW = Math.max(10, width - labelW - 6);
   for (let i = o.offset; i < Math.min(o.offset + o.rows, o.choices.length); i++) {
     const c = o.choices[i];
+    if (c.header) {
+      // Set back from the rows it covers, so it reads as a lid rather than
+      // as another row that happens to have no tick.
+      lines.push(chalk.gray("│  ") + chalk.gray.bold(c.label));
+      continue;
+    }
     const here = i === o.cursor;
     const on = Boolean(o.selected?.has(i));
     // Four states, four looks. Before this, "where I am" and "what I picked"
@@ -247,7 +267,12 @@ function frame(o: RenderOptions): string[] {
     }
   }
   if (o.choices.length > o.rows) {
-    lines.push(chalk.gray(`│   ${o.offset + 1}–${Math.min(o.offset + o.rows, o.choices.length)} / ${o.choices.length}`));
+    // Counted in things you can pick, not in rows drawn. With group headings
+    // in the list the two differ — twenty-five servers were reported as
+    // "6–15 / 33", a total the user has no way to make sense of.
+    const before = o.choices.slice(0, o.offset).filter((c) => !c.header).length;
+    const here = o.choices.slice(o.offset, o.offset + o.rows).filter((c) => !c.header).length;
+    lines.push(chalk.gray(`│   ${before + 1}–${before + here} / ${pickable.length}`));
   }
   // The keys are the one thing a first-time reader has to see. Dimming them
   // put the only instructions on the screen below everything else in
@@ -312,7 +337,18 @@ export async function pick<T>(opts: {
   onToggle?: (indexes: number[]) => void;
 }): Promise<PickResult<T>> {
   const selected = new Set(opts.initial ?? []);
+  const isHeader = (i: number) => Boolean(opts.choices[i]?.header);
+  /** The next pickable row in a direction, wrapping. Headers are not rows. */
+  const step = (from: number, by: number): number => {
+    const n = opts.choices.length;
+    for (let k = 1; k <= n; k++) {
+      const i = (from + by * k + n * k) % n;
+      if (!isHeader(i)) return i;
+    }
+    return from;
+  };
   let cursor = opts.cursor ?? (opts.initial?.[0] ?? 0);
+  if (isHeader(cursor)) cursor = step(cursor, 1);
   let offset = 0;
   // The block under the cursor is part of the frame, so the viewport has to
   // pay for it — otherwise the frame outgrows the window and the redraw walks
@@ -382,11 +418,12 @@ export async function pick<T>(opts: {
         if (!opts.multi) opts.onToggle?.([cursor]);
       };
       if (k.escape) return finish({ escaped: true });
-      if (k.up) { cursor = (cursor - 1 + opts.choices.length) % opts.choices.length; moved(); return; }
-      if (k.down) { cursor = (cursor + 1) % opts.choices.length; moved(); return; }
+      if (k.up) { cursor = step(cursor, -1); moved(); return; }
+      if (k.down) { cursor = step(cursor, 1); moved(); return; }
       if (opts.multi && k.all) {
-        if (selected.size === opts.choices.length) selected.clear();
-        else opts.choices.forEach((_, i) => selected.add(i));
+        const every = opts.choices.reduce((n, c) => (c.header ? n : n + 1), 0);
+        if (selected.size === every) selected.clear();
+        else opts.choices.forEach((c, i) => { if (!c.header) selected.add(i); });
         draw();
         opts.onToggle?.(sorted());
         return;
@@ -395,7 +432,7 @@ export async function pick<T>(opts: {
         // Numbers still work: muscle memory from the version this replaces,
         // and the only way to reach item 12 in one keystroke.
         const i = k.digit === 0 ? 9 : k.digit - 1;
-        if (i < opts.choices.length) { cursor = i; moved(); }
+        if (i < opts.choices.length && !isHeader(i)) { cursor = i; moved(); }
         return;
       }
       if (opts.multi && k.space) {
