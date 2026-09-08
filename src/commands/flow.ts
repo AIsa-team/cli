@@ -434,6 +434,26 @@ export const CATEGORY_BLURB: Record<string, Text> = {
     en: "Apollo B2B data — enrich people and companies, find prospects.",
     zh: "Apollo 的 B2B 数据 —— 补全人和公司信息、找潜在客户。",
   },
+  "SEO & Search Data": {
+    en: "Keywords, rankings, backlinks and on-page checks — and how a brand shows up in AI answers.",
+    zh: "关键词、排名、外链、页面检查 —— 还有一个品牌在 AI 回答里的露出情况。",
+  },
+  Communication: {
+    en: "An inbox an agent can actually use — its own address, sending and receiving.",
+    zh: "agent 能真正用起来的邮箱 —— 自己的地址,能收能发。",
+  },
+  Creators: {
+    en: "Find creators by audience, topic and reach, across platforms.",
+    zh: "按受众、话题和影响力找创作者,跨平台。",
+  },
+  Search: {
+    en: "YouTube search on its own.",
+    zh: "单独的 YouTube 搜索。",
+  },
+  "Market Intelligence": {
+    en: "Similarweb data — a site's traffic, engagement and where its visitors come from.",
+    zh: "Similarweb 数据 —— 网站流量、互动情况,以及访客从哪来。",
+  },
 };
 
 // ── step 5: install ─────────────────────────────────────────────────────────
@@ -494,9 +514,13 @@ export const RUNTIME_COPY = {
     en: "Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa.",
     zh: "想用 AIsa 的时候,在 opencode 的模型列表里选 <code>aisa/…</code> 即可。",
   },
+  // Bold, like every other command a reader is meant to type later. The two
+  // sit in the same paragraph on the results page and were marked up
+  // differently — one command looking more like a command than the other,
+  // for no reason a reader could infer.
   backupBin: {
-    en: "Run <code>{bin}</code> whenever you want AIsa's models; delete that one file to remove it.",
-    zh: "想用 AIsa 的模型时就跑 <code>{bin}</code>;删掉那一个文件就等于移除。",
+    en: "Run <b><code>{bin}</code></b> whenever you want AIsa's models; delete that one file to remove it.",
+    zh: "想用 AIsa 的模型时就跑 <b><code>{bin}</code></b>;删掉那一个文件就等于移除。",
   },
   noKeyStored: {
     en: "No key stored here — run <code>aisa login</code>, then copy it from <code>~/.aisa/key</code>.",
