@@ -3220,6 +3220,18 @@ export async function connectAction(options: {
 
   // A run inherited mid sign-in arrives with its plan already decided and its
   // only useful button pointing at a function this process has not built yet.
+  // A resumed run knows what was chosen — it travelled in the state — but the
+  // variables the routes read are filled in by /apply, which this process
+  // never runs. Left empty, /launch could not name a binary and answered 400,
+  // and the page reported it as "could not open a terminal": two unrelated
+  // causes behind one sentence, and the one that was true said nothing about
+  // the real problem.
+  if (resumed && state.selection) {
+    chosenClients = [...state.selection.clients];
+    chosenServers = servers.filter((x) => state.selection!.servers.includes(x.slug));
+    // llmMode is not a local here — the routes read state.llmMode, which
+    // travels with the run.
+  }
   // The selection is in the state it inherited, so rebuild the plan from that
   // rather than asking a page that may since have been reloaded.
   if (resumed && state.needsSignIn && state.selection) {

@@ -1211,7 +1211,7 @@ ${restChips}
     var lb = $("#launch"); if (lb) lb.addEventListener("click", function () {
       lb.disabled = true;
       fetch("/launch?token=" + TOKEN, { method: "POST" }).then(function (r) { if (!r.ok) throw 0; lb.textContent = id === "vscode" ? "✓ VS Code opened" : id === "cursor" ? "✓ Cursor opened" : id === "claude-desktop" ? "✓ Restarting…" : "✓ Opened in Terminal"; })
-        .catch(function () { lb.style.display = "none"; $("#launchnote").innerHTML = id === "vscode" || id === "cursor" || id === "claude-desktop" ? COPY.cannotStartApp.split("{name}").join(name) : COPY.cannotOpenTerminal.split("{bin}").join(bin); });
+        .catch(function () { lb.style.display = "none"; $("#launchnote").className = "fine told"; $("#launchnote").innerHTML = id === "vscode" || id === "cursor" || id === "claude-desktop" ? COPY.cannotStartApp.split("{name}").join(name) : COPY.cannotOpenTerminal.split("{bin}").join(bin); });
     });
   }
 
@@ -1437,6 +1437,10 @@ function shellT2(title: string, body: string): string {
   h3 { font-size: 1rem; font-weight: 700; margin: 0 0 .3rem; }
   .lede { color: var(--muted); font-size: 1.08rem; }
   .fine { color: var(--muted); font-size: .86rem; margin-top: .9rem; }
+  /* When the launch button fails it is replaced by this, and it stops being
+     fine print: it is the only thing left telling the reader what to do. */
+  #launchnote.told { font-size: 1rem; color: var(--ink); }
+  #launchnote.told code { font-size: .95rem; }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em;
     background: color-mix(in srgb, var(--muted) 12%, transparent); padding: .1em .35em; border-radius: 4px; }
   .badge { font-size: .72rem; font-weight: 700; padding: .16rem .6rem; border-radius: 99px;

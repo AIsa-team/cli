@@ -304,7 +304,7 @@ export const STEP_MODELS = {
     zh: "<b>能随时切换才是重点。</b>一把 key、一个接入点:改个模型名字,你就用上了另一家的旗舰模型 —— 今天 Claude,晚上跑批量任务换便宜的 DeepSeek,明天 GPT-5.5。不用重新注册、不用改配置、不用管理一堆 key。 ",
   },
   rerun: {
-    en: "Change the default any time — just run <b><code>aisa connect</code></b> again.",
+    en: "Change the default any time — just run <code>aisa connect</code> again.",
     zh: "默认模型随时可改 —— 再跑一次 <b><code>aisa connect</code></b> 就行。",
   },
   h2Prefix: { en: "How should ", zh: "要让 " },
@@ -519,8 +519,12 @@ export const RUNTIME_COPY = {
   // differently — one command looking more like a command than the other,
   // for no reason a reader could infer.
   backupBin: {
-    en: "Run <b><code>{bin}</code></b> whenever you want AIsa's models; delete that one file to remove it.",
-    zh: "想用 AIsa 的模型时就跑 <b><code>{bin}</code></b>;删掉那一个文件就等于移除。",
+    // Plain <code>, like every other command in this section's prose. The
+    // extra weight was added to make two neighbours match; matching the whole
+    // page is the better answer — one page with one way of writing a command
+    // beats one paragraph with its own.
+    en: "Run <code>{bin}</code> whenever you want AIsa's models; delete that one file to remove it.",
+    zh: "想用 AIsa 的模型时就跑 <code>{bin}</code>;删掉那一个文件就等于移除。",
   },
   noKeyStored: {
     en: "No key stored here — run <code>aisa login</code>, then copy it from <code>~/.aisa/key</code>.",
@@ -530,9 +534,12 @@ export const RUNTIME_COPY = {
     en: "Could not start {name} — open it from your Applications folder.",
     zh: "无法启动 {name} —— 请从应用程序文件夹里手动打开。",
   },
+  // Louder than the prose around it, because when this appears it is the only
+  // instruction left: the button that would have done it is gone, and the
+  // command is the whole of what the reader has to act on.
   cannotOpenTerminal: {
-    en: "Could not open a terminal — just run <code>{bin}</code> in any terminal.",
-    zh: "无法打开终端 —— 在任意终端里跑 <code>{bin}</code> 即可。",
+    en: "Could not open a terminal — run <b><code>{bin}</code></b> in any terminal.",
+    zh: "无法打开终端 —— 在任意终端里跑 <b><code>{bin}</code></b>。",
   },
 } as const;
 
