@@ -26,7 +26,17 @@ const MARKS: Record<Mark, { icon: string; paint: (s: string) => string }> = {
   warn: { icon: "⚠️ ", paint: (s) => chalk.yellow(s) },
   fail: { icon: "❌", paint: (s) => chalk.red(s) },
   info: { icon: "ℹ️ ", paint: (s) => s },
-  write: { icon: "📝", paint: (s) => s },
+  // Not an emoji. This mark is used once, in "What changed on this machine",
+  // where every line already carries its own arrow — "2 MCP servers →
+  // ~/.codex/config.toml". A notepad glyph beside that says nothing the
+  // heading has not said, and it is the loudest thing in a section whose
+  // whole job is to be scanned. The turned arrow reads as "and it landed
+  // here", and is a different shape from the → inside the line, so the two
+  // do not have to be told apart.
+  //
+  // Trailing space because it is one column wide where ✅ is two: without it
+  // this section's text starts a column left of every other section's.
+  write: { icon: "↳ ", paint: (s) => s },
   cmd: { icon: "⌨️ ", paint: (s) => s },
   choice: { icon: "•", paint: (s) => s },
 };
