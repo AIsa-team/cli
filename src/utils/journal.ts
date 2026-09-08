@@ -43,19 +43,26 @@ export type Mark = "step" | "ok" | "warn" | "fail" | "info" | "write" | "cmd" | 
  * Every icon is padded to two columns. ✅ was two wide and ▸ was one, so the
  * text in a section of headings started one column left of the text in a
  * section of results — a misalignment nobody could name but everybody saw.
+ *
+ * And every one carries the section indent. A heading at the left margin
+ * with its lines also at the left margin is not a section, it is a run of
+ * text with a bolder line every so often; four spaces is what makes the
+ * heading own what follows it. Everything else here indents from the same
+ * step, so a note sits under its line and a captured transcript sits under
+ * that.
  */
 const MARKS: Record<Mark, { icon: string; paint: (s: string) => string; tail?: string; tailPlain?: string }> = {
-  step: { icon: "▸ ", paint: (s) => chalk.bold(s) },
-  ok: { icon: "• ", paint: (s) => s, tail: chalk.green("✓"), tailPlain: "✓" },
-  warn: { icon: "• ", paint: (s) => chalk.yellow(s), tail: chalk.yellow("⚠"), tailPlain: "⚠" },
-  fail: { icon: "• ", paint: (s) => chalk.red(s), tail: chalk.red("✗"), tailPlain: "✗" },
-  info: { icon: "• ", paint: (s) => s },
+  step: { icon: "    ▸", paint: (s) => chalk.bold(s) },
+  ok: { icon: "    •", paint: (s) => s, tail: chalk.green("✓"), tailPlain: "✓" },
+  warn: { icon: "    •", paint: (s) => chalk.yellow(s), tail: chalk.yellow("⚠"), tailPlain: "⚠" },
+  fail: { icon: "    •", paint: (s) => chalk.red(s), tail: chalk.red("✗"), tailPlain: "✗" },
+  info: { icon: "    •", paint: (s) => s },
   // No tail: the whole "What changed on this machine" section is things that
   // happened, and a tick on every line of it would say once per line what the
   // heading already said.
-  write: { icon: "• ", paint: (s) => s },
-  cmd: { icon: "⌨️ ", paint: (s) => s },
-  choice: { icon: "• ", paint: (s) => s },
+  write: { icon: "    •", paint: (s) => s },
+  cmd: { icon: "    ⌨️", paint: (s) => s },
+  choice: { icon: "    •", paint: (s) => s },
 };
 
 export class Journal {
@@ -113,7 +120,7 @@ export class Journal {
 
   /** An indented continuation under the previous line. */
   note(text: string): void {
-    this.emit("", chalk.gray(`   ${text}`), `   ${text}`);
+    this.emit("", chalk.gray(`       ${text}`), `       ${text}`);
   }
 
   /**
@@ -126,15 +133,15 @@ export class Journal {
    * it was captured.
    */
   sub(text: string): void {
-    this.emit("", chalk.gray(`      ${text}`), `      ${text}`);
+    this.emit("", chalk.gray(`          ${text}`), `          ${text}`);
   }
 
   /** A command the user can copy and run later. */
   command(cmd: string, why?: string): void {
     this.emit(
       "",
-      `   ${chalk.cyan(cmd)}${why ? chalk.gray(`   ${why}`) : ""}`,
-      `   $ ${cmd}${why ? `   # ${why}` : ""}`
+      `    ${chalk.cyan(cmd)}${why ? chalk.gray(`   ${why}`) : ""}`,
+      `    $ ${cmd}${why ? `   # ${why}` : ""}`
     );
   }
 
@@ -181,7 +188,7 @@ export class Journal {
    * and once it is properly indented the bullet has nothing left to do.
    */
   record(text: string): void {
-    this.write(`      ${text}`);
+    this.write(`          ${text}`);
   }
 
   private emit(_icon: string, pretty: string, plain: string): void {
