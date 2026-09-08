@@ -958,6 +958,8 @@ function shell(title: string, body: string): string {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${title}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- The address of this page contains the run token; see connect-t2.ts. -->
+<meta name="referrer" content="no-referrer">
 <style>
   :root {
     --paper: ${PAPER}; --ink: #1c1b1a; --muted: #6d6a66; --line: #e7e4df;
@@ -1669,7 +1671,7 @@ ${recapRows}
         ? `<div class="lownote">Could not read it just now — <code>aisa balance</code> will.</div>`
         : ""
   }
-  <a class="cta topup" href="${TOPUP_URL}" target="_blank" rel="noopener">Top up now →</a></div>
+  <a class="cta topup" href="${TOPUP_URL}" target="_blank" rel="noopener noreferrer">Top up now →</a></div>
 </div>`;
 
   const body = `
@@ -1738,8 +1740,8 @@ ${
 <code>npx @aisa-one/cli connect</code> away.`
             : ""
         }
-Explore the platform at <a href="https://aisa.one" target="_blank" rel="noopener">aisa.one</a> ·
-usage &amp; billing at <a href="https://console.aisa.one" target="_blank" rel="noopener">console.aisa.one</a>.</p>
+Explore the platform at <a href="https://aisa.one" target="_blank" rel="noopener noreferrer">aisa.one</a> ·
+usage &amp; billing at <a href="https://console.aisa.one" target="_blank" rel="noopener noreferrer">console.aisa.one</a>.</p>
 ${failBlock}
 ${recap}
 ${balanceCard}
@@ -1785,10 +1787,27 @@ if (launch) launch.addEventListener("click", function () {
   return shell(mcpFailed ? "AIsa \u2014 almost connected" : "\u2713 AIsa Connected", body);
 }
 
+/**
+ * Every body this server accepts is a few hundred bytes of JSON — a choice,
+ * a step number, a list of slugs. There is no request here for which
+ * megabytes are a legitimate shape, and accumulating without a ceiling means
+ * anything that can reach the port can grow this process until it dies.
+ */
+const MAX_BODY_BYTES = 64 * 1024;
+
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let data = "";
-    req.on("data", (c) => (data += c));
+    let size = 0;
+    req.on("data", (c: Buffer | string) => {
+      size += typeof c === "string" ? Buffer.byteLength(c) : c.length;
+      if (size > MAX_BODY_BYTES) {
+        req.destroy();
+        reject(new Error("request body too large"));
+        return;
+      }
+      data += c;
+    });
     req.on("end", () => resolve(data));
     req.on("error", reject);
   });

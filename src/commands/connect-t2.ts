@@ -328,12 +328,12 @@ ${restChips}
   <h2 id="sstitle">${T(SUPERSEDED.title)}</h2>
   <p id="ssbody">${T(SUPERSEDED.body)} <b id="sscount">60</b> ${T(SUPERSEDED.seconds)}.</p>
   <div class="sscta">
-    <p>${T(SUPERSEDED.console)} <a href="https://${SUPERSEDED.consoleDomain}?source=aisa_cli_connect" target="_blank" rel="noopener">${SUPERSEDED.consoleDomain}</a>.</p>
+    <p>${T(SUPERSEDED.console)} <a href="https://${SUPERSEDED.consoleDomain}?source=aisa_cli_connect" target="_blank" rel="noopener noreferrer">${SUPERSEDED.consoleDomain}</a>.</p>
     <p>${T(SUPERSEDED.againBefore)} <code>${SUPERSEDED.againCmd}</code> ${T(SUPERSEDED.againAfter)}</p>
   </div>
 </div></div>
 <nav class="rail">
-  <a class="railhead" href="https://aisa.one/?source=aisa_cli_connect" target="_blank" rel="noopener">${LOGO_INK}<span>Connect</span></a>
+  <a class="railhead" href="https://aisa.one/?source=aisa_cli_connect" target="_blank" rel="noopener noreferrer">${LOGO_INK}<span>Connect</span></a>
   <div class="railsteps">${rail}</div>
 </nav>
 <section class="main">
@@ -1010,7 +1010,7 @@ ${restChips}
     var gift = true;
     var balCard = "<div class='balcard" + (low || gift ? " low" : "") + "'><div><div class='balnum'>" + (bal === null || bal === undefined ? "—" : fmtUsd(bal)) + "</div><div class='ballbl'>AIsa balance</div></div><div class='balright'>" +
       (gift ? "<div class='giftnote'><b>AIsa has given you $1 to get started.</b> That covers your first few calls. Top up now so your agent never stops mid-task.</div>" : low ? "<div class='lownote'>Running a little low — a small top-up keeps your first calls flowing.</div>" : (bal === null || bal === undefined ? "<div class='lownote'>Could not read it just now — <code>aisa balance</code> will.</div>" : "")) +
-      "<a class='cta sm' href='https://console.aisa.one/billing?source=aisa_cli' target='_blank' rel='noopener'>Top up now →</a></div></div>";
+      "<a class='cta sm' href='https://console.aisa.one/billing?source=aisa_cli' target='_blank' rel='noopener noreferrer'>Top up now →</a></div></div>";
     var fileNote = "";
     if (id === "claude-desktop") {
       fileNote = "<div class='vsccard'><div class='vschead'><span class='blogo lg'>" + CLAUDE_DT_LOGO + "</span><div><b>Claude Desktop is ready</b>" +
@@ -1056,7 +1056,7 @@ ${restChips}
     }
     if (id === "claude-ai") {
       fileNote += "<h2>Finish in claude.ai — about a minute</h2><div class='webcard'>" +
-        "<ol class='websteps'><li>Open <a class='lnk' href='https://claude.ai/settings/connectors' target='_blank' rel='noopener'>claude.ai → Settings → Connectors</a></li>" +
+        "<ol class='websteps'><li>Open <a class='lnk' href='https://claude.ai/settings/connectors' target='_blank' rel='noopener noreferrer'>claude.ai → Settings → Connectors</a></li>" +
         "<li>Click <b>Add custom connector</b>, paste a name and URL from below, then <b>Add</b></li>" +
         "<li>Press <b>Connect</b> and approve the AIsa sign-in — once per connector</li></ol>" +
         chosen.map(function (x) {
@@ -1081,7 +1081,7 @@ ${restChips}
     }).join("");
     var more = SERVERS.length - chosen.length;
     var rest = mcpFailed ? failBlock + recap + balCard
-      : "<p class='lede'>You are connected to <b>AIsa</b> — one account for all the well-known models and the live data behind them." + (more > 0 ? " " + more + " more MCP server" + (more > 1 ? "s are" : " is") + " one <code>npx @aisa-one/cli connect</code> away." : "") + " See your account dashboard at <a class='lnk' href='https://console.aisa.one' target='_blank' rel='noopener'>console.aisa.one</a>.</p>" +
+      : "<p class='lede'>You are connected to <b>AIsa</b> — one account for all the well-known models and the live data behind them." + (more > 0 ? " " + more + " more MCP server" + (more > 1 ? "s are" : " is") + " one <code>npx @aisa-one/cli connect</code> away." : "") + " See your account dashboard at <a class='lnk' href='https://console.aisa.one' target='_blank' rel='noopener noreferrer'>console.aisa.one</a>.</p>" +
         failBlock + recap + balCard + fileNote + launch +
         "<h2>Try it now — paste one of these into " + name + (id === "claude-ai" || id === "cursor" ? " once the servers are added" : id === "claude-desktop" ? " after the restart" : "") + "</h2><div class='examples'>" + (examples || "<p class='fine'>Ask your agent to use any of the aisa-* MCP tools.</p>") + "</div>" +
         backupNote +
@@ -1206,6 +1206,14 @@ function shellT2(title: string, body: string): string {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${title}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  This page's own address carries the run token, and the page links out to
+  aisa.one and console.aisa.one. rel="noopener" does not suppress a referrer —
+  only noreferrer does — so without this, clicking any of them posted
+  "http://127.0.0.1:PORT/?token=…" into someone else's access log. Same shape
+  as the /cli/auth page handing its authorization code to analytics.
+-->
+<meta name="referrer" content="no-referrer">
 <style>
   :root { --paper: ${PAPER}; --ink: #1c1b1a; --muted: #6d6a66; --line: #e7e4df; --card: #ffffff;
     --red: ${RED}; --red-cta: ${RED_CTA}; --bar: ${INK}; --tint: #fdf1ef; --ok: #2e7d43; --warn: #f59e0b; }
