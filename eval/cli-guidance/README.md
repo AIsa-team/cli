@@ -38,19 +38,19 @@ Every report records **CLI source SHA** and **eval commit + bundle**.
 # After independent review + root authorization only:
 AISA_EVAL_SCORE_CLEARED=1 node eval/cli-guidance/run.mjs \
   --suite baseline \
-  --src /tmp/aisa-cli-eval-baseline \
+  --src <baseline-checkout> \
   --expect-sha ec29516f41702aac6f5e26e98e53c2545c600840 \
   --out /tmp/aisa-cli-guidance-eval
 
 AISA_EVAL_SCORE_CLEARED=1 node eval/cli-guidance/run.mjs \
   --suite candidate \
-  --src /Users/eddiearc/repo/worktrees/aisa-cli-guidance-help \
+  --src <candidate-checkout> \
   --expect-sha 3f12d666bc7e2a20efd6e8d806969288fd2284b8 \
   --concurrency 2 \
   --out /tmp/aisa-cli-guidance-eval
 ```
 
-Rebuilt baseline must use the detached source `/tmp/aisa-cli-eval-baseline` @ `ec29516`. Alignment PR HEAD is now `3f12d66`; `--src` alignment `--expect-sha ec29516` fails closed.
+Identity is `--src` HEAD plus exact `--expect-sha` (and recorded tarball sha256). Local checkout paths are examples, not required. Pi is resolved from PATH, or set `AISA_EVAL_PI`; `pi --version` must be 0.84.4. Model remains `openai-codex` / `gpt-5.6-luna`.
 
 `--self-check` packs/installs, runs `stub-checks.mjs` (whole-batch quote/use 400 + NOTE schema), and probes the isolated CLI against the stub without calling the model. `--model-preflight` is a non-scoring Luna completion that requires a nonempty successful final.
 

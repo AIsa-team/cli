@@ -4,9 +4,9 @@ Do not score any run recorded under rejected bundle `dbad73ce…` / eval `9e875e
 
 ## Sources
 
-- Rebuilt baseline: `/tmp/aisa-cli-eval-baseline` detached `ec29516f41702aac6f5e26e98e53c2545c600840`
-- Alignment PR branch is now `3f12d666bc7e2a20efd6e8d806969288fd2284b8` (core help integrated). `--src` alignment `--expect-sha ec29516` fails closed.
-- Candidate: `/Users/eddiearc/repo/worktrees/aisa-cli-guidance-help` clean `3f12d66`
+- Baseline identity: `--expect-sha ec29516f41702aac6f5e26e98e53c2545c600840` (checkout path is local, not required)
+- Candidate identity: `--expect-sha 3f12d666bc7e2a20efd6e8d806969288fd2284b8`
+- `--src` plus that SHA and the archived tarball hash pin the subject. A wrong checkout fails closed on HEAD mismatch.
 
 ## Reviewer corrections (in this freeze)
 

@@ -10,5 +10,5 @@ Scored 8+16 starts only after independent review of the **clean freeze commit** 
 
 Next scored sources (not run yet):
 
-- Baseline: `/tmp/aisa-cli-eval-baseline` @ `ec29516f41702aac6f5e26e98e53c2545c600840`
-- Candidate: `/Users/eddiearc/repo/worktrees/aisa-cli-guidance-help` @ `3f12d666bc7e2a20efd6e8d806969288fd2284b8`
+- Baseline SHA: `ec29516f41702aac6f5e26e98e53c2545c600840` (`--src` is any checkout at that SHA)
+- Candidate SHA: `3f12d666bc7e2a20efd6e8d806969288fd2284b8`

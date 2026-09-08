@@ -6,6 +6,8 @@
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  accessSync,
+  constants as fsConstants,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -14,25 +16,69 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { extractResolvedModel, gradeCase, summarizeSuite } from "./grade.mjs";
 import { PROFILE, startStub } from "./stub.mjs";
 
-const BASELINE_SRC = "/tmp/aisa-cli-eval-baseline";
 const BASELINE_SHA = "ec29516f41702aac6f5e26e98e53c2545c600840";
-const CANDIDATE_SRC = "/Users/eddiearc/repo/worktrees/aisa-cli-guidance-help";
 const CANDIDATE_SHA = "3f12d666bc7e2a20efd6e8d806969288fd2284b8";
 const TRACKED_PIDS = new Set();
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const REQUESTED = Object.freeze({
+const REQUESTED = {
   runtime: "pi",
-  pi_bin: process.env.AISA_EVAL_PI || "/Users/eddiearc/.local/bin/pi",
+  pi_bin: null,
   provider: "openai-codex",
   model: "gpt-5.6-luna",
   thinking: "low",
-});
+};
+
+function lookupOnPath(name) {
+  for (const dir of (process.env.PATH || "").split(delimiter)) {
+    if (!dir) continue;
+    const candidate = resolve(dir, name);
+    try {
+      accessSync(candidate, fsConstants.X_OK);
+      return candidate;
+    } catch {
+      /* next PATH entry */
+    }
+  }
+  return null;
+}
+
+function resolvePiBin() {
+  if (process.env.AISA_EVAL_PI) return process.env.AISA_EVAL_PI;
+  const found = lookupOnPath("pi");
+  if (!found) {
+    throw new Error("pi not found on PATH; set AISA_EVAL_PI to the exact 0.84.4 binary");
+  }
+  return found;
+}
+
+function ensureRequestedPi() {
+  if (REQUESTED.pi_bin) return REQUESTED;
+  const pi_bin = resolvePiBin();
+  const probe = spawnSync(pi_bin, ["--version"], { encoding: "utf8" });
+  if (probe.error?.code === "ENOENT") {
+    throw new Error(
+      process.env.AISA_EVAL_PI
+        ? `AISA_EVAL_PI is not executable: ${pi_bin}`
+        : "pi not found on PATH; set AISA_EVAL_PI to the exact 0.84.4 binary"
+    );
+  }
+  if (probe.status !== 0) {
+    throw new Error(`pi --version failed: ${pi_bin}\n${probe.stderr || probe.stdout}`);
+  }
+  const version = (probe.stdout || "").trim();
+  if (version !== "0.84.4") {
+    throw new Error(`refusing unrequested Pi version ${version}; expected 0.84.4 (${pi_bin})`);
+  }
+  REQUESTED.pi_bin = pi_bin;
+  REQUESTED.pi_version = version;
+  return REQUESTED;
+}
 const SYNTH_KEY = "aisa_eval_synthetic_key_not_real";
 const EVAL_ROOT = resolve(HERE, "../..");
 /** Bound scoring inputs. hashes.json is the lockfile and must stay outside this list. */
@@ -647,6 +693,7 @@ async function selfCheck(bin, outRoot) {
 }
 
 async function modelPreflight(outRoot) {
+  ensureRequestedPi();
   const dir = join(outRoot, "pilot", "model-preflight");
   rmSync(dir, { recursive: true, force: true });
   ensureDir(join(dir, "cwd"));
@@ -726,11 +773,12 @@ function printHelp() {
 
   node eval/cli-guidance/run.mjs --freeze
   node eval/cli-guidance/run.mjs --model-preflight --out /tmp/aisa-cli-guidance-eval
-  node eval/cli-guidance/run.mjs --suite baseline --src ${BASELINE_SRC} --expect-sha ${BASELINE_SHA} --out /tmp/aisa-cli-guidance-eval
-  node eval/cli-guidance/run.mjs --suite candidate --src ${CANDIDATE_SRC} --expect-sha ${CANDIDATE_SHA} --out /tmp/aisa-cli-guidance-eval --concurrency 2
+  node eval/cli-guidance/run.mjs --suite baseline --src <checkout> --expect-sha ${BASELINE_SHA} --out /tmp/aisa-cli-guidance-eval
+  node eval/cli-guidance/run.mjs --suite candidate --src <checkout> --expect-sha ${CANDIDATE_SHA} --out /tmp/aisa-cli-guidance-eval --concurrency 2
 
-  Rebuilt baseline must use the detached source ${BASELINE_SRC} @ ${BASELINE_SHA}.
-  Alignment PR HEAD is now ${CANDIDATE_SHA}; --src alignment --expect-sha ec29516 fails closed.
+  Identity is --src HEAD plus exact --expect-sha (and the recorded tarball sha256). Checkout paths are local examples, not required.
+  Baseline SHA ${BASELINE_SHA}; candidate SHA ${CANDIDATE_SHA}.
+  Pi: PATH lookup of pi, or set AISA_EVAL_PI; spawn --version must be 0.84.4.
   Frozen HASH_FILES include run.mjs and grade-checks.mjs (not *.test.mjs, not hashes.json).
   Scored suites stay blocked until AISA_EVAL_SCORE_CLEARED=1 after grader cherry-pick and reviewer clearance.
   --self-check        pack/install + stub + real CLI probes only (no model)
@@ -780,21 +828,10 @@ async function main() {
   }
   if (!args.src) throw new Error("--src is required");
   if (!args.expectSha) throw new Error("--expect-sha is required so source IDs stay exact");
-  if (!existsSync(REQUESTED.pi_bin)) throw new Error(`pi not found: ${REQUESTED.pi_bin}`);
-  const piVer = sh(REQUESTED.pi_bin, ["--version"]).stdout.trim();
-  if (piVer !== "0.84.4") {
-    throw new Error(`refusing unrequested Pi version ${piVer}; expected 0.84.4`);
-  }
+  ensureRequestedPi();
+  const piVer = REQUESTED.pi_version;
   const suite = args.suite;
   if (suite !== "baseline" && suite !== "candidate") throw new Error("--suite must be baseline or candidate");
-  if (suite === "baseline" && resolve(args.src) !== resolve(BASELINE_SRC)) {
-    throw new Error(
-      `baseline --src must be ${BASELINE_SRC} (detached ${BASELINE_SHA}); alignment PR HEAD is now ${CANDIDATE_SHA} and --src alignment --expect-sha ec29516 fails closed`
-    );
-  }
-  if (suite === "candidate" && resolve(args.src) !== resolve(CANDIDATE_SRC)) {
-    throw new Error(`candidate --src must be ${CANDIDATE_SRC} @ ${CANDIDATE_SHA}`);
-  }
   const repeats = args.repeats ?? (suite === "baseline" ? 1 : 2);
   const concurrency = suite === "baseline" ? 1 : Math.min(args.concurrency || 2, 2);
   const outRoot = resolve(args.out || join(tmpdir(), "aisa-cli-guidance-eval"));
