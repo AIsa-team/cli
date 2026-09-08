@@ -1,6 +1,13 @@
 import type { Command, Option, Argument } from "commander";
 import { mcpForCommand } from "../cli-guidance.js";
 import { deprecationFor } from "../deprecation.js";
+import {
+  ROUTER_EXITS,
+  routerContractFor,
+  routerRootContract,
+  type RouterCommandContract,
+  type RouterRootContract,
+} from "./tool-help.js";
 
 /**
  * The whole command tree as JSON, for the reader this CLI actually has most of:
@@ -50,6 +57,14 @@ interface ManifestCommand {
   migration?: string;
   /** MCP operation this CLI command posts to. Absent on non-Router commands. */
   mcp?: { identifier: string; path: string };
+  auth?: RouterCommandContract["auth"];
+  flow?: string;
+  safety?: string[];
+  exits?: typeof ROUTER_EXITS;
+  sameRequestShapeAs?: RouterCommandContract["sameRequestShapeAs"];
+  examples?: RouterCommandContract["examples"];
+  /** Present on the root `aisa` node for one-shot machine discovery. */
+  router?: RouterRootContract;
 }
 
 /**
@@ -90,6 +105,8 @@ export function buildManifest(program: Command, prefix = ""): ManifestCommand {
   const args = (program as unknown as { registeredArguments?: Argument[] }).registeredArguments ?? [];
   const deprecated = deprecationFor(path.replace(/^aisa\s+/, ""));
   const mcp = mcpForCommand(program.name());
+  const contract = routerContractFor(program.name());
+  const isRoot = !prefix && program.name() === "aisa";
   return {
     path,
     description: program.description(),
@@ -105,6 +122,19 @@ export function buildManifest(program: Command, prefix = ""): ManifestCommand {
         }
       : {}),
     ...(mcp ? { mcp: { identifier: mcp.identifier, path: mcp.path } } : {}),
+    ...(contract
+      ? {
+          auth: contract.auth,
+          flow: contract.flow,
+          safety: contract.safety,
+          exits: ROUTER_EXITS,
+          examples: contract.examples,
+          ...(contract.sameRequestShapeAs
+            ? { sameRequestShapeAs: contract.sameRequestShapeAs }
+            : {}),
+        }
+      : {}),
+    ...(isRoot ? { router: routerRootContract() } : {}),
   };
 }
 

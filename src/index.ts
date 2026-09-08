@@ -156,11 +156,11 @@ program
 program
   .command("search [query]")
   .description("Discover published tools via the Tool Router (MCP AISA_SEARCH_TOOL)")
-  .option("--input <json>", "Full JSON request body")
+  .option("--input <json>", "Inline JSON request body (no file required)")
   .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
   .option("--limit <n>", "Max additional discovery results (1-20)")
   .option("--provider <id>", "Exact catalog provider key (repeatable)", collectProvider, [] as string[])
-  .option("--json", "Write the unmodified application response to stdout")
+  .option("--json", "Write the unmodified application response to stdout (MCP identifiers unchanged)")
   .addHelpText("after", searchHelpAfter())
   .action((query: string | undefined, opts: Record<string, unknown>) =>
     wrap(searchAction)(query, routerIo(opts))
@@ -169,11 +169,11 @@ program
 program
   .command("schema [tools...]")
   .description("Get published tool schemas via the Tool Router (MCP AISA_BATCH_GET_SCHEMA)")
-  .option("--input <json>", "Full JSON request body")
+  .option("--input <json>", "Inline JSON request body (no file required)")
   .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
   .option("--no-arguments-schema", "Omit arguments_schema (at least one schema type is required)")
   .option("--include-response-schema", "Include response_schema")
-  .option("--json", "Write the unmodified application response to stdout")
+  .option("--json", "Write the unmodified application response to stdout (MCP identifiers unchanged)")
   .addHelpText("after", schemaHelpAfter())
   .action((tools: string[] | undefined, opts: Record<string, unknown>) =>
     wrap(schemaAction)(tools, routerIo(opts))
@@ -182,18 +182,18 @@ program
 program
   .command("quote")
   .description("Quote published tools via the Tool Router without executing them (MCP AISA_BATCH_QUOTE)")
-  .option("--input <json>", "Full JSON request body (same shape as call)")
+  .option("--input <json>", "Inline JSON request body, same shape as call (no file required)")
   .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
-  .option("--json", "Write the unmodified application response to stdout")
+  .option("--json", "Write the unmodified application response to stdout (MCP identifiers unchanged)")
   .addHelpText("after", quoteHelpAfter())
   .action((opts: Record<string, unknown>) => wrap(quoteAction)(routerIo(opts)));
 
 program
   .command("call")
   .description("Execute published tools via the Tool Router (MCP AISA_BATCH_USE)")
-  .option("--input <json>", "Full JSON request body (same shape as quote)")
+  .option("--input <json>", "Inline JSON request body, same shape as quote (no file required)")
   .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
-  .option("--json", "Write the unmodified application response to stdout")
+  .option("--json", "Write the unmodified application response to stdout (MCP identifiers unchanged)")
   .addHelpText("after", callHelpAfter())
   .action((opts: Record<string, unknown>) => wrap(callAction)(routerIo(opts)));
 

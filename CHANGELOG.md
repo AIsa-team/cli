@@ -49,7 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   application body, including MCP identifiers.
 - Root and Router command help include complete `--input` JSON examples
   (`-f` / `-f -` too), shared `AISA_API_KEY`, billable/approval limits, and
-  exits `0`/`2`/`1`/`3`. Manifest nodes for the four commands include `mcp`.
+  exits `0`/`2`/`1`/`3`. Manifest nodes for the four commands include `mcp`,
+  `auth`, `safety`, `exits`, and parseable `examples`; the root node includes
+  `router`. `--input` documents inline JSON with apostrophes/Unicode and does
+  not require a file.
 
 ### Deprecated
 

@@ -1,6 +1,7 @@
 import ora from "ora";
 import chalk from "chalk";
-import { getApiKey, requireApiKey } from "../config.js";
+import { getApiKey } from "../config.js";
+import { ENV_VAR_NAME } from "../constants.js";
 import { CliError, EXIT_PARTIAL, EXIT_TRANSPORT, transportError } from "../cli-error.js";
 import { routerPost, type RouterOperation } from "../router.js";
 import { error as printError } from "../utils/display.js";
@@ -36,7 +37,7 @@ async function runToolCommand(
   auth: { auth: "optional" | "required" }
 ): Promise<void> {
   const prepared = await prepareRouterRequest(kind, operands, options);
-  const apiKey = auth.auth === "required" ? requireApiKey() : getApiKey();
+  const apiKey = auth.auth === "required" ? requireRouterKey(kind) : getApiKey();
 
   const spinner = options.json ? undefined : ora(spinnerText(kind)).start();
 
@@ -73,6 +74,19 @@ async function runToolCommand(
   if (batchHasFailure(result.raw)) {
     process.exitCode = EXIT_PARTIAL;
   }
+}
+
+function requireRouterKey(kind: RouterKind): string {
+  const key = getApiKey();
+  if (!key) {
+    throw new CliError(
+      `No API key found. Run "aisa login --key <key>" or set ${ENV_VAR_NAME}. ` +
+        `search and schema may be anonymous; ${kind} will not run without a key. ` +
+        `Do not invent a business result.`,
+      EXIT_TRANSPORT
+    );
+  }
+  return key;
 }
 
 function spinnerText(kind: RouterKind): string {

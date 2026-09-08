@@ -19,6 +19,8 @@ import {
   EXAMPLE_SEARCH,
   EXAMPLE_SEARCH_JSON,
   EXAMPLE_SEARCH_LIMIT_JSON,
+  EXAMPLE_SEARCH_QUOTED,
+  EXAMPLE_SEARCH_QUOTED_JSON,
 } from "../src/commands/tool-help.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -36,6 +38,9 @@ describe("help example JSON is complete and valid", () => {
     expect(EXAMPLE_SCHEMA_JSON.includes("...")).toBe(false);
     expect(EXAMPLE_BATCH_JSON.includes("...")).toBe(false);
     validateEnvelope("search", EXAMPLE_SEARCH);
+    validateEnvelope("search", EXAMPLE_SEARCH_QUOTED);
+    expect(EXAMPLE_SEARCH_QUOTED_JSON).toContain("O'Reilly");
+    expect(EXAMPLE_SEARCH_QUOTED_JSON).toContain("苹果");
     validateEnvelope("schema", EXAMPLE_SCHEMA);
     validateEnvelope("quote", EXAMPLE_BATCH);
     validateEnvelope("call", EXAMPLE_BATCH);
@@ -82,9 +87,13 @@ describe("compiled --help and manifest", () => {
 
     expect(pages.search).toContain(EXAMPLE_SEARCH_JSON);
     expect(pages.search).toContain(EXAMPLE_SEARCH_LIMIT_JSON);
+    expect(pages.search).toContain("O'Reilly");
+    expect(pages.search).toContain("苹果");
+    expect(pages.search).toMatch(/no file required/i);
     expect(pages.search).toContain("-f request.json");
     expect(pages.search).toContain("-f -");
     expect(pages.search).toContain(MCP_CLI_MAP.search.identifier);
+    expect(pages.search).toMatch(/Do not guess required unresolved values/);
 
     expect(pages.schema).toContain(EXAMPLE_SCHEMA_JSON);
     expect(pages.schema).toContain(EXAMPLE_PUBLISHED_TOOL);
@@ -94,8 +103,13 @@ describe("compiled --help and manifest", () => {
       expect(pages[name]).toContain(EXAMPLE_BATCH_JSON);
       expect(pages[name]).toMatch(/same request shape/i);
       expect(pages[name]).toContain("not spending approval");
+      expect(pages[name]).toContain("never free");
       expect(pages[name]).toContain(MCP_CLI_MAP[name].identifier);
     }
+    expect(pages.quote).toMatch(/no guaranteed maximum/);
+    expect(pages.quote).toMatch(/partial quote is not a full-batch total/i);
+    expect(pages.call).toMatch(/Do not silently retry/);
+    expect(pages.root).toMatch(/Do not invent a business result/);
 
     const extracted = extractInputObjects(`${pages.root}\n${pages.search}\n${pages.schema}\n${pages.quote}\n${pages.call}`);
     expect(extracted.length).toBeGreaterThan(3);
@@ -116,9 +130,27 @@ describe("compiled --help and manifest", () => {
       const node = JSON.parse(scoped.stdout) as ManifestNode;
       expect(node.mcp?.identifier).toBe(MCP_CLI_MAP[name].identifier);
       expect(node.mcp?.path).toBe(MCP_CLI_MAP[name].path);
+      expect(node.auth).toBe(name === "quote" || name === "call" ? "required" : "optional");
+      expect(node.safety?.length).toBeGreaterThan(0);
+      expect(node.exits?.["2"]).toMatch(/nothing sent/);
       expect(node.deprecated).toBeUndefined();
       expect(find(tree, `aisa ${name}`)?.mcp?.identifier).toBe(MCP_CLI_MAP[name].identifier);
+      for (const ex of node.examples ?? []) {
+        expect(ex.argv[0]).toBe(name);
+        expect(ex.argv).toContain("--input");
+        expect(ex.argv).toContain("--json");
+        expect(JSON.stringify(ex.input ?? {}).includes("...")).toBe(false);
+        if (ex.input) {
+          validateEnvelope(name, ex.input);
+        }
+      }
     }
+
+    expect(tree.router?.legacy.deprecated).toEqual(["api search", "api show", "run"]);
+    expect(tree.router?.safety.join("\n")).toMatch(/not spending approval/);
+    const searchNode = JSON.parse((await runCompiledCli(["manifest", "search"], { HOME: home })).stdout) as ManifestNode;
+    const quoted = searchNode.examples?.find((ex) => JSON.stringify(ex.input).includes("O'Reilly"));
+    expect(quoted?.input).toEqual(EXAMPLE_SEARCH_QUOTED);
 
     expect(find(tree, "aisa api list")?.deprecated).toBeUndefined();
     expect(find(tree, "aisa api code")?.deprecated).toBeUndefined();
@@ -128,6 +160,17 @@ describe("compiled --help and manifest", () => {
     expect(find(tree, "aisa api search")?.migration).toMatch(/Not a drop-in/);
     expect(find(tree, "aisa run")?.migration).toMatch(/Not a drop-in/);
   });
+
+  it("accepts inline --input with apostrophe and Unicode without requiring a file", async () => {
+    const home = isolatedHome();
+    const ran = await runCompiledCli(
+      ["search", "--input", EXAMPLE_SEARCH_QUOTED_JSON, "--json"],
+      { HOME: home, AISA_ROUTER_BASE_URL: "http://127.0.0.1:1" }
+    );
+    expect(ran.status).not.toBe(2);
+    expect(`${ran.stdout}\n${ran.stderr}`).not.toMatch(/Invalid JSON/);
+    expect(ran.status).toBe(1);
+  });
 });
 
 interface ManifestNode {
@@ -135,6 +178,11 @@ interface ManifestNode {
   deprecated?: boolean;
   migration?: string;
   mcp?: { identifier: string; path: string };
+  auth?: "optional" | "required";
+  safety?: string[];
+  exits?: Record<string, string>;
+  examples?: Array<{ argv: string[]; input?: Record<string, unknown> }>;
+  router?: { legacy: { deprecated: string[] }; safety: string[] };
   subcommands?: ManifestNode[];
 }
 

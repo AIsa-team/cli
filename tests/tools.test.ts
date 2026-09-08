@@ -120,6 +120,22 @@ describe("tool router commands", () => {
     expect(stdout.join("")).toContain("service_unavailable");
   });
 
+  it("quote and call without a key do not dispatch and do not imply success", async () => {
+    delete process.env.AISA_API_KEY;
+    const fetchMock = stubFetch(() => new Response("{}", { status: 200 }));
+    const req = '{"calls":[{"call_id":"c1","tool":"t","arguments":{}}]}';
+
+    await expect(quoteAction({ input: req, json: true })).rejects.toMatchObject({
+      exitCode: 1,
+      message: expect.stringMatching(
+        /No API key found[\s\S]*aisa login --key[\s\S]*AISA_API_KEY[\s\S]*Do not invent a business result/
+      ),
+    });
+    await expect(callAction({ input: req, json: true })).rejects.toMatchObject({ exitCode: 1 });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(stdout.join("")).not.toMatch(/successful|company_facts|ticker/);
+  });
+
   it("does not dispatch on malformed local input", async () => {
     const fetchMock = stubFetch(() => new Response("{}", { status: 200 }));
     await expect(searchAction(undefined, { json: true })).rejects.toMatchObject({ exitCode: 2 });

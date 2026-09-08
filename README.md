@@ -59,15 +59,24 @@ directly.
 | `aisa call` | `AISA_BATCH_USE` | `/v1/tool-router/aisa-batch-use` |
 
 `--json` prints the unmodified application body (MCP identifiers stay).
-Human output maps only those four identifiers onto CLI names. The mapping is
-also in `aisa manifest search` / `schema` / `quote` / `call` (`mcp.identifier`).
+Human output maps only those four identifiers onto CLI names. `aisa manifest`
+and `aisa manifest search` / `schema` / `quote` / `call` expose `mcp`, `auth`,
+`safety`, `exits`, and parseable `examples` (the root node also has `router`).
 
 Flow: discover a tool → `aisa schema` when `has_full_schema=false` → `aisa quote`
 → authorized `aisa call`. Quote and call share one request shape. Quote is a
 price observation, not authorization. A data request or credentials alone is
-not spending approval. `aisa call` is billable and needs a matching quote plus
-explicit approval covering that cost and any uncertainty. A missing or failed
-quote is never free. Estimated cost is not a limit.
+not spending approval. Do not invent tool names or guess required values.
+`aisa call` is billable and needs a matching quote plus explicit approval
+covering that cost and any uncertainty. A missing or failed quote is never
+free. Estimated cost is not a limit. If a hard monetary cap is required, do
+not execute calls with no guaranteed maximum. A partial quote is not a
+full-batch total; call only an independently approved successful subset, and
+do not silently retry. Without `AISA_API_KEY`, search and schema may be
+anonymous; quote and call will not run — do not invent a business result.
+
+`--input` is inline JSON (no file required). Apostrophes and Unicode are part
+of the JSON text; quote the argument so the shell preserves them.
 
 `get_financial_company_facts` is a published tool whose schema includes
 `ticker`. Do not invent unpublished tool names.
@@ -75,6 +84,7 @@ quote is never free. Estimated cost is not a limit.
 ```bash
 aisa search "company facts" --json
 aisa search --input '{"query":"company facts","limit":5}' --json
+aisa search --input "{\"query\":\"company facts\",\"known_fields\":{\"name\":\"O'Reilly — 苹果\"}}" --json
 aisa search -f request.json --json
 aisa search -f - --json < request.json
 aisa schema get_financial_company_facts --json
