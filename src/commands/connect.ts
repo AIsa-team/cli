@@ -609,10 +609,23 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
     setStep(state, id, { state: "ok", detail });
     log.line("ok", label(id), detail);
   };
+  /**
+   * Already done, in an earlier pass.
+   *
+   * A failed sign-in stops the run and the page offers to try again, which
+   * re-enters here — so every block that writes something has to be able to
+   * recognise its own work and step over it. Installing twice is only
+   * wasteful; adding the same MCP entry twice has been a real bug.
+   */
+  const settled = (id: string) => state.steps.find((s) => s.id === id)?.state === "ok";
+  // Only the two blocks that run *before* the sign-in need this. Everything
+  // after it was skipped when the run stopped, so a retry finds it pending
+  // and does it once.
 
   // ── install ──
   for (const id of input.install) {
     const stepId = `install:${id}`;
+    if (settled(stepId)) continue;
     const label = INSTALLERS[id]?.label ?? id;
     setStep(state, stepId, {
       state: "running",
@@ -646,7 +659,7 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
   }
 
   // ── the CLI itself, so the npx visitor keeps the toolbox ──
-  if (state.steps.some((s) => s.id === "install:aisa-cli")) {
+  if (state.steps.some((s) => s.id === "install:aisa-cli") && !settled("install:aisa-cli")) {
     setStep(state, "install:aisa-cli", { state: "running", detail: "npm install -g @aisa-one/cli" });
     const outcome = input.dryRun
       ? { ok: true as const, alreadyInstalled: isInstalled("aisa"), detail: "", command: "" }
@@ -729,31 +742,40 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
         log.line("ok", "Signed in successfully", "your AIsa key is stored on this machine");
       }
     } catch (e) {
-      // Not fatal: the per-server OAuth path still works, it is just one
-      // browser round per server instead of none.
+      // The run stops here.
+      //
+      // It used to carry on: the per-server browser authorisation still
+      // exists, so "no key" was treated as a slower path rather than a wall.
+      // Two things were wrong with that. Every entry written from here is
+      // half a configuration — an endpoint with no credential — and the
+      // fallback itself waits on a terminal that a page-driven run does not
+      // have, so the checklist sat spinning on a step that was never going
+      // to finish. A person who could not sign in wants to sign in again,
+      // and that is now one button rather than a rerun.
       failures++;
+      // First line only. These messages carry a follow-up under a newline —
+      // the authorisation URL, for a machine with no browser to open it —
+      // which is exactly right in a terminal and a wall of query string in a
+      // step's one-line detail, where the newline is collapsed away. The log
+      // keeps the whole thing.
+      const why = (e as Error).message.split("\n")[0].trim();
       setStep(state, "signin", {
         state: "fail",
-        // Says what still happened, not only what did not. Everything after
-        // this step runs; what is missing is the key, and the sentence that
-        // matters is the one command that gets it.
-        detail: `${(e as Error).message} — the rest of the setup still ran; finish with 'aisa login'`,
+        detail: `${why} — nothing was written; sign in to continue`,
       });
       log.line("fail", "Sign in to AIsa", (e as Error).message);
-      if (input.clients.includes("claude-code")) {
-        // Claude Code separates add from login, so give the plan its
-        // authorization rounds back, in front of the balance step.
-        const at = state.steps.findIndex((s) => s.id === "balance");
-        const authSteps: Step[] = input.servers.map((s) => ({
-          id: `auth:${s.slug}`,
-          label: `Authorize aisa-${s.slug}`,
-          state: "pending",
-          detail: "opens the AIsa sign-in in your browser",
-        }));
-        state.steps.splice(at === -1 ? state.steps.length : at, 0, ...authSteps);
+      for (const step of state.steps) {
+        if (step.state === "pending") {
+          setStep(state, step.id, { state: "skip", detail: "waiting for the sign-in" });
+        }
       }
+      // Read by the page to offer the one action that unblocks this.
+      state.needsSignIn = true;
+      return failures;
     }
   }
+  // Reached the far side of the sign-in, so whatever it was is over.
+  state.needsSignIn = false;
 
   // ── MCP entries ──
   const willAuthorize = !key && input.clients[0] === "codex";
@@ -2539,6 +2561,11 @@ export async function connectAction(options: {
     | { state: string; resolve: (code: string) => void; reject: (e: Error) => void }
     | undefined;
 
+  /** Set once the plan has run; the page's "Log in again" calls it. */
+  let retrySignIn: (() => Promise<boolean>) | undefined;
+  /** One at a time. */
+  let retrying = false;
+
   /**
    * Hand the run's own address to the sign-in.
    *
@@ -2731,6 +2758,22 @@ export async function connectAction(options: {
       );
       return;
     }
+    if (req.method === "POST" && url.pathname === "/retry-signin") {
+      if (!tokenOk) {
+        res.writeHead(403).end();
+        return;
+      }
+      // Answer before the work: the retry opens a browser tab and then waits
+      // up to ten minutes, and a request held open for that long is a
+      // request the page has already given up on.
+      // Also refuses while one is already under way: the button is clickable
+      // again the moment the checklist repaints, and a second attempt would
+      // race the first for the same sign-in.
+      const can = Boolean(retrySignIn) && Boolean(state.needsSignIn) && !retrying;
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: can }));
+      if (can) void retrySignIn!();
+      return;
+    }
     if (req.method === "POST" && url.pathname === "/signin-shown") {
       if (!tokenOk) {
         res.writeHead(403).end();
@@ -2883,7 +2926,36 @@ export async function connectAction(options: {
       );
       log.section("Setting things up");
 
-      const failures = await runPlan(state, {
+      /**
+       * A failed sign-in stops the run rather than writing half a
+       * configuration, and the page offers to try again. That retry has to
+       * re-enter the plan with exactly the inputs the first pass had — the
+       * agent, the servers, the model choice — so they are kept rather than
+       * recomputed from a page that may have been reloaded since.
+       */
+      const runAgain = (): Promise<number> => runPlan(state, planInput, log);
+      retrySignIn = async () => {
+        if (!state.needsSignIn || retrying) return false;
+        retrying = true;
+        state.needsSignIn = false;
+        state.phase = "applying";
+        // Everything the stop left behind goes back to pending; the sign-in
+        // itself is the step being retried.
+        for (const step of state.steps) {
+          if (step.state === "skip" || step.id === "signin") {
+            setStep(state, step.id, { state: "pending", detail: "" });
+          }
+        }
+        log.line("step", "Trying the sign-in again", "at your request, from the page");
+        try {
+          const again = await runAgain();
+          state.phase = again > 0 ? "failed" : "done";
+        } finally {
+          retrying = false;
+        }
+        return true;
+      };
+      const planInput: RunInput = {
         install: [...wantInstall],
         clients: chosenClients,
         servers: chosenServers,
@@ -2895,7 +2967,8 @@ export async function connectAction(options: {
         dryRun: Boolean(options.dryRun),
         llmMode,
         lang,
-      }, log);
+      };
+      const failures = await runPlan(state, planInput, log);
       const results = state.results;
       // Long since settled by now (fired at the top of connectAction) — this
       // just reads the resolved value, it does not add a wait.
@@ -2924,7 +2997,11 @@ export async function connectAction(options: {
           );
         };
 
-        if (!options.dryRun) {
+        // A run halted for want of a key has no results to show, and the
+        // page is offering to try the sign-in again — opening a second tab
+        // over that, describing a setup that did not happen, would take the
+        // reader away from the one button that helps.
+        if (!options.dryRun && !state.needsSignIn) {
           // The success page opens as a fresh tab from this process (an OS
           // browser launch, so no popup blocker applies) — users who tabbed
           // away to the authorization rarely come back to the first tab.

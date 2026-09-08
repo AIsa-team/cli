@@ -170,6 +170,14 @@ export interface RunState {
   /** In micros USD; null when it could not be read. The done page renders
    *  the number and the top-up nudge from this. */
   balanceMicros?: number | null;
+  /**
+   * The run stopped because it has no key, and one button would fix it.
+   *
+   * Distinct from a plain failure: everything else in the plan is still
+   * possible, it is only waiting on a credential. The page turns its main
+   * action into "Log in again" while this is set.
+   */
+  needsSignIn?: boolean;
   /** How models were handled — the done page words its guidance from this. */
   llmMode?: LlmMode;
   /** What the run was started with; set at /apply, read by the done tab. */

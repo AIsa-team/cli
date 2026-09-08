@@ -700,6 +700,64 @@ ${restChips}
     window.scrollTo({ top: 0, behavior: "smooth" });
     if (n === 2) syncAgent(); if (n === 3) syncModels(); if (n === 4) syncCaps();
   }
+  var retryInFlight = false;
+  nextBtn.addEventListener("click", function (e) {
+    if (!nextBtn.dataset.retry) return;
+    // Not a step forward — a second attempt at the step that stopped.
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    nextBtn.disabled = true;
+    nextBtn.textContent = "Signing in…";
+    delete nextBtn.dataset.retry;
+    retryInFlight = true;
+    // Whatever goes wrong, the button goes back to being a button. The first
+    // version turned into the words "Could not retry" and stayed there — a
+    // dead end where the whole point of this control is that there is a way
+    // out. It also said nothing about which of the two things went wrong.
+    var giveBack = function (why) {
+      retryInFlight = false;
+      nextBtn.disabled = false;
+      nextBtn.textContent = "Log in again";
+      nextBtn.dataset.retry = "1";
+      navnote.textContent = why;
+    };
+    fetch("/retry-signin?token=" + TOKEN, { method: "POST" })
+      .then(function (r) {
+        // A run started before this button existed has no such route. Saying
+        // "could not retry" for that is true and useless; the fix is a fresh
+        // run, and only this page knows to say so.
+        if (r.status === 404) throw new Error("old");
+        if (!r.ok) throw new Error("http");
+        return r.json();
+      })
+      .then(function (d) {
+        if (!d.ok) {
+          giveBack("This run is no longer waiting on a sign-in — run aisa connect again.");
+          return;
+        }
+        // Forget only the rows the run just reset. Clearing the whole map
+        // replayed the checklist from "Install the AIsa CLI", which is the
+        // same "it started over" the return-from-sign-in used to show — and
+        // just as untrue: those rows are still done.
+        (serverSteps || []).forEach(function (x) {
+          if (x.state !== "ok") delete shown[x.id];
+        });
+        lastFlip = Date.now();
+        unlocked = 5;
+        // Cleared once the run reports it is no longer waiting; until then the
+        // stale poll would keep re-offering the button.
+        var release = setInterval(function () {
+          if (lastStatus && !lastStatus.needsSignIn) { retryInFlight = false; clearInterval(release); }
+        }, 400);
+        document.body.classList.remove("settled");
+        if (!ticker) ticker = setInterval(tick, 250);
+      })
+      .catch(function (e) {
+        giveBack(e && e.message === "old"
+          ? "This page belongs to an older run that cannot retry — run aisa connect again."
+          : "Could not reach the run — it may have exited. Run aisa connect again.");
+      });
+  }, true);
   rails.forEach(function (r) { r.addEventListener("click", function () { go(Number(r.dataset.step)); }); });
   backBtn.addEventListener("click", function () { go(current - 1); });
 
@@ -858,11 +916,36 @@ ${restChips}
     $("#plan").innerHTML = rows;
     var settled = steps.filter(function (s) { return /ok|skip|fail/.test(shown[s.id] || ""); }).length;
     var pct = steps.length ? Math.round(settled / steps.length * 100) : 0;
-    $("#barwrap").style.display = ""; $("#barfill").style.width = pct + "%";
+    var anySkipped = steps.some(function (s) { return shown[s.id] === "skip"; });
+    $("#barwrap").style.display = "";
+    $("#barfill").style.width = (anySkipped ? Math.round((settled - steps.filter(function (s) { return shown[s.id] === "skip"; }).length) / steps.length * 100) : pct) + "%";
+    $("#barfill").classList.toggle("halted", anySkipped);
     var running = steps.filter(function (s) { return shown[s.id] === "running"; })[0];
-    $("#barnote").textContent = settled + " of " + steps.length + " · " + (running ? running.label : pct === 100 ? "finished" : "…");
-    var BTN = { install: "Installing…", signin: "Signing in…", mcp: "Connecting…", llm: "Configuring models…", auth: "Authorizing…", balance: "Finishing…" };
+    // Counts what ran, not what was listed: a halted run has rows nobody
+    // attempted, and calling those part of "5 of 5 · finished" is the bar
+    // congratulating the reader on a setup that did not happen.
+    var skipped = steps.filter(function (s) { return shown[s.id] === "skip"; }).length;
+    var ran = settled - skipped;
+    var total = steps.length - skipped;
+    $("#barnote").textContent = ran + " of " + total + " · " +
+      (running ? running.label : skipped ? "stopped" : pct === 100 ? "finished" : "…");
+    var BTN = { install: "Installing…", signin: "Signing in…", mcp: "Connecting…", llm: "Configuring models…", "llm-backup": "Configuring models…", auth: "Authorizing…", balance: "Finishing…" };
     if (running) { nextBtn.disabled = true; nextBtn.textContent = BTN[running.id.split(":")[0]] || "Working…"; }
+    // The run stopped for want of a key, and the one thing that unblocks it
+    // is the thing that failed. Offering it here rather than in a line of
+    // prose is the difference between a dead end and a retry.
+    // retryInFlight, because the status poll that would clear needsSignIn is
+    // up to a second behind the click. Without it the button offered itself
+    // again in that gap, and the second press met a run that had already
+    // started and was told so — an answer that is correct and confusing.
+    else if (lastStatus && lastStatus.needsSignIn && !retryInFlight) {
+      nextBtn.disabled = false;
+      nextBtn.style.display = "";
+      nextBtn.textContent = "Log in again";
+      nextBtn.dataset.retry = "1";
+    } else if (nextBtn.dataset.retry) {
+      delete nextBtn.dataset.retry;
+    }
   }
   /** Said once: the run waits on it, and repeating it would say nothing new. */
   var toldSignin = false;
@@ -888,6 +971,14 @@ ${restChips}
       if (cur === s.state) continue;
       var dwell = s.id === "balance" && lastStatus && lastStatus.balanceMicros !== null &&
         lastStatus.balanceMicros !== undefined && lastStatus.balanceMicros <= 5e6 ? LOW_DWELL : MIN_DWELL;
+      // A skipped step is work that did not happen, so it does not get the
+      // moment of work below. Playing it through "working…" on its way to
+      // "skipped" is how a halted run looked like it was still going — the
+      // bar climbing to 5 of 5 while the reader had just been told nothing
+      // would be written.
+      if (cur === "pending" && s.state === "skip") {
+        shown[s.id] = "skip"; renderSteps(); continue;
+      }
       if (cur === "pending" && (s.state === "running" || /ok|skip|fail/.test(s.state))) {
         // Even an instant step gets a visible moment of work before its tick.
         if (now - lastFlip < MIN_DWELL && lastFlip) break;
@@ -919,12 +1010,31 @@ ${restChips}
   }
   function finish() {
     var failed = (serverSteps || []).filter(function (s) { return s.state === "fail"; }).length;
-    $("#inTitle").innerHTML = failed ? "Finished, <em>with " + failed + " issue" + (failed > 1 ? "s" : "") + "</em>" : "All <em>connected</em>";
-    $("#inLede").textContent = failed ? COPY.ledeFailed : COPY.ledeAllRan;
+    var waiting = lastStatus && lastStatus.needsSignIn;
+    // "Finished, with 1 issue" is the wrong word for a run that did not
+    // finish. Nothing after the sign-in was attempted, so the honest
+    // headline is what it is waiting for.
+    $("#inTitle").innerHTML = waiting
+      ? "Waiting on <em>your sign-in</em>"
+      : failed ? "Finished, <em>with " + failed + " issue" + (failed > 1 ? "s" : "") + "</em>" : "All <em>connected</em>";
+    $("#inLede").textContent = waiting
+      ? "AIsa could not sign you in, so nothing was written. Everything else is ready to run the moment it succeeds."
+      : failed ? COPY.ledeFailed : COPY.ledeAllRan;
     unlocked = 6; rails.forEach(function (r) { r.classList.add("open"); });
     paintRail(); // thawed: the results exist, so the earlier steps are readable again
     renderSteps();
-    nextBtn.disabled = false; nextBtn.style.display = ""; nextBtn.innerHTML = "See your results " + ARROW;
+    nextBtn.disabled = false; nextBtn.style.display = "";
+    // A run that stopped for want of a key has not finished, it is waiting.
+    // "See your results" would send the reader to a page describing a setup
+    // that did not happen; the only useful action is the one that failed.
+    if (lastStatus && lastStatus.needsSignIn) {
+      nextBtn.textContent = "Log in again";
+      nextBtn.dataset.retry = "1";
+      navnote.textContent = "Nothing was written — the rest of the setup runs once you are signed in.";
+      rails[4].classList.remove("done");
+      return;
+    }
+    nextBtn.innerHTML = "See your results " + ARROW;
     navnote.textContent = VIEW === "start" && lastStatus && lastStatus.doneUrl ? "A results tab also opened on its own." : "";
     renderDone();
     rails[4].classList.add("done");
