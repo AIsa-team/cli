@@ -691,27 +691,46 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
     // A number that changes cannot be missed the same way. Whatever the page
     // is behind by, the reader catches the tail of it and a ticking number
     // reads as "something is about to happen" with no instructions needed.
-    log.line("step", "You need an AIsa account", "opening the sign-in in a new browser tab");
+    // A machine with no browser gets none of this. The catcher exists only
+    // where a loopback redirect can be caught, which is the same condition as
+    // "a browser can be opened here" — so its absence is the signal, and
+    // every sentence below has to stop promising a tab that is not coming.
+    // Said on a server, "opening the sign-in in a new browser tab" is simply
+    // untrue, and the reader is left waiting for something that never
+    // appears while the instructions they actually need scroll up past it.
+    const willOpenTab = Boolean(input.catcher);
+    log.line(
+      "step",
+      "You need an AIsa account",
+      willOpenTab ? "opening the sign-in in a new browser tab" : "sign in from a machine that has a browser"
+    );
     setStep(state, "signin", {
       state: "running",
-      detail: "AIsa needs an account — the sign-in opens in a new tab in a moment…",
+      detail: willOpenTab
+        ? "AIsa needs an account — the sign-in opens in a new tab in a moment…"
+        : "AIsa needs an account — this machine has no browser, so the terminal will show you what to open",
     });
     // Wait to be told the line above is actually on screen. Measured, the
     // page can be seven seconds behind the run at this row, so counting down
     // from here counted down to nobody. Bounded: a page that was never opened
     // never answers, and a terminal-only run must not stall on it.
-    if (input.signinShown) {
+    if (willOpenTab && input.signinShown) {
       await Promise.race([input.signinShown, pause(SIGNIN_ACK_WAIT_MS)]);
     }
-    for (let left = SIGNIN_COUNTDOWN_S; left > 0; left--) {
-      setStep(state, "signin", {
-        state: "running",
-        // Spelled out, and no trailing ellipsis. "in 2…" was read as a
-        // sentence that had been cut off rather than a countdown — the one
-        // word that says what the number means was the word missing.
-        detail: `AIsa needs an account — opening the sign-in in a new tab in ${left} second${left === 1 ? "" : "s"}`,
-      });
-      await pause(1000);
+    // The countdown warns about a tab that is about to steal the screen.
+    // Where no tab is coming there is nothing to warn about, and counting
+    // down to nothing just delays the instructions.
+    if (willOpenTab) {
+      for (let left = SIGNIN_COUNTDOWN_S; left > 0; left--) {
+        setStep(state, "signin", {
+          state: "running",
+          // Spelled out, and no trailing ellipsis. "in 2…" was read as a
+          // sentence that had been cut off rather than a countdown — the one
+          // word that says what the number means was the word missing.
+          detail: `AIsa needs an account — opening the sign-in in a new tab in ${left} second${left === 1 ? "" : "s"}`,
+        });
+        await pause(1000);
+      }
     }
     // With a deadline in it. Ten minutes of a turning spinner and no stated
     // end is indistinguishable from a hang — and this is the one step where
@@ -721,7 +740,9 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
     const hhmm = `${String(until.getHours()).padStart(2, "0")}:${String(until.getMinutes()).padStart(2, "0")}`;
     setStep(state, "signin", {
       state: "running",
-      detail: `sign in or create your account in the new tab — this setup waits until ${hhmm}`,
+      detail: willOpenTab
+        ? `sign in or create your account in the new tab — this setup waits until ${hhmm}`
+        : `follow the steps in the terminal — this setup waits until ${hhmm}`,
     });
     try {
       if (input.dryRun) {
@@ -3001,6 +3022,15 @@ export async function connectAction(options: {
         state.phase = failures > 0 ? "failed" : "done";
 
         const celebrate = () => {
+          // A run stopped for want of a key connected nothing, and counting
+          // the capabilities the user *chose* as though they had arrived is
+          // the summary congratulating them on a setup that did not happen.
+          if (state.needsSignIn) {
+            log.section("Stopped — waiting on your sign-in");
+            log.line("warn", "Nothing was written", "the rest of the setup runs once you are signed in");
+            log.command("aisa connect", "start again when you are ready");
+            return;
+          }
           log.section(failures > 0 ? "Finished, with issues" : "🎉 All set");
           if (failures > 0) {
             log.line("warn", `${failures} step${failures > 1 ? "s" : ""} did not complete`, "details above");

@@ -1,7 +1,8 @@
+import chalk from "chalk";
 import { run } from "../utils/exec.js";
 import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
-import { createInterface } from "node:readline";
+import { createInterface } from "node:readline/promises";
 import { error, hint, info, success } from "../utils/display.js";
 import { setApiKey } from "../config.js";
 import { maskKey } from "../config.js";
@@ -182,38 +183,61 @@ function waitForCallback(port: number, expectedState: string, lang: Lang): Promi
  * the query string will pull out the interesting part instead, and refusing
  * that would be pedantry.
  */
-function waitForPaste(expectedState: string, lang: Lang): Promise<string> {
-  return new Promise((resolve, reject) => {
+/**
+ * Read the pasted redirect, and give the reader more than one go at it.
+ *
+ * It used to ask once and reject on anything it could not parse. Pasting a
+ * long code into a terminal is exactly where people fumble — the clipboard
+ * did not take, enter went in early, the wrong window was in front — and one
+ * fumble failed the whole sign-in. In `aisa login` that costs the command and
+ * the authorize URL together: the page they just opened is stale, so they
+ * start over from the beginning for a mistyped paste.
+ *
+ * Three tries, each saying what was wrong with the last one. An empty line is
+ * not a mistake, it is "stop asking" — the same meaning it has in every other
+ * prompt in this flow.
+ */
+const PASTE_TRIES = 3;
+
+function parsePaste(raw: string): { code: string | null; state: string | null } {
+  const text = raw.trim().replace(/^["']|["']$/g, "");
+  try {
+    const url = new URL(text);
+    return { code: url.searchParams.get("code"), state: url.searchParams.get("state") };
+  } catch {
+    // Not a URL. A query fragment, or the code on its own.
+    const params = new URLSearchParams(text.replace(/^\?/, ""));
+    return {
+      code: params.get("code") ?? (/^[A-Za-z0-9._~-]{8,}$/.test(text) ? text : null),
+      state: params.get("state"),
+    };
+  }
+}
+
+async function waitForPaste(expectedState: string, lang: Lang): Promise<string> {
+  for (let attempt = 1; attempt <= PASTE_TRIES; attempt++) {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
-    rl.question(t(SIGNIN.prompt, lang), (answer) => {
-      rl.close();
-      const raw = answer.trim().replace(/^["']|["']$/g, "");
-      let code: string | null = null;
-      let state: string | null = null;
-      try {
-        const url = new URL(raw);
-        code = url.searchParams.get("code");
-        state = url.searchParams.get("state");
-      } catch {
-        // Not a URL. A query fragment, or the code on its own.
-        const params = new URLSearchParams(raw.replace(/^\?/, ""));
-        code = params.get("code") ?? (/^[A-Za-z0-9._~-]{8,}$/.test(raw) ? raw : null);
-        state = params.get("state");
-      }
-      if (!code) {
-        reject(new Error(t(SIGNIN.badPaste, lang)));
-        return;
-      }
-      // A pasted bare code carries no state to check; a pasted URL does, and
-      // a mismatched one is an older sign-in that would fail confusingly at
-      // the token endpoint instead of here.
-      if (state !== null && state !== expectedState) {
-        reject(new Error("state mismatch — paste the address from this sign-in, not an older one"));
-        return;
-      }
-      resolve(code);
-    });
-  });
+    const answer = await rl.question(t(SIGNIN.prompt, lang));
+    rl.close();
+    if (answer.trim() === "") {
+      throw new Error("sign-in cancelled — run it again when you have the code");
+    }
+    const { code, state } = parsePaste(answer);
+    let wrong: string | undefined;
+    if (!code) wrong = t(SIGNIN.badPaste, lang);
+    // A pasted bare code carries no state to check; a pasted URL does, and a
+    // mismatched one is an older sign-in that would fail confusingly at the
+    // token endpoint instead of here.
+    else if (state !== null && state !== expectedState) {
+      wrong = "that is from an older sign-in — paste the address from the page you just opened";
+    }
+    if (!wrong) return code as string;
+    if (attempt === PASTE_TRIES) throw new Error(wrong);
+    console.log(`  ${chalk.yellow(wrong)}`);
+    console.log(`  ${chalk.gray(`try again — ${PASTE_TRIES - attempt} left, or press enter to stop`)}\n`);
+  }
+  /* c8 ignore next */
+  throw new Error(t(SIGNIN.badPaste, lang));
 }
 
 function openBrowser(url: string): void {
