@@ -3,12 +3,12 @@
   "files": {
     "cases.json": "a1ccfcc5ac87bd9079284b94dac2ba8d062190c6543a668d0860fc9c1f781185",
     "system-prompt.txt": "c2e206b698841e1c82d48c9016c4d9d9245315d267934c5f865ab3fc3581ddec",
-    "grade.mjs": "e90f4e0e215ccdafbfde6784648d631ef80df52959c11bd1831099054a2a46f3",
-    "grade-checks.mjs": "58a74ea0504d2897423bb84da153ce6b5d7225560204ab03c6ae833088501372",
+    "grade.mjs": "d9c4e8f65dd6c1063c66ee828cdc4e93fd93540951c1d4bf75ccb879605007b0",
+    "grade-checks.mjs": "81cb41a260eeb1001a80f6809c0a37cfdd9928ca40d7effa8cfb7f9021b7eb9f",
     "stub.mjs": "d67ca3529adafb29612f3b0a87d1d1743612723df9b5c1b6148e3c979506fcb4",
     "extension.ts": "e3c1c7c955384718cca65cd67cfd69629e421c3bd2fe3f19be38af04fdd1b3eb",
     "run.mjs": "60dce347dd012cfa71aee9b528ea4788919b19bf22da2216341470f8cc7c172c"
   },
-  "bundle": "be6d5a4045cbdf2e6321e102c4d90c8570b0aa4d6db263d87346ae8b1e469cd0",
-  "eval_commit": "3e193bbaa3f308c6f7d97bfb05ebfafb88d7f7b1"
+  "bundle": "64f57363368680477d3ed3e7c57f6ca6d3689ca03c9ef588a4b34e38a72a0c50",
+  "eval_commit": "84129866bb765f743d3d8ed8dd47826286c2ea15"
 }
