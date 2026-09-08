@@ -5,6 +5,7 @@ import { CliError, EXIT_PARTIAL, EXIT_TRANSPORT, transportError } from "../cli-e
 import { routerPost, type RouterOperation } from "../router.js";
 import { error as printError } from "../utils/display.js";
 import { numberToken, parseJsonKeepingNumberTokens } from "../json-text.js";
+import { projectMcpIdentifiersToCli } from "../cli-guidance.js";
 import {
   prepareRouterRequest,
   type RouterIoOptions,
@@ -302,14 +303,14 @@ function printGuidance(guidance: unknown): void {
   if (!Array.isArray(guidance) || guidance.length === 0) return;
   console.log(chalk.bold(`\n  Next steps`));
   for (const line of guidance) {
-    if (typeof line === "string") console.log(`    ${line}`);
+    if (typeof line === "string") console.log(`    ${projectMcpIdentifiersToCli(line)}`);
   }
 }
 
 function printStringList(label: string, value: unknown): void {
   if (!Array.isArray(value) || value.length === 0) return;
   for (const line of value) {
-    if (typeof line === "string") console.log(`${label}: ${line}`);
+    if (typeof line === "string") console.log(`${label}: ${projectMcpIdentifiersToCli(line)}`);
   }
 }
 

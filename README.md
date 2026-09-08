@@ -16,11 +16,11 @@ npm install -g @aisa-one/cli
 # Authenticate (or set AISA_API_KEY)
 aisa login --key sk-your-api-key
 
-# Discover published tools (Router; no API key required)
-aisa search "insider trades" --json
-aisa schema <tool> --json
+# Discover published tools (Router; search/schema may be anonymous)
+aisa search "company facts" --json
+aisa schema get_financial_company_facts --json
 
-# Old catalog keyword search is still available
+# Old catalog keyword search is still available (deprecated; not a drop-in)
 aisa api list
 aisa api search "insider trades"
 
@@ -33,11 +33,11 @@ aisa stock AAPL
 # Search the web
 aisa web-search "latest AI research"
 
-# Quote then execute a published Router tool
-aisa quote -f request.json --json
-aisa call -f request.json --json
+# Quote then execute a published Router tool (same request JSON; shared AISA_API_KEY)
+aisa quote --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
+aisa call --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
 
-# Raw provider/LLM routing is still available (deprecated for published tools)
+# Raw provider/LLM routing is still available (deprecated; not a drop-in for aisa call)
 aisa run financial /insider-trades -q "ticker=AAPL"
 ```
 
@@ -51,25 +51,51 @@ These four commands are a thin HTTP client for the same Router service MCP
 uses. They do not search the local catalog cache and do not call providers
 directly.
 
+| CLI | MCP identifier | POST path |
+|---|---|---|
+| `aisa search` | `AISA_SEARCH_TOOL` | `/v1/tool-router/aisa-search-tool` |
+| `aisa schema` | `AISA_BATCH_GET_SCHEMA` | `/v1/tool-router/aisa-batch-get-schema` |
+| `aisa quote` | `AISA_BATCH_QUOTE` | `/v1/tool-router/aisa-batch-quote` |
+| `aisa call` | `AISA_BATCH_USE` | `/v1/tool-router/aisa-batch-use` |
+
+`--json` prints the unmodified application body (MCP identifiers stay).
+Human output maps only those four identifiers onto CLI names. The mapping is
+also in `aisa manifest search` / `schema` / `quote` / `call` (`mcp.identifier`).
+
+Flow: discover a tool → `aisa schema` when `has_full_schema=false` → `aisa quote`
+→ authorized `aisa call`. Quote and call share one request shape. Quote is a
+price observation, not authorization. A data request or credentials alone is
+not spending approval. `aisa call` is billable and needs a matching quote plus
+explicit approval covering that cost and any uncertainty. A missing or failed
+quote is never free. Estimated cost is not a limit.
+
+`get_financial_company_facts` is a published tool whose schema includes
+`ticker`. Do not invent unpublished tool names.
+
 ```bash
 aisa search "company facts" --json
 aisa search --input '{"query":"company facts","limit":5}' --json
-aisa schema similarweb_get_company --json
-aisa schema -f schema.json --json
-aisa quote -f calls.json --json
-aisa call --input '{"calls":[{"call_id":"c1","tool":"similarweb_get_company","arguments":{}}]}' --json
+aisa search -f request.json --json
+aisa search -f - --json < request.json
+aisa schema get_financial_company_facts --json
+aisa schema --input '{"tools":["get_financial_company_facts"]}' --json
+aisa quote --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
+aisa quote -f request.json --json
+aisa call --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
+aisa call -f - --json < request.json
 ```
 
-`--json` prints the unmodified application JSON (including large integer
-tokens). Diagnostics go to stderr. Exit `2` means local input was invalid and
-nothing was sent; `1` is transport, auth, or an HTTP error; `3` means the
-Router returned a batch with at least one failed item.
+`--json` keeps large integer tokens. Diagnostics go to stderr. Exit `2` means
+local input was invalid and nothing was sent; `1` is transport, auth, or an
+HTTP error; `3` means the Router returned a batch with at least one failed
+item.
 
 `search` and `schema` may be anonymous. `quote` and `call` require
-`AISA_API_KEY`. The default Router origin is `https://tools.aisa.one`
-(independent of `baseUrl` / `https://api.aisa.one`). Point a test Router at
-`AISA_ROUTER_BASE_URL` (origin or prefix before `/v1/tool-router/...`), or
-`aisa config set routerUrl`. There is no origin fallback.
+`AISA_API_KEY` (the same key as `aisa login` / `aisa run`). The default Router
+origin is `https://tools.aisa.one` (independent of `baseUrl` /
+`https://api.aisa.one`). Point a test Router at `AISA_ROUTER_BASE_URL` (origin
+or prefix before `/v1/tool-router/...`), or `aisa config set routerUrl`. There
+is no origin fallback.
 
 `quote` never executes. Router requests do not follow HTTP redirects, so a
 307/308 cannot turn quote into call. There is no automatic quote-to-call sequence and no
@@ -79,7 +105,8 @@ retry.
 
 The catalog still lists integration providers. `api list` and `api code` are
 unchanged. `api search` and `api show` keep their previous catalog behavior
-and are deprecated in favor of `search` / `schema` for published tools.
+and are deprecated; they are not drop-in replacements for `search` / `schema`
+(catalog keyword/id browse vs Router published tools).
 
 ```bash
 aisa api list                          # all 29 providers
@@ -106,8 +133,9 @@ The catalog is cached in `~/.aisa/cache` (override with `AISA_CACHE_DIR`). Pass
 
 ## Execute Any Endpoint
 
-`aisa run` still sends raw provider and LLM requests. For published Router
-tools prefer `aisa call`. `run` is deprecated but unchanged.
+`aisa run` still sends raw provider and LLM requests. It is not a drop-in for
+`aisa call` (`AISA_BATCH_USE`). `run` is deprecated but unchanged. Specialized
+commands (`stock`, `web-search`, `twitter`, …) are unaffected.
 
 ```bash
 aisa run financial /insider-trades -q "ticker=AAPL"

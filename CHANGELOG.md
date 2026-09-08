@@ -41,12 +41,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   front door is `tools.aisa.one`. Overrides (`AISA_ROUTER_BASE_URL`,
   `routerUrl`) keep precedence. There is no origin fallback.
 
+### Changed
+
+- Human Router guidance and displayed plan steps/pitfalls project the four
+  exact MCP identifiers onto `aisa search` / `schema` / `quote` / `call`.
+  Surrounding policy text is unchanged. `--json` still prints the unmodified
+  application body, including MCP identifiers.
+- Root and Router command help include complete `--input` JSON examples
+  (`-f` / `-f -` too), shared `AISA_API_KEY`, billable/approval limits, and
+  exits `0`/`2`/`1`/`3`. Manifest nodes for the four commands include `mcp`.
+
 ### Deprecated
 
 - **`aisa api search`, `aisa api show`, and `aisa run`** keep their previous
   behavior, stdout, and exit semantics. Help, one stderr warning, and
-  manifest `deprecated` / `replacement` / `migration` fields mark them.
-  Removal will be a separately announced breaking release.
+  manifest `deprecated` / `replacement` / `migration` fields mark them as
+  not drop-in replacements. `api list`, `api code`, and specialized commands
+  are unchanged. Removal will be a separately announced breaking release.
 
 ### Added
 

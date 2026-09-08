@@ -20,6 +20,13 @@ import { chatAction } from "./commands/chat.js";
 import { modelsListAction, modelsShowAction } from "./commands/models.js";
 // Search
 import { searchAction, schemaAction, quoteAction, callAction } from "./commands/tools.js";
+import {
+  callHelpAfter,
+  quoteHelpAfter,
+  rootHelpAfter,
+  schemaHelpAfter,
+  searchHelpAfter,
+} from "./commands/tool-help.js";
 import { webSearchAction, scholarAction } from "./commands/search.js";
 // Finance
 import { stockAction, cryptoAction, screenerAction } from "./commands/finance.js";
@@ -148,42 +155,46 @@ program
 
 program
   .command("search [query]")
-  .description("Discover published tools via the Tool Router")
+  .description("Discover published tools via the Tool Router (MCP AISA_SEARCH_TOOL)")
   .option("--input <json>", "Full JSON request body")
   .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
   .option("--limit <n>", "Max additional discovery results (1-20)")
   .option("--provider <id>", "Exact catalog provider key (repeatable)", collectProvider, [] as string[])
   .option("--json", "Write the unmodified application response to stdout")
+  .addHelpText("after", searchHelpAfter())
   .action((query: string | undefined, opts: Record<string, unknown>) =>
     wrap(searchAction)(query, routerIo(opts))
   );
 
 program
   .command("schema [tools...]")
-  .description("Get published tool schemas via the Tool Router")
+  .description("Get published tool schemas via the Tool Router (MCP AISA_BATCH_GET_SCHEMA)")
   .option("--input <json>", "Full JSON request body")
   .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
   .option("--no-arguments-schema", "Omit arguments_schema (at least one schema type is required)")
   .option("--include-response-schema", "Include response_schema")
   .option("--json", "Write the unmodified application response to stdout")
+  .addHelpText("after", schemaHelpAfter())
   .action((tools: string[] | undefined, opts: Record<string, unknown>) =>
     wrap(schemaAction)(tools, routerIo(opts))
   );
 
 program
   .command("quote")
-  .description("Quote published tools via the Tool Router without executing them")
+  .description("Quote published tools via the Tool Router without executing them (MCP AISA_BATCH_QUOTE)")
   .option("--input <json>", "Full JSON request body (same shape as call)")
   .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
   .option("--json", "Write the unmodified application response to stdout")
+  .addHelpText("after", quoteHelpAfter())
   .action((opts: Record<string, unknown>) => wrap(quoteAction)(routerIo(opts)));
 
 program
   .command("call")
-  .description("Execute published tools via the Tool Router")
+  .description("Execute published tools via the Tool Router (MCP AISA_BATCH_USE)")
   .option("--input <json>", "Full JSON request body (same shape as quote)")
   .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
   .option("--json", "Write the unmodified application response to stdout")
+  .addHelpText("after", callHelpAfter())
   .action((opts: Record<string, unknown>) => wrap(callAction)(routerIo(opts)));
 
 // ── API ──
@@ -208,7 +219,7 @@ api
   .option("--refresh", "Bypass the cached catalog")
   .addHelpText(
     "after",
-    "\nDeprecated: prefer `aisa search` for published Router tools. This command keeps the old catalog keyword search and result shape. Removal will be a separately announced breaking release.\n"
+    "\nDeprecated — not a drop-in for `aisa search` (AISA_SEARCH_TOOL). This command keeps the old catalog keyword search and result shape. api list and api code are unchanged. Removal will be a separately announced breaking release.\n"
   )
   .action(wrap(withDeprecation("api search", apiSearchAction)));
 
@@ -222,7 +233,7 @@ api
   .option("--refresh", "Bypass the cached catalog")
   .addHelpText(
     "after",
-    "\nDeprecated: prefer `aisa schema` for published Router tools. Provider-wide catalog browsing is not equivalent. This command keeps its old behavior. Removal will be a separately announced breaking release.\n"
+    "\nDeprecated — not equivalent to `aisa schema` (AISA_BATCH_GET_SCHEMA). This command still browses a provider catalog by id/path. Removal will be a separately announced breaking release.\n"
   )
   .action(wrap(withDeprecation("api show", apiShowAction)));
 
@@ -249,7 +260,7 @@ program
   .option("--show-cost", "Print the billing headers the gateway reported (stderr)")
   .addHelpText(
     "after",
-    "\nDeprecated: prefer `aisa call` for published Router tools. This command still performs raw provider and LLM routing. Removal will be a separately announced breaking release.\n"
+    "\nDeprecated — not a drop-in for `aisa call` (AISA_BATCH_USE). This command still performs raw provider and LLM routing. Specialized commands are unchanged. Removal will be a separately announced breaking release.\n"
   )
   .action((slug: string, path: string, opts: Record<string, unknown>) => {
     warnDeprecated("run");
@@ -821,22 +832,7 @@ function applyHelpStyle(cmd: Command): void {
 }
 // The root page also gets worked examples: the fastest way to convey that
 // `run` takes repeated -q pairs is to show one.
-program.addHelpText(
-  "after",
-  `
-Examples:
-  $ aisa connect                      wire your coding agent to AIsa (start here)
-  $ aisa search "company facts" --json
-  $ aisa schema similarweb_get_company --json
-  $ aisa quote -f request.json --json
-  $ aisa call --input '{"calls":[...]}' --json
-  $ aisa twitter search "ai" --raw    search X, full JSON out
-
-Deprecated (behavior unchanged; removal announced later):
-  $ aisa api search "insider trades"  old catalog keyword search
-  $ aisa api show coingecko           provider-wide catalog browse
-  $ aisa run coingecko simple/price -q ids=bitcoin -q vs_currencies=usd`
-);
+program.addHelpText("after", rootHelpAfter());
 
 // Last, after the human-facing examples: it is the line an agent scanning to
 // the end of the page will find.

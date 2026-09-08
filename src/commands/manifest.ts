@@ -1,4 +1,5 @@
 import type { Command, Option, Argument } from "commander";
+import { mcpForCommand } from "../cli-guidance.js";
 import { deprecationFor } from "../deprecation.js";
 
 /**
@@ -47,6 +48,8 @@ interface ManifestCommand {
   deprecated?: boolean;
   replacement?: string;
   migration?: string;
+  /** MCP operation this CLI command posts to. Absent on non-Router commands. */
+  mcp?: { identifier: string; path: string };
 }
 
 /**
@@ -86,6 +89,7 @@ export function buildManifest(program: Command, prefix = ""): ManifestCommand {
   const path = prefix ? `${prefix} ${program.name()}` : program.name();
   const args = (program as unknown as { registeredArguments?: Argument[] }).registeredArguments ?? [];
   const deprecated = deprecationFor(path.replace(/^aisa\s+/, ""));
+  const mcp = mcpForCommand(program.name());
   return {
     path,
     description: program.description(),
@@ -100,6 +104,7 @@ export function buildManifest(program: Command, prefix = ""): ManifestCommand {
           migration: deprecated.migration,
         }
       : {}),
+    ...(mcp ? { mcp: { identifier: mcp.identifier, path: mcp.path } } : {}),
   };
 }
 

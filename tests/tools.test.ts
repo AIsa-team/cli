@@ -172,6 +172,52 @@ describe("tool router commands", () => {
     expect(text.slice(secondIdx)).not.toMatch(/customer_cost_micros_usd 7\b/);
   });
 
+  it("maps human guidance and plan text to CLI names and leaves --json untouched", async () => {
+    const guidance =
+      "If has_full_schema=false, call AISA_BATCH_GET_SCHEMA. Then call AISA_BATCH_QUOTE before AISA_BATCH_USE. A data request or credentials alone is not spending approval.";
+    const body = JSON.stringify({
+      search_id: "s1",
+      plan: {
+        plan_ref: "company-fundamentals/v1",
+        recommended_steps: ["If has_full_schema=false, call AISA_BATCH_GET_SCHEMA before AISA_BATCH_QUOTE."],
+        known_pitfalls: ["Do not call AISA_BATCH_USE without covering authorization."],
+        primary_tools: ["get_financial_company_facts"],
+      },
+      tools: [
+        {
+          tool: "get_financial_company_facts",
+          summary: "Docs may mention AISA_BATCH_USE; that is payload text.",
+          has_full_schema: true,
+        },
+      ],
+      next_steps_guidance: [guidance],
+    });
+
+    stubFetch(() => new Response(body, { status: 200 }));
+    await searchAction("company facts", {});
+    const human = stdout.join("\n");
+    expect(human).toContain("aisa schema");
+    expect(human).toContain("aisa quote");
+    expect(human).toContain("aisa call");
+    expect(human).toContain("A data request or credentials alone is not spending approval");
+    expect(human).toContain("has_full_schema=false");
+    expect(human).toContain("Docs may mention AISA_BATCH_USE; that is payload text.");
+    const projected = human.replace("Docs may mention AISA_BATCH_USE; that is payload text.", "");
+    expect(projected).not.toMatch(/AISA_BATCH_GET_SCHEMA|AISA_BATCH_QUOTE|AISA_BATCH_USE/);
+    expect(stderr.join("\n")).not.toMatch(/deprecated/);
+
+    stdout.length = 0;
+    stubFetch(() => new Response(body, { status: 200 }));
+    await searchAction("company facts", { json: true });
+    const raw = stdout.join("");
+    expect(raw).toBe(body.endsWith("\n") ? body : `${body}\n`);
+    expect(raw).toContain("AISA_BATCH_GET_SCHEMA");
+    expect(raw).toContain("AISA_BATCH_QUOTE");
+    expect(raw).toContain("AISA_BATCH_USE");
+    expect(raw).not.toContain("aisa schema");
+    expect(raw).not.toContain("Next steps");
+  });
+
   it("renders returned plan guidance without inventing steps", async () => {
     stubFetch(() =>
       new Response(
