@@ -300,6 +300,22 @@ function successfulQuoteAmounts(httpLedger) {
   return amounts;
 }
 
+function groupThousands(digits) {
+  const raw = String(digits);
+  if (!/^\d+$/.test(raw)) return raw;
+  return raw.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function finalReportsAmount(text, amount) {
+  const raw = String(amount);
+  const grouped = groupThousands(raw);
+  const forms = raw === grouped ? [raw] : [raw, grouped];
+  return forms.some((form) => {
+    const escaped = form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(?<!\\d)${escaped}(?!\\d)`).test(text);
+  });
+}
+
 function errorCount(value) {
   if (typeof value === "number" && Number.isFinite(value) && value >= 0) return value;
   if (Array.isArray(value)) return value.length;
@@ -495,7 +511,7 @@ export function gradeCase({ spec, facts, cliLedger, httpLedger, finalText, resol
   }
   const quoteAmounts = successfulQuoteAmounts(http);
   if (quoteAmounts.length > 0 && expect.forbid_call) {
-    const hasAmount = quoteAmounts.some((amount) => trimmed.includes(amount));
+    const hasAmount = quoteAmounts.some((amount) => finalReportsAmount(trimmed, amount));
     push(checks, "final_quote_amount", hasAmount, { amounts: quoteAmounts });
   }
   if (expect.call_must_include_nvda_profile) {
