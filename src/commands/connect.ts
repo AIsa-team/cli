@@ -210,7 +210,13 @@ async function claudeCodeAdd(name: string, endpoint: string, key: string | undef
  *
  * stdio is inherited because the flow prints an authorisation URL and waits.
  */
-function codexAdd(name: string, endpoint: string, key: string | undefined): Promise<boolean> {
+function codexAdd(
+  name: string,
+  endpoint: string,
+  key: string | undefined,
+  /** Collects the tool's own output when it is not being shown live. */
+  said?: string[]
+): Promise<boolean> {
   return new Promise((resolve) => {
     const args = ["mcp", "add", name, "--url", endpoint];
     // Codex takes the *name* of an environment variable, never the token
@@ -218,7 +224,25 @@ function codexAdd(name: string, endpoint: string, key: string | undefined): Prom
     // With one configured we point every server at the same variable; without
     // one, add detects OAuth support and authorises instead.
     if (key) args.push("--bearer-token-env-var", CODEX_KEY_ENV_VAR);
-    const child = spawn("codex", args, { stdio: "inherit" });
+    // Inherited only when this add might have to talk to the user: with no
+    // key it detects OAuth and prints a URL to visit, and a prompt captured
+    // into a buffer is a hang. With a key it says one line per server —
+    // "Added global MCP server 'aisa-web-search'." — and inheriting put that
+    // line straight onto the terminal, unindented and unmarked, in the middle
+    // of a column of • rows and ahead of the very line that summarises it.
+    // Captured, it becomes what it is: detail belonging to that summary.
+    const capture = Boolean(key) && Boolean(said);
+    const child = spawn("codex", args, capture ? { stdio: ["ignore", "pipe", "pipe"] } : { stdio: "inherit" });
+    if (capture) {
+      const take = (buf: Buffer) => {
+        for (const raw of buf.toString().split("\n")) {
+          const line = raw.trim();
+          if (line) said!.push(line);
+        }
+      };
+      child.stdout?.on("data", take);
+      child.stderr?.on("data", take);
+    }
     const timer = setTimeout(() => child.kill("SIGTERM"), 180_000);
     child.once("close", (code) => {
       clearTimeout(timer);
@@ -312,12 +336,13 @@ async function applySelection(
         continue;
       }
       let added = 0;
+      const said: string[] = [];
       for (const s of chosen) {
         const name = `aisa-${s.slug}`;
         // Remove first: codex mcp add refuses an existing name, and removing
         // one that is absent is a no-op we do not care about either way.
         await run("codex", ["mcp", "remove", name], { timeout: 15_000 }).catch(() => {});
-        if (!(await codexAdd(name, s.endpoint, key))) continue;
+        if (!(await codexAdd(name, s.endpoint, key, said))) continue;
         // The add stored only the env-var NAME; swap it for the literal
         // header so the entry works in every terminal, exported or not.
         if (key && !patchCodexMCPAuth(name, key).ok) continue;
@@ -328,11 +353,12 @@ async function applySelection(
           ? {
               client: id,
               ok: true,
+              said,
               message: key
                 ? `${added} servers added with your key`
                 : `${added} servers added and authorized`,
             }
-          : { client: id, ok: false, message: `only ${added} of ${chosen.length} servers were added` }
+          : { client: id, ok: false, said, message: `only ${added} of ${chosen.length} servers were added` }
       );
     } else if (id === "opencode") {
       // The official command (1.18+): non-interactive, idempotent on the
@@ -731,7 +757,12 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
   if (willAuthorize) await pause(BEFORE_HANDOFF_MS);
   const results = await applySelection(input.clients, input.servers, key, input.dryRun, state);
   state.results = results;
-  for (const r of results) log.line(r.ok ? "ok" : "fail", r.client, r.message);
+  for (const r of results) {
+    log.line(r.ok ? "ok" : "fail", r.client, r.message);
+    // Under the summary, not ahead of it, and set in from it — this is what
+    // the tool said while doing the thing the line above just reported.
+    for (const line of r.said ?? []) log.sub(line);
+  }
   const mcpOk = results.length > 0 && results.every((r) => r.ok);
   if (mcpOk) {
     setStep(state, "mcp", { state: "ok", detail: results.map((r) => r.client).join(", ") });

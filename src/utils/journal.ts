@@ -116,6 +116,19 @@ export class Journal {
     this.emit("", chalk.gray(`   ${text}`), `   ${text}`);
   }
 
+  /**
+   * Detail belonging to the line above it, on screen and in the log.
+   *
+   * Deeper than note(): a note continues its line at the same level, while
+   * this is subordinate to it — a client's own output, quoted under our
+   * summary of what it did. Level with the parent's text it read as the next
+   * item in the list, which is exactly how an inherited stdout looked before
+   * it was captured.
+   */
+  sub(text: string): void {
+    this.emit("", chalk.gray(`      ${text}`), `      ${text}`);
+  }
+
   /** A command the user can copy and run later. */
   command(cmd: string, why?: string): void {
     this.emit(

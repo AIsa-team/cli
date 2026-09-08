@@ -132,6 +132,14 @@ export interface ApplyResult {
   client: string;
   ok: boolean;
   message: string;
+  /**
+   * What the client's own tool printed while doing this.
+   *
+   * Kept rather than inherited, so it lands under the line that summarises
+   * it instead of ahead of it. Terminal-side only: the page has the summary
+   * and does not need a transcript.
+   */
+  said?: string[];
 }
 
 // ── live run state, served at /status for the page to poll ─────────────────
