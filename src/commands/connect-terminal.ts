@@ -720,41 +720,28 @@ export async function runTerminalFlow(
       if (fresh) rev = fresh.rev;
       const chosen = new Set(draft.servers);
       if (interactive()) {
-        // Grouped by area, with the area named once above its rows.
+        // Sorted by area, with the area named once where it changes.
         //
-        // A category column beside every row said "SEO & Search Data" twelve
-        // times out of twenty-five — the same word repeated is not something
-        // to read, and the list is sorted by slug so it could not even group.
-        // Said once over a run of rows it does both jobs at once.
-        //
-        // The rows a user can act on are a subset of the rows on screen from
-        // here on, so everything that indexes them goes through `rowOf`.
-        const grouped: Array<{ cat?: string; server?: LiveServer }> = [];
+        // Twenty-five servers over eight areas — and five of those areas hold
+        // exactly one server, so a heading per area produced "heading, row,
+        // heading, row", which is a hat on every line rather than a grouping.
+        // The name on the first row of each run says the same thing and costs
+        // no rows: what follows inherits it from the blank space beside it.
         const ordered = [...o.servers].sort(
           (a, b) => a.category.localeCompare(b.category) || a.slug.localeCompare(b.slug)
         );
-        let area = "";
-        for (const srv of ordered) {
-          if (srv.category !== area) { area = srv.category; grouped.push({ cat: area }); }
-          grouped.push({ server: srv });
-        }
-        /** Row index → server, for the rows that carry one. */
-        const rowOf = grouped.map((g) => g.server);
-        const rowFor = (slug: string) => rowOf.findIndex((s) => s?.slug === slug);
+        const rowFor = (slug: string) => ordered.findIndex((s) => s.slug === slug);
         const initial = [...chosen].map(rowFor).filter((i) => i >= 0);
         const a3 = await pickOrWatch(o, rev, 4,
-          grouped.map((g) =>
-            g.cat
-              ? { header: true, label: g.cat }
-              : {
-                  label: g.server!.slug,
-                  meta: `${g.server!.toolCount} ${t(STEP_CAPS.toolsWord, o.lang)}`,
-                  // Straight from the host, the same sentence the page shows.
-                  // A hand-written table here would be a second source of
-                  // truth for something that ships with the server.
-                  detail: g.server!.description,
-                }
-          ),
+          ordered.map((srv) => ({
+            label: srv.slug,
+            meta: `${srv.toolCount} ${t(STEP_CAPS.toolsWord, o.lang)}`,
+            tag: srv.category,
+            // Straight from the host, the same sentence the page shows. A
+            // hand-written table here would be a second source of truth for
+            // something that ships with the server.
+            detail: srv.description,
+          })),
           true, initial,
           o.lang === "zh"
             ? "↑↓ 移动 · 空格勾选 · a 全选/全不选 · 回车确认 · esc 返回上一步"
@@ -764,7 +751,7 @@ export async function runTerminalFlow(
             read: (d) =>
               d.servers === undefined ? undefined : d.servers.map(rowFor).filter((i) => i >= 0),
             write: async (indexes) => {
-              const next = indexes.map((i) => rowOf[i]?.slug).filter((x): x is string => Boolean(x));
+              const next = indexes.map((i) => ordered[i]?.slug).filter((x): x is string => Boolean(x));
               ({ rev } = await push(o, rev, { draft: { servers: next } }));
               return rev;
             },
@@ -779,7 +766,7 @@ export async function runTerminalFlow(
           console.log("\n" + dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 已在页面中选择" : "↩ chosen in the page"));
         } else {
           chosen.clear();
-          for (const i of a3.picked ?? []) { const srv = rowOf[i]; if (srv) chosen.add(srv.slug); }
+          for (const i of a3.picked ?? []) { const srv = ordered[i]; if (srv) chosen.add(srv.slug); }
         }
       } else {
         o.servers.forEach((s, i) => {
