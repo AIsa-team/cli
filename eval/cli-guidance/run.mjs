@@ -15,9 +15,15 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { extractFinalText, extractResolvedModel, gradeCase, summarizeSuite } from "./grade.mjs";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { extractResolvedModel, gradeCase, summarizeSuite } from "./grade.mjs";
 import { PROFILE, startStub } from "./stub.mjs";
+
+const BASELINE_SRC = "/tmp/aisa-cli-eval-baseline";
+const BASELINE_SHA = "ec29516f41702aac6f5e26e98e53c2545c600840";
+const CANDIDATE_SRC = "/Users/eddiearc/repo/worktrees/aisa-cli-guidance-help";
+const CANDIDATE_SHA = "3f12d666bc7e2a20efd6e8d806969288fd2284b8";
+const TRACKED_PIDS = new Set();
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REQUESTED = Object.freeze({
@@ -28,7 +34,17 @@ const REQUESTED = Object.freeze({
   thinking: "low",
 });
 const SYNTH_KEY = "aisa_eval_synthetic_key_not_real";
-const HASH_FILES = ["cases.json", "system-prompt.txt", "grade.mjs", "stub.mjs", "extension.ts"];
+const EVAL_ROOT = resolve(HERE, "../..");
+/** Bound scoring inputs. hashes.json is the lockfile and must stay outside this list. */
+const HASH_FILES = Object.freeze([
+  "cases.json",
+  "system-prompt.txt",
+  "grade.mjs",
+  "grade-checks.mjs",
+  "stub.mjs",
+  "extension.ts",
+  "run.mjs",
+]);
 
 function sha256(text) {
   return createHash("sha256").update(text).digest("hex");
@@ -38,20 +54,56 @@ function fileSha(name) {
   return sha256(readFileSync(join(HERE, name)));
 }
 
-function currentHashes() {
+function assertHashFilesContract() {
+  if (HASH_FILES.includes("hashes.json")) {
+    throw new Error("hashes.json must not be listed in HASH_FILES");
+  }
+}
+
+function evalIdentity() {
+  return {
+    commit: git(EVAL_ROOT, ["rev-parse", "HEAD"]),
+    dirty: Boolean(git(EVAL_ROOT, ["status", "--porcelain"])),
+  };
+}
+
+function currentHashes({ requireAll = false } = {}) {
+  assertHashFilesContract();
   const files = {};
-  for (const name of HASH_FILES) files[name] = fileSha(name);
+  const missing = [];
+  for (const name of HASH_FILES) {
+    const path = join(HERE, name);
+    if (!existsSync(path)) {
+      missing.push(name);
+      continue;
+    }
+    files[name] = fileSha(name);
+  }
+  if (requireAll && missing.length) {
+    throw new Error(
+      `HASH_FILES missing (${missing.join(", ")}). Freeze only after grade.mjs and grade-checks.mjs are cherry-picked (not *.test.mjs).`
+    );
+  }
+  const present = HASH_FILES.filter((n) => files[n]);
   return {
     algorithm: "sha256",
     files,
-    bundle: sha256(HASH_FILES.map((n) => `${n}:${files[n]}`).join("\n")),
+    missing,
+    bundle: sha256(present.map((n) => `${n}:${files[n]}`).join("\n")),
   };
 }
 
 function writeHashes() {
-  const hashes = currentHashes();
-  writeFileSync(join(HERE, "hashes.json"), `${JSON.stringify(hashes, null, 2)}\n`);
-  return hashes;
+  const hashes = currentHashes({ requireAll: true });
+  const evalId = evalIdentity();
+  const payload = {
+    algorithm: hashes.algorithm,
+    files: hashes.files,
+    bundle: hashes.bundle,
+    eval_commit: evalId.commit,
+  };
+  writeFileSync(join(HERE, "hashes.json"), `${JSON.stringify(payload, null, 2)}\n`);
+  return payload;
 }
 
 function assertFrozenHashes() {
@@ -60,17 +112,30 @@ function assertFrozenHashes() {
     throw new Error("hashes.json missing; run with --freeze first");
   }
   const frozen = JSON.parse(readFileSync(path, "utf8"));
-  const live = currentHashes();
+  const live = currentHashes({ requireAll: true });
   if (frozen.bundle !== live.bundle) {
     throw new Error(`frozen hashes drifted\nfrozen=${frozen.bundle}\nlive=${live.bundle}`);
   }
   return frozen;
 }
 
+function boundIds(source, hashes) {
+  const evalId = evalIdentity();
+  return {
+    cli_sha: source?.sha || null,
+    cli_src: source?.src || null,
+    cli_tarball_sha256: source?.tarball_sha256 || null,
+    eval_commit: evalId.commit,
+    eval_dirty: evalId.dirty,
+    eval_bundle: hashes?.bundle || null,
+  };
+}
+
 function parseArgs(argv) {
   const out = {
     freeze: false,
     selfCheck: false,
+    modelPreflight: false,
     suite: "baseline",
     src: "",
     expectSha: "",
@@ -83,6 +148,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === "--freeze") out.freeze = true;
     else if (a === "--self-check") out.selfCheck = true;
+    else if (a === "--model-preflight") out.modelPreflight = true;
     else if (a === "--suite") out.suite = argv[++i];
     else if (a === "--src") out.src = argv[++i];
     else if (a === "--expect-sha") out.expectSha = argv[++i];
@@ -174,11 +240,50 @@ function installFromSrc(src, dest, expectSha) {
   return meta;
 }
 
+function killProcessGroup(pid) {
+  if (!pid) return;
+  try {
+    process.kill(-pid, "SIGKILL");
+  } catch {
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      /* already gone */
+    }
+  }
+}
+
+function cleanupTrackedChildren() {
+  for (const pid of TRACKED_PIDS) killProcessGroup(pid);
+  TRACKED_PIDS.clear();
+}
+
+function onParentStop() {
+  cleanupTrackedChildren();
+}
+
+process.once("SIGINT", () => {
+  onParentStop();
+  process.exit(130);
+});
+process.once("SIGTERM", () => {
+  onParentStop();
+  process.exit(143);
+});
+process.once("exit", onParentStop);
+
 function spawnAsync(cmd, args, opts, timeoutMs) {
   return new Promise((resolvePromise) => {
-    const child = spawn(cmd, args, { ...opts, stdio: opts.stdio || ["ignore", "pipe", "pipe"] });
+    const child = spawn(cmd, args, {
+      ...opts,
+      stdio: opts.stdio || ["ignore", "pipe", "pipe"],
+      detached: true,
+    });
+    if (child.pid) TRACKED_PIDS.add(child.pid);
     let stdout = "";
     let stderr = "";
+    let timed_out = false;
+    let settled = false;
     if (child.stdout) {
       child.stdout.setEncoding("utf8");
       child.stdout.on("data", (c) => {
@@ -191,32 +296,104 @@ function spawnAsync(cmd, args, opts, timeoutMs) {
         stderr += c;
       });
     }
-    const timer = setTimeout(() => {
-      child.kill("SIGKILL");
-    }, timeoutMs);
-    child.on("close", (code, signal) => {
+    const finish = (payload) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
-      resolvePromise({ code, signal, stdout, stderr });
+      if (child.pid) TRACKED_PIDS.delete(child.pid);
+      resolvePromise({ ...payload, timed_out, pid: child.pid });
+    };
+    const timer = setTimeout(() => {
+      timed_out = true;
+      killProcessGroup(child.pid);
+    }, timeoutMs);
+    child.on("error", (err) => {
+      finish({ code: null, signal: null, stdout, stderr, spawn_error: String(err) });
+    });
+    child.on("close", (code, signal) => {
+      finish({ code, signal, stdout, stderr });
     });
   });
 }
 
 function parseJsonl(text) {
   const events = [];
-  for (const line of text.split(/\n/)) {
+  const parse_errors = [];
+  const lines = text.split(/\n/);
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
     if (!line.trim()) continue;
     try {
       events.push(JSON.parse(line));
-    } catch {
-      events.push({ type: "parse_error", raw: line.slice(0, 400) });
+    } catch (err) {
+      const rec = { line: i + 1, error: String(err), raw: line };
+      parse_errors.push(rec);
+      events.push({ type: "parse_error", line: rec.line, raw: line, error: rec.error });
     }
   }
-  return events;
+  return { events, parse_errors };
 }
 
-function readJsonl(path) {
-  if (!existsSync(path)) return [];
-  return parseJsonl(readFileSync(path, "utf8"));
+function lastAssistantMessageEnd(events) {
+  let last = null;
+  for (const ev of events) {
+    if (ev?.type === "message_end" && ev.message?.role === "assistant") last = ev;
+  }
+  return last;
+}
+
+function messageText(msg) {
+  const parts = [];
+  for (const c of msg.content || []) {
+    if (c && (c.type === "text" || c.type === "output_text") && c.text) parts.push(c.text);
+  }
+  return parts.join("\n");
+}
+
+function terminalTransportErrors(events) {
+  const last = lastAssistantMessageEnd(events);
+  if (!last) return [];
+  const msg = last.message || {};
+  const err = msg.errorMessage || msg.error;
+  if (msg.stopReason === "error" || err) {
+    return [
+      {
+        stopReason: msg.stopReason || null,
+        errorMessage: err || "assistant error",
+        empty_final: !String(messageText(msg)).trim(),
+      },
+    ];
+  }
+  return [];
+}
+
+/**
+ * Only the terminal successful assistant completion counts as final.
+ * Do not fall back to earlier text, error bodies, or extractFinalText
+ * (that helper also keeps error-message content).
+ */
+function extractCompletedFinal(events, { timed_out = false } = {}) {
+  if (timed_out) return { text: "", completed: false, reason: "timed_out" };
+  const last = lastAssistantMessageEnd(events);
+  if (!last) return { text: "", completed: false, reason: "no_assistant_message_end" };
+  const msg = last.message || {};
+  if (msg.stopReason === "error" || msg.errorMessage || msg.error) {
+    return { text: "", completed: false, reason: "terminal_error" };
+  }
+  const text = messageText(msg);
+  if (!String(text).trim()) {
+    return { text: "", completed: false, reason: "empty_or_tool_only_final" };
+  }
+  return { text, completed: true, reason: "ok" };
+}
+
+function readCliLedger(path) {
+  if (!existsSync(path)) return { events: [], parse_errors: [] };
+  const parsed = parseJsonl(readFileSync(path, "utf8"));
+  return {
+    events: parsed.events.filter((e) => e && e.type !== "parse_error"),
+    parse_errors: parsed.parse_errors,
+  };
 }
 
 function piProcessEnv(overlay) {
@@ -306,6 +483,7 @@ async function runOneCase({ spec, facts, bin, outRoot, suite, runIndex, hashes, 
       AISA_EVAL_LEDGER: ledgerPath,
       AISA_EVAL_HOME: home,
       AISA_EVAL_STUB: stub.url,
+      AISA_EVAL_SCRATCH: cwd,
       AISA_EVAL_MAX_CALLS: "12",
       ...(apiKey ? { AISA_EVAL_KEY: apiKey } : {}),
     });
@@ -341,48 +519,84 @@ async function runOneCase({ spec, facts, bin, outRoot, suite, runIndex, hashes, 
     const finished = new Date().toISOString();
     writeFileSync(join(caseDir, "pi.stdout.jsonl"), result.stdout);
     writeFileSync(join(caseDir, "pi.stderr.txt"), result.stderr);
-    const events = parseJsonl(result.stdout);
+    const parsed = parseJsonl(result.stdout);
+    writeFileSync(
+      join(caseDir, "parse_errors.jsonl"),
+      parsed.parse_errors.map((e) => JSON.stringify(e)).join("\n") + (parsed.parse_errors.length ? "\n" : "")
+    );
+    writeFileSync(
+      join(caseDir, "pi.events.jsonl"),
+      parsed.events.map((e) => JSON.stringify(e)).join("\n") + (parsed.events.length ? "\n" : "")
+    );
+    const events = parsed.events;
     const resolved = extractResolvedModel(events);
-    if (resolved.model && resolved.model !== REQUESTED.model) {
-      throw new Error(`refusing silent model fallback: requested ${REQUESTED.model}, resolved ${resolved.model}`);
-    }
-    if (resolved.provider && resolved.provider !== REQUESTED.provider) {
-      throw new Error(`refusing silent provider fallback: requested ${REQUESTED.provider}, resolved ${resolved.provider}`);
-    }
-    const finalText = extractFinalText(events);
-    const cliLedger = readJsonl(ledgerPath);
+    const transport = terminalTransportErrors(events);
+    if (result.spawn_error) transport.push({ errorMessage: result.spawn_error });
+    const completion = extractCompletedFinal(events, { timed_out: result.timed_out === true });
+    const runtime = {
+      exit_code: result.code,
+      signal: result.signal ?? null,
+      timed_out: result.timed_out === true,
+      parse_errors: parsed.parse_errors,
+      transport_errors: transport,
+    };
+    writeFileSync(join(caseDir, "runtime.json"), `${JSON.stringify({ ...runtime, parse_error_count: parsed.parse_errors.length, transport_error_count: transport.length, final_completion: completion }, null, 2)}\n`);
+    const cliParsed = readCliLedger(ledgerPath);
+    writeFileSync(
+      join(caseDir, "cli_parse_errors.jsonl"),
+      cliParsed.parse_errors.map((e) => JSON.stringify(e)).join("\n") + (cliParsed.parse_errors.length ? "\n" : "")
+    );
     writeFileSync(join(caseDir, "http.json"), `${JSON.stringify(stub.ledger, null, 2)}\n`);
     const grade = gradeCase({
       spec,
       facts,
-      cliLedger,
+      cliLedger: cliParsed.events,
       httpLedger: stub.ledger,
-      finalText,
+      finalText: completion.completed ? completion.text : "",
       resolved,
+      runtime: {
+        exit_code: runtime.exit_code,
+        signal: runtime.signal,
+        timed_out: runtime.timed_out,
+        parse_errors: runtime.parse_errors,
+        transport_errors: runtime.transport_errors,
+      },
     });
+    const ids = boundIds(source, hashes);
     const record = {
       suite,
       case_id: spec.id,
       run_index: runIndex,
       started,
       finished,
-      exit_code: result.code,
-      signal: result.signal,
       requested: REQUESTED,
       resolved,
+      runtime,
+      final_completion: completion,
       source,
       hashes: { bundle: hashes.bundle },
+      cli_sha: ids.cli_sha,
+      eval_commit: ids.eval_commit,
+      eval_dirty: ids.eval_dirty,
+      eval_bundle: ids.eval_bundle,
+      scored: false,
       grade,
-      final_text: finalText,
+      final_text: completion.completed ? completion.text : "",
     };
     writeFileSync(join(caseDir, "grade.json"), `${JSON.stringify(record, null, 2)}\n`);
     return record;
   } finally {
-    await stub.close();
+    await stub.close().catch(() => {});
   }
 }
 
 async function selfCheck(bin, outRoot) {
+  const stubChecks = spawnSync(process.execPath, ["--test", join(HERE, "stub-checks.mjs")], {
+    encoding: "utf8",
+  });
+  if (stubChecks.status !== 0) {
+    throw new Error(`stub-checks failed\n${stubChecks.stderr || stubChecks.stdout}`);
+  }
   const stub = await startStub({ caseId: "self-check" });
   const home = join(outRoot, "self-check-home");
   rmSync(home, { recursive: true, force: true });
@@ -403,7 +617,8 @@ async function selfCheck(bin, outRoot) {
       version.status === 0 &&
       help.status === 0 &&
       search.code === 0 &&
-      search.stdout.includes(PROFILE);
+      search.stdout.includes(PROFILE) &&
+      stubChecks.status === 0;
     writeFileSync(
       join(outRoot, "self-check.json"),
       `${JSON.stringify(
@@ -412,6 +627,7 @@ async function selfCheck(bin, outRoot) {
           stub: stub.url,
           version: { status: version.status, stdout: version.stdout.trim() },
           help_status: help.status,
+          stub_checks: { status: stubChecks.status },
           search: {
             status: search.code,
             signal: search.signal,
@@ -430,15 +646,96 @@ async function selfCheck(bin, outRoot) {
   }
 }
 
+async function modelPreflight(outRoot) {
+  const dir = join(outRoot, "pilot", "model-preflight");
+  rmSync(dir, { recursive: true, force: true });
+  ensureDir(join(dir, "cwd"));
+  const piDir = isolatePiDir(dir);
+  const env = piProcessEnv({
+    PI_CODING_AGENT_DIR: piDir,
+    PI_CODING_AGENT_SESSION_DIR: join(dir, "sessions"),
+  });
+  ensureDir(env.PI_CODING_AGENT_SESSION_DIR);
+  const result = await spawnAsync(
+    REQUESTED.pi_bin,
+    [
+      "--print",
+      "--mode",
+      "json",
+      "--provider",
+      REQUESTED.provider,
+      "--model",
+      REQUESTED.model,
+      "--thinking",
+      REQUESTED.thinking,
+      "--no-tools",
+      "--no-extensions",
+      "--no-skills",
+      "--no-prompt-templates",
+      "--no-themes",
+      "--no-context-files",
+      "--no-session",
+      "--no-approve",
+      "--",
+      "Reply with exactly PING and nothing else.",
+    ],
+    { env, cwd: join(dir, "cwd") },
+    60000
+  );
+  writeFileSync(join(dir, "pi.stdout.jsonl"), result.stdout);
+  writeFileSync(join(dir, "pi.stderr.txt"), result.stderr);
+  const parsed = parseJsonl(result.stdout);
+  writeFileSync(join(dir, "parse_errors.jsonl"), parsed.parse_errors.map((e) => JSON.stringify(e)).join("\n") + (parsed.parse_errors.length ? "\n" : ""));
+  const completion = extractCompletedFinal(parsed.events, { timed_out: result.timed_out === true });
+  const resolved = extractResolvedModel(parsed.events);
+  const transport = terminalTransportErrors(parsed.events);
+  const runtime = {
+    exit_code: result.code,
+    signal: result.signal ?? null,
+    timed_out: result.timed_out === true,
+    parse_errors: parsed.parse_errors,
+    transport_errors: transport,
+  };
+  const ok =
+    result.code === 0 &&
+    !result.timed_out &&
+    parsed.parse_errors.length === 0 &&
+    transport.length === 0 &&
+    resolved.provider === REQUESTED.provider &&
+    resolved.model === REQUESTED.model &&
+    completion.completed === true &&
+    String(completion.text).trim().length > 0;
+  const evalId = evalIdentity();
+  const report = {
+    ok,
+    requested: REQUESTED,
+    resolved,
+    runtime,
+    final_completion: completion,
+    final_text: completion.completed ? completion.text : "",
+    eval_commit: evalId.commit,
+    eval_dirty: evalId.dirty,
+  };
+  writeFileSync(join(dir, "preflight.json"), `${JSON.stringify(report, null, 2)}\n`);
+  if (!ok) throw new Error(`model preflight failed; nonempty final required. See ${join(dir, "preflight.json")}`);
+  return report;
+}
+
 function printHelp() {
   console.log(`Default-off Agent eval (frozen cases, no model fallback)
 
   node eval/cli-guidance/run.mjs --freeze
-  node eval/cli-guidance/run.mjs --suite baseline --src <worktree> --expect-sha <sha> --out /tmp/aisa-cli-guidance-eval
-  node eval/cli-guidance/run.mjs --suite candidate --src <worktree> --expect-sha <sha> --out /tmp/aisa-cli-guidance-eval --concurrency 2
+  node eval/cli-guidance/run.mjs --model-preflight --out /tmp/aisa-cli-guidance-eval
+  node eval/cli-guidance/run.mjs --suite baseline --src ${BASELINE_SRC} --expect-sha ${BASELINE_SHA} --out /tmp/aisa-cli-guidance-eval
+  node eval/cli-guidance/run.mjs --suite candidate --src ${CANDIDATE_SRC} --expect-sha ${CANDIDATE_SHA} --out /tmp/aisa-cli-guidance-eval --concurrency 2
 
-  --self-check   pack/install + stub + real CLI probes only (no model)
-  --case <id>    run one frozen case
+  Rebuilt baseline must use the detached source ${BASELINE_SRC} @ ${BASELINE_SHA}.
+  Alignment PR HEAD is now ${CANDIDATE_SHA}; --src alignment --expect-sha ec29516 fails closed.
+  Frozen HASH_FILES include run.mjs and grade-checks.mjs (not *.test.mjs, not hashes.json).
+  Scored suites stay blocked until AISA_EVAL_SCORE_CLEARED=1 after grader cherry-pick and reviewer clearance.
+  --self-check        pack/install + stub + real CLI probes only (no model)
+  --model-preflight   real Luna completion; requires nonempty successful final
+  --case <id>         run one frozen case (still blocked without clearance)
 `);
 }
 
@@ -449,11 +746,38 @@ async function main() {
     return;
   }
   if (args.freeze) {
+    if (!existsSync(join(HERE, "grade-checks.mjs"))) {
+      throw new Error(
+        "do not --freeze yet: grade-checks.mjs is not in this branch. Wait for the reviewed grader cherry-pick (standalone node:test file, not *.test.mjs)."
+      );
+    }
     const hashes = writeHashes();
     console.log(JSON.stringify(hashes, null, 2));
     return;
   }
-  const hashes = assertFrozenHashes();
+  if (args.modelPreflight) {
+    const report = await modelPreflight(resolve(args.out || join(tmpdir(), "aisa-cli-guidance-eval")));
+    console.log(JSON.stringify(report, null, 2));
+    return;
+  }
+  const scoreCleared = process.env.AISA_EVAL_SCORE_CLEARED === "1";
+  if (!args.selfCheck && !scoreCleared) {
+    throw new Error(
+      "scored suites are blocked until the independent reviewer clears this frozen bundle and root authorizes 8+16. Set AISA_EVAL_SCORE_CLEARED=1 only after that. Use --self-check or --model-preflight while waiting."
+    );
+  }
+  let hashes;
+  if (args.selfCheck && !scoreCleared) {
+    const live = currentHashes({ requireAll: false });
+    const frozenPath = join(HERE, "hashes.json");
+    const frozen = existsSync(frozenPath) ? JSON.parse(readFileSync(frozenPath, "utf8")) : null;
+    hashes = { ...live, drifted: !frozen || frozen.bundle !== live.bundle, frozen_bundle: frozen?.bundle || null };
+    if (hashes.drifted) {
+      console.error("self-check: frozen hashes drifted; re-freeze the runtime files before review");
+    }
+  } else {
+    hashes = assertFrozenHashes();
+  }
   if (!args.src) throw new Error("--src is required");
   if (!args.expectSha) throw new Error("--expect-sha is required so source IDs stay exact");
   if (!existsSync(REQUESTED.pi_bin)) throw new Error(`pi not found: ${REQUESTED.pi_bin}`);
@@ -463,17 +787,29 @@ async function main() {
   }
   const suite = args.suite;
   if (suite !== "baseline" && suite !== "candidate") throw new Error("--suite must be baseline or candidate");
+  if (suite === "baseline" && resolve(args.src) !== resolve(BASELINE_SRC)) {
+    throw new Error(
+      `baseline --src must be ${BASELINE_SRC} (detached ${BASELINE_SHA}); alignment PR HEAD is now ${CANDIDATE_SHA} and --src alignment --expect-sha ec29516 fails closed`
+    );
+  }
+  if (suite === "candidate" && resolve(args.src) !== resolve(CANDIDATE_SRC)) {
+    throw new Error(`candidate --src must be ${CANDIDATE_SRC} @ ${CANDIDATE_SHA}`);
+  }
   const repeats = args.repeats ?? (suite === "baseline" ? 1 : 2);
   const concurrency = suite === "baseline" ? 1 : Math.min(args.concurrency || 2, 2);
   const outRoot = resolve(args.out || join(tmpdir(), "aisa-cli-guidance-eval"));
   ensureDir(outRoot);
   const installDir = join(outRoot, "install", suite);
   console.error(`installing ${suite} from ${args.src} @ ${args.expectSha}`);
-  const source = installFromSrc(args.src, installDir, args.expectSha);
-  writeFileSync(join(outRoot, `${suite}-source.json`), `${JSON.stringify({ ...source, requested: REQUESTED, pi_version: piVer, hashes }, null, 2)}\n`);
+  const source = { ...installFromSrc(args.src, installDir, args.expectSha), src: resolve(args.src) };
+  const ids = boundIds(source, hashes);
+  writeFileSync(
+    join(outRoot, `${suite}-source.json`),
+    `${JSON.stringify({ ...source, ...ids, requested: REQUESTED, pi_version: piVer, hashes }, null, 2)}\n`
+  );
   await selfCheck(source.bin, join(outRoot, suite === "baseline" ? "baseline-self" : "candidate-self"));
   if (args.selfCheck) {
-    console.log(JSON.stringify({ ok: true, source, hashes, pi_version: piVer }, null, 2));
+    console.log(JSON.stringify({ ok: true, source, hashes, ids, pi_version: piVer }, null, 2));
     return;
   }
   const spec = JSON.parse(readFileSync(join(HERE, "cases.json"), "utf8"));
@@ -502,6 +838,10 @@ async function main() {
     pi_version: piVer,
     hashes,
     source,
+    cli_sha: ids.cli_sha,
+    eval_commit: ids.eval_commit,
+    eval_dirty: ids.eval_dirty,
+    eval_bundle: ids.eval_bundle,
     suite: summarizeSuite(
       rows.map((r) => ({
         case_id: r.case_id,
@@ -525,9 +865,10 @@ async function main() {
     "",
     `- runtime: Pi ${piVer}`,
     `- requested: ${REQUESTED.provider} / ${REQUESTED.model} / thinking ${REQUESTED.thinking}`,
-    `- source: ${source.sha} (${source.version}) dirty=${source.dirty}`,
+    `- CLI source SHA: ${ids.cli_sha} (${source.version}) dirty=${source.dirty} src=${source.src}`,
     `- tarball sha256: ${source.tarball_sha256 || "unrecorded"}`,
-    `- hashes.bundle: ${hashes.bundle}`,
+    `- eval commit: ${ids.eval_commit} dirty=${ids.eval_dirty}`,
+    `- eval bundle: ${ids.eval_bundle}`,
     `- task passes: ${summary.suite.task_passes}/${summary.suite.n}`,
     `- safety passes: ${summary.suite.safety_passes}/${summary.suite.n}`,
     `- every case has a task pass: ${summary.suite.every_case_has_task_pass}`,
@@ -548,7 +889,12 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.stack || err.message : err);
-  process.exit(1);
-});
+export { HASH_FILES, parseJsonl, extractCompletedFinal, boundIds, currentHashes };
+
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+if (isMain) {
+  main().catch((err) => {
+    console.error(err instanceof Error ? err.stack || err.message : err);
+    process.exit(1);
+  });
+}

@@ -4,6 +4,25 @@ export const PROFILE = "eval_fxtr_issuer_snapshot";
 export const NOTE = "eval_fxtr_scratch_note";
 export const NVDA_COMPANY = "Synthetic NVIDIA Eval Corp";
 
+export const PROFILE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["ticker"],
+  properties: { ticker: { type: "string", description: "Ticker symbol" } },
+};
+
+export const NOTE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["text"],
+  properties: { text: { type: "string" } },
+};
+
+export const TOOL_SCHEMAS = Object.freeze({
+  [PROFILE]: PROFILE_SCHEMA,
+  [NOTE]: NOTE_SCHEMA,
+});
+
 const ROUTER = {
   search: "/v1/tool-router/aisa-search-tool",
   schema: "/v1/tool-router/aisa-batch-get-schema",
@@ -42,6 +61,81 @@ function tickerOf(call) {
   return typeof args.ticker === "string" ? args.ticker : "";
 }
 
+function isPlainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function validateDeclaredArgs(schema, argumentsValue) {
+  if (!isPlainObject(argumentsValue)) {
+    return { ok: false, reason: "arguments must be an object" };
+  }
+  const declared = schema.properties || {};
+  const extra = Object.keys(argumentsValue).filter((key) => !Object.prototype.hasOwnProperty.call(declared, key));
+  if (extra.length) {
+    return { ok: false, reason: `unexpected arguments: ${extra.join(", ")}` };
+  }
+  for (const key of schema.required || []) {
+    if (!Object.prototype.hasOwnProperty.call(argumentsValue, key)) {
+      return { ok: false, reason: `missing required argument: ${key}` };
+    }
+    const want = declared[key]?.type;
+    if (want && typeof argumentsValue[key] !== want) {
+      return { ok: false, reason: `argument ${key} must be ${want}` };
+    }
+  }
+  return { ok: true };
+}
+
+/** Whole-batch preflight: one 400, zero per-item fake success. Matches Router prepareBatch. */
+export function preflightBatch(calls) {
+  if (!Array.isArray(calls) || calls.length === 0 || calls.length > 20) {
+    return {
+      ok: false,
+      error: { code: "invalid_arguments", message: "calls must contain between 1 and 20 items" },
+    };
+  }
+  const seen = new Set();
+  for (let i = 0; i < calls.length; i += 1) {
+    const call = calls[i];
+    if (!isPlainObject(call)) {
+      return { ok: false, error: { code: "invalid_arguments", message: `calls[${i}] must be an object` } };
+    }
+    if (!String(call.call_id || "").trim()) {
+      return { ok: false, error: { code: "invalid_arguments", message: `calls[${i}].call_id is required` } };
+    }
+    if (seen.has(call.call_id)) {
+      return {
+        ok: false,
+        error: { code: "invalid_arguments", message: "call_id values must be unique", details: { call_id: call.call_id } },
+      };
+    }
+    seen.add(call.call_id);
+    const schema = TOOL_SCHEMAS[call.tool];
+    if (!schema) {
+      return {
+        ok: false,
+        error: {
+          code: "invalid_arguments",
+          message: `calls[${i}].tool is not published`,
+          details: { tool: call.tool },
+        },
+      };
+    }
+    const args = validateDeclaredArgs(schema, call.arguments);
+    if (!args.ok) {
+      return {
+        ok: false,
+        error: {
+          code: "invalid_arguments",
+          message: `calls[${i}].arguments are invalid`,
+          details: { tool: call.tool, reason: args.reason },
+        },
+      };
+    }
+  }
+  return { ok: true };
+}
+
 function searchBody() {
   return {
     search_id: "srch_eval_synth",
@@ -55,6 +149,7 @@ function searchBody() {
         tool: NOTE,
         summary: "Synthetic evaluation fixture that echoes a text note. Not a live catalog tool.",
         has_full_schema: true,
+        arguments_schema: NOTE_SCHEMA,
       },
     ],
     plan: {
@@ -77,25 +172,10 @@ function schemaBody(reqBody) {
   const names = Array.isArray(reqBody.tools) ? reqBody.tools : [];
   const tools = {};
   for (const name of names) {
-    if (name === PROFILE) {
+    if (TOOL_SCHEMAS[name]) {
       tools[name] = {
         successful: true,
-        arguments_schema: {
-          type: "object",
-          additionalProperties: false,
-          required: ["ticker"],
-          properties: { ticker: { type: "string", description: "Ticker symbol" } },
-        },
-      };
-    } else if (name === NOTE) {
-      tools[name] = {
-        successful: true,
-        arguments_schema: {
-          type: "object",
-          additionalProperties: false,
-          required: ["text"],
-          properties: { text: { type: "string" } },
-        },
+        arguments_schema: TOOL_SCHEMAS[name],
       };
     } else {
       tools[name] = {
@@ -140,6 +220,9 @@ function quoteItem(call, caseId) {
         may_exceed_estimate: true,
       },
     };
+  }
+  if (tool !== PROFILE && tool !== NOTE) {
+    throw new Error(`quoteItem reached unpublished tool ${tool}; preflight must reject the batch`);
   }
   return {
     call_id: call.call_id,
@@ -326,6 +409,14 @@ export function startStub({ caseId }) {
         return;
       }
       if (operation === "quote" || operation === "call") {
+        const pre = preflightBatch(body.calls);
+        if (!pre.ok) {
+          entry.status = 400;
+          entry.response = pre.error;
+          ledger.push(entry);
+          json(res, 400, pre.error);
+          return;
+        }
         const payload = batch(operation, body, caseId);
         entry.status = 200;
         entry.results = payload.results;

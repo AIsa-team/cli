@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
-import { appendFileSync, existsSync } from "node:fs";
+import { appendFileSync, existsSync, realpathSync } from "node:fs";
+import { isAbsolute, relative, resolve } from "node:path";
 import { Type } from "typebox";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
@@ -50,6 +51,40 @@ function allow(args: unknown): string | null {
   return null;
 }
 
+/** Only `-` (stdin) or a path inside the case scratch. Blocks grader/source/credential files. */
+function fileOutsideScratch(args: string[], scratch: string): string | null {
+  if (!scratch) return "case scratch is not configured";
+  const root = resolve(scratch);
+  for (let i = 0; i < args.length; i += 1) {
+    let file: string | undefined;
+    if (args[i] === "-f" || args[i] === "--file") {
+      if (args[i + 1] == null) return "missing file path after -f/--file";
+      file = args[i + 1];
+    } else if (args[i].startsWith("--file=")) {
+      file = args[i].slice("--file=".length);
+    }
+    if (file == null) continue;
+    if (file === "-") continue;
+    if (!file || file.includes("\0")) return "invalid file path";
+    const resolved = isAbsolute(file) ? resolve(file) : resolve(root, file);
+    const rel = relative(root, resolved);
+    if (rel.startsWith("..") || isAbsolute(rel)) {
+      return `file path outside case scratch: ${file}`;
+    }
+    try {
+      const realRoot = existsSync(root) ? realpathSync(root) : root;
+      const realFile = existsSync(resolved) ? realpathSync(resolved) : resolved;
+      const relReal = relative(realRoot, realFile);
+      if (relReal.startsWith("..") || isAbsolute(relReal)) {
+        return `file path outside case scratch: ${file}`;
+      }
+    } catch {
+      return `file path outside case scratch: ${file}`;
+    }
+  }
+  return null;
+}
+
 function runCli(bin: string, args: string[], env: NodeJS.ProcessEnv, signal?: AbortSignal) {
   return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
     const child = spawn(bin, args, { env, stdio: ["ignore", "pipe", "pipe"] });
@@ -83,6 +118,7 @@ export default function (pi: ExtensionAPI) {
   const ledgerPath = process.env.AISA_EVAL_LEDGER || "";
   const home = process.env.AISA_EVAL_HOME || "";
   const stub = process.env.AISA_EVAL_STUB || "";
+  const scratch = process.env.AISA_EVAL_SCRATCH || "";
   const maxCalls = Number(process.env.AISA_EVAL_MAX_CALLS || "12");
   const apiKey = process.env.AISA_EVAL_KEY || "";
   let calls = 0;
@@ -98,43 +134,40 @@ export default function (pi: ExtensionAPI) {
       }),
     }),
     async execute(_id, params, signal) {
-      if (!bin || !existsSync(bin)) {
-        return { content: [{ type: "text", text: "aisa_cli is not configured" }] };
-      }
       const args = (params as { args?: string[] }).args || [];
-      const denied = allow(args);
-      if (denied) {
-        return { content: [{ type: "text", text: `blocked: ${denied}` }] };
-      }
       calls += 1;
-      if (calls > maxCalls) {
-        return { content: [{ type: "text", text: `blocked: max ${maxCalls} CLI calls reached` }] };
-      }
-
-      const env: NodeJS.ProcessEnv = {
-        HOME: home,
-        USER: "eval",
-        PATH: process.env.PATH,
-        LANG: process.env.LANG || "C.UTF-8",
-        TMPDIR: `${home}/tmp`,
-        XDG_CONFIG_HOME: `${home}/xdg-config`,
-        XDG_CACHE_HOME: `${home}/xdg-cache`,
-        XDG_DATA_HOME: `${home}/xdg-data`,
-        XDG_STATE_HOME: `${home}/xdg-state`,
-        AISA_CACHE_DIR: `${home}/cache`,
-        AISA_ROUTER_BASE_URL: stub,
-        AISA_NO_UPDATE_NOTICE: "1",
-        AISA_NO_BROWSER: "1",
-        NO_COLOR: "1",
-        FORCE_COLOR: "0",
-      };
-      if (apiKey) env.AISA_API_KEY = apiKey;
-
+      const deny = allow(args) || fileOutsideScratch(args, scratch);
+      const overBudget = calls > maxCalls ? `max ${maxCalls} CLI calls reached` : null;
+      const unconfigured = !bin || !existsSync(bin) ? "aisa_cli is not configured" : null;
+      const blocked = deny || overBudget || unconfigured;
       const started = Date.now();
-      const result = await runCli(bin, args, env, signal);
+      let result = { code: null as number | null, stdout: "", stderr: "" };
+      if (!blocked) {
+        const env: NodeJS.ProcessEnv = {
+          HOME: home,
+          USER: "eval",
+          PATH: process.env.PATH,
+          LANG: process.env.LANG || "C.UTF-8",
+          TMPDIR: `${home}/tmp`,
+          XDG_CONFIG_HOME: `${home}/xdg-config`,
+          XDG_CACHE_HOME: `${home}/xdg-cache`,
+          XDG_DATA_HOME: `${home}/xdg-data`,
+          XDG_STATE_HOME: `${home}/xdg-state`,
+          AISA_CACHE_DIR: `${home}/cache`,
+          AISA_ROUTER_BASE_URL: stub,
+          AISA_NO_UPDATE_NOTICE: "1",
+          AISA_NO_BROWSER: "1",
+          NO_COLOR: "1",
+          FORCE_COLOR: "0",
+        };
+        if (apiKey) env.AISA_API_KEY = apiKey;
+        result = await runCli(bin, args, env, signal);
+      }
       const record = {
         ts: new Date().toISOString(),
         args,
+        invocation: calls,
+        blocked: blocked || null,
         exit_code: result.code,
         duration_ms: Date.now() - started,
         stdout: result.stdout,
@@ -142,6 +175,9 @@ export default function (pi: ExtensionAPI) {
       };
       if (ledgerPath) {
         appendFileSync(ledgerPath, `${JSON.stringify(record)}\n`);
+      }
+      if (blocked) {
+        return { content: [{ type: "text", text: `blocked: ${blocked}` }] };
       }
       const text = [
         `exit=${result.code ?? "null"}`,
