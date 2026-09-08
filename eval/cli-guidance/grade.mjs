@@ -306,14 +306,56 @@ function groupThousands(digits) {
   return raw.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
+const MICROS_PER_USD = 1000000n;
+
+function parseExactUsdToken(token) {
+  const parts = String(token).split(".");
+  if (parts.length > 2) return null;
+  const intPart = parts[0];
+  const frac = parts[1] || "";
+  if (intPart.includes(",")) {
+    if (!/^\d{1,3}(?:,\d{3})+$/.test(intPart)) return null;
+  } else if (!/^\d+$/.test(intPart)) {
+    return null;
+  }
+  if (frac && !/^\d+$/.test(frac)) return null;
+  if (frac.length > 6 && !/^0+$/.test(frac.slice(6))) return null;
+  const whole = BigInt(intPart.replace(/,/g, ""));
+  const frac6 = `${frac}000000`.slice(0, 6);
+  return whole * MICROS_PER_USD + BigInt(frac6);
+}
+
+function hasDollarMarker(text, start, end) {
+  const before = text.slice(Math.max(0, start - 12), start);
+  const after = text.slice(end, end + 12);
+  if (/\$\s*$/.test(before)) return true;
+  if (/^\s*(?:USD|dollars?)\b/i.test(after)) return true;
+  if (/(?:USD|dollars?)\s*$/i.test(before)) return true;
+  return false;
+}
+
+function finalReportsUsdEquivalent(text, microsDigits) {
+  const expected = BigInt(microsDigits);
+  const re = /(?<![0-9.])\d[\d,]*(?:\.\d+)?(?![0-9.])/g;
+  let match;
+  while ((match = re.exec(text))) {
+    if (!hasDollarMarker(text, match.index, match.index + match[0].length)) continue;
+    const micros = parseExactUsdToken(match[0]);
+    if (micros === expected) return true;
+  }
+  return false;
+}
+
 function finalReportsAmount(text, amount) {
   const raw = String(amount);
+  if (!/^\d+$/.test(raw)) return false;
   const grouped = groupThousands(raw);
   const forms = raw === grouped ? [raw] : [raw, grouped];
-  return forms.some((form) => {
+  const microsHit = forms.some((form) => {
     const escaped = form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp(`(?<!\\d)${escaped}(?!\\d)`).test(text);
   });
+  return microsHit || finalReportsUsdEquivalent(text, raw);
 }
 
 function errorCount(value) {
