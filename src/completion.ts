@@ -1,15 +1,8 @@
 import type { Command, Option } from "commander";
 import { readCache } from "./cache.js";
 import { cacheScope } from "./api.js";
-import {
-  AGENT_DIRS,
-  API_CATEGORIES,
-  COINGECKO_IDS,
-  MCP_CONFIGS,
-  MEDIA_TYPES,
-  VIDEO_MODELS,
-} from "./constants.js";
-import type { CatalogProvider, CatalogDetail } from "./catalog.js";
+import { AGENT_DIRS, API_CATEGORIES, MCP_CONFIGS } from "./constants.js";
+import type { CatalogProvider } from "./catalog.js";
 import type { SkillIndex } from "./skills-registry.js";
 
 /**
@@ -42,55 +35,11 @@ function cachedProviders(): CatalogProvider[] {
   return readCache<{ apis?: CatalogProvider[] }>(`catalog/${cacheScope()}/category.json`)?.data.apis || [];
 }
 
-/**
- * Slugs usable with `aisa run`. A provider's id is not always its URL slug
- * (`brave-search` serves `/apis/v1/brave/...`), so prefer the real slug from any
- * cached detail and fall back to the id.
- */
-function runSlugs(): Candidate[] {
-  const out = new Map<string, string>();
-  for (const provider of cachedProviders()) {
-    const detail = readCache<{ api?: CatalogDetail }>(
-      `catalog/${cacheScope()}/${provider.id.replace(/[^\w.-]/g, "_")}.json`
-    )?.data.api;
-
-    const first = detail?.endpoint_groups?.flatMap((g) => g.endpoints || [])[0];
-    const slug = first
-      ? first.path.replace(/^\/apis\/v1\//, "").split("/")[0]
-      : provider.id;
-
-    out.set(slug, `${provider.endpoint_count} endpoints`);
-  }
-  return [...out].map(([value, description]) => ({ value, description }));
-}
-
 function providerIds(): Candidate[] {
   return cachedProviders().map((p) => ({
     value: p.id,
     description: `${p.endpoint_count} endpoints`,
   }));
-}
-
-/** Endpoint paths within one provider, for `aisa run <slug> <TAB>`. */
-function endpointPaths(slug: string): Candidate[] {
-  for (const provider of cachedProviders()) {
-    const detail = readCache<{ api?: CatalogDetail }>(
-      `catalog/${cacheScope()}/${provider.id.replace(/[^\w.-]/g, "_")}.json`
-    )?.data.api;
-    if (!detail) continue;
-
-    const endpoints = (detail.endpoint_groups || []).flatMap((g) => g.endpoints || []);
-    const matching = endpoints.filter((e) =>
-      e.path.replace(/^\/apis\/v1\//, "").startsWith(`${slug}/`)
-    );
-    if (matching.length > 0) {
-      return matching.map((e) => ({
-        value: `/${e.path.replace(/^\/apis\/v1\//, "").split("/").slice(1).join("/")}`,
-        description: e.name,
-      }));
-    }
-  }
-  return [];
 }
 
 function skillSlugs(): Candidate[] {
@@ -119,40 +68,10 @@ function modelIds(): Candidate[] {
 const STATIC: Record<string, Candidate[]> = {
   agent: Object.keys(AGENT_DIRS).concat("all").map((value) => ({ value })),
   mcpAgent: Object.keys(MCP_CONFIGS).concat("all").map((value) => ({ value })),
-  lang: ["curl", "python", "node", "typescript"].map((value) => ({ value })),
-  searchType: [
-    { value: "tavily" },
-    { value: "youtube" },
-    { value: "scholar" },
-    { value: "smart", description: "currently degraded" },
-    { value: "full", description: "currently degraded" },
-  ],
-  stockField: [
-    "info",
-    "estimates",
-    "financials",
-    "filings",
-    "insider",
-    "institutional",
-    "news",
-  ].map((value) => ({ value })),
-  configKey: ["defaultModel", "baseUrl", "routerUrl", "outputFormat", "twitterCookies", "twitterProxy"].map(
-    (value) => ({ value })
-  ),
+  configKey: ["defaultModel", "baseUrl", "routerUrl", "outputFormat"].map((value) => ({ value })),
   template: ["default", "llm", "search", "finance", "twitter", "video"].map((value) => ({ value })),
-  videoModel: Object.entries(VIDEO_MODELS).map(([value, spec]) => ({
-    value,
-    description: spec.requiresMedia ? `needs --media ${spec.requiresMedia}` : undefined,
-  })),
-  mediaType: MEDIA_TYPES.map((value) => ({ value: `${value}=` })),
   apiCategory: API_CATEGORIES.map((value) => ({ value })),
-  period: ["current", "1d", "7d", "30d", "90d", "1y"].map((value) => ({ value })),
-  cryptoSource: ["coingecko", "financial"].map((value) => ({ value })),
   shell: SHELLS.map((value) => ({ value })),
-  crypto: Object.keys(COINGECKO_IDS).map((value) => ({
-    value: value.toUpperCase(),
-    description: COINGECKO_IDS[value],
-  })),
 };
 
 /**
@@ -166,16 +85,7 @@ const OPTION_VALUES: Array<[string, () => Candidate[]]> = [
   ["skills list --category", () => skillCategories()],
   ["skills init --template", () => STATIC.template],
   ["api list --category", () => STATIC.apiCategory],
-  ["api search --provider", () => providerIds()],
-  ["api code --lang", () => STATIC.lang],
-  ["code --lang", () => STATIC.lang],
-  ["video create --model", () => STATIC.videoModel],
-  ["video create --media", () => STATIC.mediaType],
   ["chat --model", () => modelIds()],
-  ["web-search --type", () => STATIC.searchType],
-  ["stock --field", () => STATIC.stockField],
-  ["crypto --period", () => STATIC.period],
-  ["crypto --source", () => STATIC.cryptoSource],
   ["models --provider", () => [...new Set(modelIds().map((m) => m.description))].filter(Boolean).map((value) => ({ value: value as string }))],
 ];
 
@@ -183,20 +93,14 @@ const OPTION_VALUES: Array<[string, () => Candidate[]]> = [
  * Positional-argument candidates, keyed by command path and argument index.
  * Callbacks receive the positionals parsed so far — never the raw word list,
  * whose last entry may be an option or an option's value
- * (`run financial --raw <TAB>`).
+ * (`api show financial --json <TAB>`).
  */
 const POSITIONAL: Array<[string, number, (positionals: string[]) => Candidate[]]> = [
-  ["run", 0, () => runSlugs()],
-  ["run", 1, (positionals) => endpointPaths(positionals[0])],
   ["api show", 0, () => providerIds()],
-  ["api code", 0, () => runSlugs()],
-  ["api code", 1, (positionals) => endpointPaths(positionals[0])],
-  ["code", 0, () => runSlugs()],
   ["models show", 0, () => modelIds()],
   ["skills show", 0, () => skillSlugs()],
   ["skills install", 0, () => skillSlugs()],
   ["skills remove", 0, () => skillSlugs()],
-  ["crypto", 0, () => STATIC.crypto],
   ["config set", 0, () => STATIC.configKey],
   ["config get", 0, () => STATIC.configKey],
   ["completion", 0, () => STATIC.shell],

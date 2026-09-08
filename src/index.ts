@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 
 import { Command, Option } from "commander";
-import { VERSION, DEFAULT_VIDEO_MODEL } from "./constants.js";
+import { VERSION } from "./constants.js";
 import { CliError } from "./cli-error.js";
-import { warnDeprecated, withDeprecation } from "./deprecation.js";
 import type { RouterIoOptions } from "./commands/tool-input.js";
 
 // Auth
@@ -11,9 +10,7 @@ import { loginAction, logoutAction, whoamiAction } from "./commands/auth.js";
 // Account
 import { balanceAction, topupAction, usageAction } from "./commands/account.js";
 // API
-import { apiListAction, apiSearchAction, apiShowAction, apiCodeAction } from "./commands/api.js";
-// Run
-import { runAction } from "./commands/run.js";
+import { apiListAction, apiShowAction } from "./commands/api.js";
 // Chat
 import { chatAction } from "./commands/chat.js";
 // Models
@@ -27,28 +24,6 @@ import {
   schemaHelpAfter,
   searchHelpAfter,
 } from "./commands/tool-help.js";
-import { webSearchAction, scholarAction } from "./commands/search.js";
-// Finance
-import { stockAction, cryptoAction, screenerAction } from "./commands/finance.js";
-// Twitter
-import {
-  tweetAction, twitterSearchAction, twitterUserAction, twitterTrendsAction,
-  twitterUserAboutAction, twitterBatchUsersAction, twitterUserTweetsAction,
-  twitterMentionsAction, twitterFollowersAction, twitterFollowingAction,
-  twitterVerifiedFollowersAction, twitterCheckFollowAction, twitterUserSearchAction,
-  twitterDetailAction, twitterRepliesAction, twitterQuotesAction,
-  twitterRetweetersAction, twitterThreadAction, twitterArticleAction,
-  twitterListMembersAction, twitterListFollowersAction,
-  twitterCommunityInfoAction, twitterCommunityMembersAction,
-  twitterCommunityModsAction, twitterCommunityTweetsAction, twitterCommunitySearchAction,
-  twitterSpaceAction,
-  twitterLoginAction, twitterLogoutAction,
-  twitterLikeAction, twitterUnlikeAction, twitterRetweetAction,
-  twitterDeleteAction, twitterFollowAction, twitterUnfollowAction,
-  twitterUploadMediaAction, twitterDmAction,
-} from "./commands/twitter.js";
-// Video
-import { videoCreateAction, videoStatusAction } from "./commands/video.js";
 // Skills
 import {
   skillsListAction, skillsSearchAction, skillsShowAction,
@@ -199,7 +174,7 @@ program
 
 // ── API ──
 
-const api = program.command("api").description("Discover and inspect APIs");
+const api = program.command("api").description("Browse the read-only provider and endpoint catalog");
 
 api
   .command("list")
@@ -211,70 +186,14 @@ api
   .action(wrap(apiListAction));
 
 api
-  .command("search <query>")
-  .description("[deprecated] Search APIs and endpoints by keyword. Prefer: aisa search")
-  .option("--provider <id>", "Restrict to one API")
-  .option("--limit <n>", "Max results", "20")
-  .option("--json", "Output raw JSON")
-  .option("--refresh", "Bypass the cached catalog")
-  .addHelpText(
-    "after",
-    "\nDeprecated — not a drop-in for `aisa search` (AISA_SEARCH_TOOL). This command keeps the old catalog keyword search and result shape. api list and api code are unchanged. Removal will be a separately announced breaking release.\n"
-  )
-  .action(wrap(withDeprecation("api search", apiSearchAction)));
-
-api
   .command("show <api> [path]")
-  .description("[deprecated] Show an API's endpoints, or one endpoint's details. Prefer: aisa schema")
+  .description("Show an API's endpoints, or one endpoint's details")
   .option("--all", "Show every endpoint instead of the first 40")
   .option("--group", "Group by the provider's raw endpoint groups")
   .option("--health", "Include provider health status")
   .option("--json", "Output raw JSON")
   .option("--refresh", "Bypass the cached catalog")
-  .addHelpText(
-    "after",
-    "\nDeprecated — not equivalent to `aisa schema` (AISA_BATCH_GET_SCHEMA). This command still browses a provider catalog by id/path. Removal will be a separately announced breaking release.\n"
-  )
-  .action(wrap(withDeprecation("api show", apiShowAction)));
-
-api
-  .command("code <slug> <path>")
-  .description("Generate a request snippet for an endpoint")
-  .option("--lang <language>", "Language: curl, python, node, typescript", "curl")
-  .option("--method <method>", "HTTP method (the catalog's method is advisory)", "GET")
-  .option("--refresh", "Bypass the cached catalog")
-  .action(wrap(apiCodeAction));
-
-// ── Run ──
-
-program
-  .command("run <slug> <path>")
-  .description("[deprecated] Execute a raw API call. Prefer: aisa call for published Router tools")
-  .option("-q, --query <params...>", "Query parameters (key=value)")
-  .option("-d, --data <json>", "JSON request body")
-  .option("--method <method>", "HTTP method")
-  .option("--raw", "Raw JSON output")
-  .option("--stream", "Stream response")
-  .option("--domain", "Force the integration API base (/apis/v1) — the default")
-  .option("--llm", "Force the LLM gateway base (/v1)")
-  .option("--show-cost", "Print the billing headers the gateway reported (stderr)")
-  .addHelpText(
-    "after",
-    "\nDeprecated — not a drop-in for `aisa call` (AISA_BATCH_USE). This command still performs raw provider and LLM routing. Specialized commands are unchanged. Removal will be a separately announced breaking release.\n"
-  )
-  .action((slug: string, path: string, opts: Record<string, unknown>) => {
-    warnDeprecated("run");
-    wrap(runAction)(slug, path, {
-      q: opts.query as string[] | undefined,
-      d: opts.data as string | undefined,
-      method: opts.method as string | undefined,
-      raw: opts.raw as boolean | undefined,
-      stream: opts.stream as boolean | undefined,
-      llm: opts.llm as boolean | undefined,
-      domain: opts.domain as boolean | undefined,
-      showCost: opts.showCost as boolean | undefined,
-    });
-  });
+  .action(wrap(apiShowAction));
 
 // ── Chat (LLM Gateway) ──
 
@@ -303,344 +222,6 @@ models
   .command("show <model-id>")
   .description("Show model details and pricing")
   .action(wrap(modelsShowAction));
-
-// ── Search shortcuts ──
-
-program
-  .command("web-search <query>")
-  .description("Search the web")
-  .option(
-    "--type <type>",
-    "Search type: tavily, youtube, scholar, smart (degraded), full (degraded)",
-    "tavily"
-  )
-  .option("--limit <n>", "Max results")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(webSearchAction));
-
-program
-  .command("scholar <query>")
-  .description("Search academic papers")
-  .option("--limit <n>", "Max results")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(scholarAction));
-
-// ── Finance shortcuts ──
-
-program
-  .command("stock <symbol>")
-  .description("Look up stock data")
-  .option("--field <field>", "Data field: info, estimates, financials, filings, insider, institutional, news")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(stockAction));
-
-program
-  .command("crypto <symbol>")
-  .description("Look up crypto price")
-  .option("--period <period>", "Time period: current, 1d, 7d, 30d, 90d, 1y")
-  .option("--id <coingecko-id>", "Use an exact CoinGecko id instead of resolving the symbol")
-  .option("--source <source>", "Data source: coingecko (default) or financial")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(cryptoAction));
-
-program
-  .command("screener")
-  .description("Screen stocks by criteria")
-  .option("--sector <sector>", "Filter by GICS sector (e.g. 'Information Technology')")
-  .option("--min-market-cap <n>", "Minimum market cap in USD")
-  .option("--filter <f...>", "Extra filter as field:operator:value (e.g. market_cap:gt:1e12)")
-  .option("--limit <n>", "Max results")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(screenerAction));
-
-// ── Twitter shortcuts ──
-
-program
-  .command("tweet <text>")
-  .description("Post a tweet (requires twitter login)")
-  .option("--reply-to <id>", "Reply to tweet ID")
-  .option("--media-ids <ids>", "Comma-separated media IDs")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(tweetAction));
-
-const twitter = program.command("twitter").description("Twitter/X operations");
-
-// Auth
-twitter
-  .command("login")
-  .description("Login to Twitter or import cookies")
-  .option("--username <name>", "Twitter username")
-  .option("--email <email>", "Account email")
-  .option("--password <pass>", "Account password")
-  .option("--proxy <url>", "Proxy URL (required)")
-  .option("--totp <secret>", "2FA TOTP secret")
-  .option("--cookies <cookies>", "Import login_cookies directly")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterLoginAction));
-
-twitter
-  .command("logout")
-  .description("Clear stored Twitter cookies")
-  .action(twitterLogoutAction);
-
-// User read
-twitter
-  .command("user <username>")
-  .description("Get user profile")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterUserAction));
-
-twitter
-  .command("user-about <username>")
-  .description("Get user profile details (country, verification, name history)")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterUserAboutAction));
-
-twitter
-  .command("batch-users <ids>")
-  .description("Get multiple users by comma-separated IDs")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterBatchUsersAction));
-
-twitter
-  .command("user-tweets <username>")
-  .description("Get user's recent tweets")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterUserTweetsAction));
-
-twitter
-  .command("mentions <username>")
-  .description("Get user mentions")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterMentionsAction));
-
-twitter
-  .command("followers <username>")
-  .description("Get user followers")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterFollowersAction));
-
-twitter
-  .command("following <username>")
-  .description("Get user followings")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterFollowingAction));
-
-twitter
-  .command("verified-followers <user-id>")
-  .description("Get verified followers (requires user ID)")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterVerifiedFollowersAction));
-
-twitter
-  .command("check-follow <source> <target>")
-  .description("Check follow relationship between two usernames")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterCheckFollowAction));
-
-twitter
-  .command("user-search <query>")
-  .description("Search users by keyword")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterUserSearchAction));
-
-// Tweet read
-twitter
-  .command("search <query>")
-  .description("Search tweets")
-  .option("--type <type>", "Query type: latest or top", "latest")
-  .option("--limit <n>", "Max results")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterSearchAction));
-
-twitter
-  .command("detail <ids>")
-  .description("Get tweets by comma-separated IDs")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterDetailAction));
-
-twitter
-  .command("replies <tweet-id>")
-  .description("Get tweet replies")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterRepliesAction));
-
-twitter
-  .command("quotes <tweet-id>")
-  .description("Get tweet quotes")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterQuotesAction));
-
-twitter
-  .command("retweeters <tweet-id>")
-  .description("Get tweet retweeters")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterRetweetersAction));
-
-twitter
-  .command("thread <tweet-id>")
-  .description("Get full conversation thread")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterThreadAction));
-
-twitter
-  .command("article <tweet-id>")
-  .description("Get article content by tweet ID")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterArticleAction));
-
-// Trends
-twitter
-  .command("trends")
-  .description("Get trending topics")
-  .option("--woeid <id>", "Location WOEID (1 = worldwide)", "1")
-  .option("--count <n>", "Number of trends")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterTrendsAction));
-
-// Lists
-twitter
-  .command("list-members <list-id>")
-  .description("Get list members")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterListMembersAction));
-
-twitter
-  .command("list-followers <list-id>")
-  .description("Get list followers")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterListFollowersAction));
-
-// Communities
-twitter
-  .command("community-info <community-id>")
-  .description("Get community info")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterCommunityInfoAction));
-
-twitter
-  .command("community-members <community-id>")
-  .description("Get community members")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterCommunityMembersAction));
-
-twitter
-  .command("community-mods <community-id>")
-  .description("Get community moderators")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterCommunityModsAction));
-
-twitter
-  .command("community-tweets <community-id>")
-  .description("Get community tweets")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterCommunityTweetsAction));
-
-twitter
-  .command("community-search <query>")
-  .description("Search tweets across all communities")
-  .option("--cursor <cursor>", "Pagination cursor")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterCommunitySearchAction));
-
-// Spaces
-twitter
-  .command("space <space-id>")
-  .description("Get Space details")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterSpaceAction));
-
-// Write operations
-twitter
-  .command("like <tweet-id>")
-  .description("Like a tweet")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterLikeAction));
-
-twitter
-  .command("unlike <tweet-id>")
-  .description("Unlike a tweet")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterUnlikeAction));
-
-twitter
-  .command("retweet <tweet-id>")
-  .description("Retweet a tweet")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterRetweetAction));
-
-twitter
-  .command("delete <tweet-id>")
-  .description("Delete a tweet")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterDeleteAction));
-
-twitter
-  .command("follow <user-id>")
-  .description("Follow a user (requires user ID)")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterFollowAction));
-
-twitter
-  .command("unfollow <user-id>")
-  .description("Unfollow a user (requires user ID)")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterUnfollowAction));
-
-twitter
-  .command("upload-media <file-path>")
-  .description("Upload media file for tweets")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterUploadMediaAction));
-
-twitter
-  .command("dm <user-id> <text>")
-  .description("Send a direct message")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(twitterDmAction));
-
-// ── Video shortcuts ──
-
-const video = program.command("video").description("AI video generation");
-
-video
-  .command("create <prompt>")
-  .description("Create a video generation task")
-  .option("--model <model>", `Generation model (default: ${DEFAULT_VIDEO_MODEL})`)
-  .option("--image <url...>", "Source image for i2v models (shorthand for --media first_frame=<url>)")
-  .option("--media <type=url...>", "Source media: first_frame, last_frame, driving_audio, first_clip")
-  .option("--resolution <res>", "Resolution, e.g. 720P or 1080P", "720P")
-  .option("--duration <seconds>", "Clip duration in seconds", "5")
-  .option("--body <json>", "Send this request body verbatim (escape hatch for unmodelled vendors)")
-  .option("--wait", "Wait for completion")
-  .option("--output <path>", "Download the finished video to this path (implies --wait)")
-  .option("--raw", "Raw JSON output")
-  .action((prompt: string, opts: Record<string, unknown>) =>
-    wrap(videoCreateAction)(prompt, { ...opts, wait: Boolean(opts.wait || opts.output) })
-  );
-
-video
-  .command("status <task-id>")
-  .description("Check video task status")
-  .option("--output <path>", "Download the finished video to this path")
-  .option("--raw", "Raw JSON output")
-  .action(wrap(videoStatusAction));
 
 // ── Skills ──
 
@@ -749,15 +330,6 @@ configCmd
   .description("Reset config to defaults")
   .action(configResetAction);
 
-// ── Top-level aliases ──
-
-program
-  .command("code <slug> <path>")
-  .description("Generate a request snippet (alias for 'api code')")
-  .option("--lang <language>", "Language: curl, python, node, typescript", "curl")
-  .option("--method <method>", "HTTP method")
-  .action(wrap(apiCodeAction));
-
 const cache = program.command("cache").description("Manage the local catalog and skills cache");
 
 cache
@@ -830,8 +402,6 @@ function applyHelpStyle(cmd: Command): void {
   }
   for (const c of cmd.commands) applyHelpStyle(c);
 }
-// The root page also gets worked examples: the fastest way to convey that
-// `run` takes repeated -q pairs is to show one.
 program.addHelpText("after", rootHelpAfter());
 
 // Last, after the human-facing examples: it is the line an agent scanning to

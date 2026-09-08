@@ -2,12 +2,10 @@ import ora from "ora";
 import chalk from "chalk";
 import { error, formatJson, hint, table, truncate } from "../utils/display.js";
 import { API_CATEGORIES, categoryOf } from "../constants.js";
-import { resolveBases } from "../api.js";
 import {
   getProviders,
   getProviderDetail,
   getHealth,
-  getAllEndpoints,
   flatEndpoints,
   toRunPath,
   runSlugOf,
@@ -98,7 +96,7 @@ export async function apiListAction(options: {
   console.log();
   console.log(chalk.gray(`  ${providers.length} APIs · ${total} endpoints`));
   hint("Details: aisa api show <api>");
-  hint("Search:  aisa api search <query>");
+  hint("Catalog paths and prices are browsing metadata, not a substitute for aisa schema or aisa quote.");
 }
 
 /** Resolve a provider by id, or by the URL slug its endpoints are served under. */
@@ -118,7 +116,6 @@ async function findProvider(idOrSlug: string, refresh?: boolean): Promise<Catalo
 
 function printEndpointDetail(detail: CatalogDetail, endpoint: CatalogEndpoint): void {
   const runPath = toRunPath(endpoint.path);
-  const [slug, ...rest] = runPath.split("/");
 
   console.log(`\n  ${chalk.cyan.bold(endpoint.name || runPath)}`);
   if (endpoint.description) console.log(`  ${endpoint.description}`);
@@ -131,8 +128,8 @@ function printEndpointDetail(detail: CatalogDetail, endpoint: CatalogEndpoint): 
     console.log(`  Path params: ${params.join(", ")}`);
   }
 
-  console.log(`\n  ${chalk.gray(`aisa run ${slug} /${rest.join("/")}`)}`);
-  hint(`Code:  aisa api code ${slug} /${rest.join("/")}`);
+  console.log();
+  hint("Catalog paths and prices are browsing metadata, not a substitute for aisa schema or aisa quote.");
 }
 
 export async function apiShowAction(
@@ -232,210 +229,9 @@ export async function apiShowAction(
     }
   }
 
-  const slug = runSlugOf(detail);
-  if (slug) {
+  if (runSlugOf(detail)) {
     console.log();
-    hint(`Call:   aisa run ${slug} <path>`);
     hint(`Detail: aisa api show ${detail.id} <path>`);
+    hint("Catalog paths and prices are browsing metadata, not a substitute for aisa schema or aisa quote.");
   }
-}
-
-export async function apiSearchAction(
-  query: string,
-  options: { limit?: string; provider?: string; json?: boolean; refresh?: boolean }
-): Promise<void> {
-  const limit = options.limit ? parseInt(options.limit) : 20;
-  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-
-  const spinner = ora("Indexing catalog...").start();
-
-  let endpoints: Array<{ provider: string; endpoint: CatalogEndpoint }>;
-  let failed: string[] = [];
-
-  if (options.provider) {
-    const detail = await getProviderDetail(options.provider, { refresh: options.refresh }).catch(
-      () => undefined
-    );
-    if (!detail) {
-      spinner.fail(`Unknown API "${options.provider}"`);
-      return;
-    }
-    endpoints = flatEndpoints(detail).map((endpoint) => ({ provider: detail.id, endpoint }));
-  } else {
-    const result = await getAllEndpoints({
-      refresh: options.refresh,
-      onProgress: (done, total) => {
-        spinner.text = `Indexing catalog (${done}/${total})...`;
-      },
-    });
-    endpoints = result.endpoints;
-    failed = result.failed;
-  }
-
-  const providers = await getProviders({ refresh: options.refresh });
-  spinner.stop();
-
-  const matchesAll = (haystack: string) => terms.every((t) => haystack.includes(t));
-
-  // --provider means "restrict to one API", so provider-level hits have to be
-  // scoped too — otherwise `search brave --provider financial` reports brave.
-  const providerHits = providers
-    .filter((p) => !options.provider || p.id === options.provider)
-    .filter((p) => matchesAll(p.id.toLowerCase()));
-
-  const scored = endpoints
-    .map(({ provider, endpoint }) => {
-      const name = (endpoint.name || "").toLowerCase();
-      const path = toRunPath(endpoint.path).toLowerCase();
-      const desc = (endpoint.description || "").toLowerCase();
-
-      let score = 0;
-      if (matchesAll(name)) score = 3;
-      else if (matchesAll(path)) score = 2;
-      else if (matchesAll(desc)) score = 1;
-
-      return { provider, endpoint, score };
-    })
-    .filter((r) => r.score > 0)
-    .sort((a, b) => b.score - a.score || a.endpoint.path.localeCompare(b.endpoint.path));
-
-  if (options.json) {
-    console.log(
-      formatJson({
-        providers: providerHits.map((p) => p.id),
-        endpoints: scored.slice(0, limit).map((r) => ({
-          provider: r.provider,
-          path: r.endpoint.path,
-          name: r.endpoint.name,
-          price: r.endpoint.pricing?.normal,
-        })),
-      })
-    );
-    return;
-  }
-
-  if (providerHits.length === 0 && scored.length === 0) {
-    console.log(`  No matches for "${query}".`);
-    if (failed.length > 0) {
-      hint(`${failed.length} APIs could not be indexed: ${failed.join(", ")}`);
-    }
-    return;
-  }
-
-  if (providerHits.length > 0) {
-    console.log(chalk.bold(`\n  Matching APIs\n`));
-    for (const p of providerHits) {
-      console.log(
-        `  ${chalk.cyan.bold(p.id)} ${chalk.gray(`${p.endpoint_count} endpoints · from ${formatPrice(p.pricing?.normal)}`)}`
-      );
-    }
-  }
-
-  if (scored.length > 0) {
-    console.log(
-      chalk.bold(`\n  Matching endpoints${scored.length > limit ? ` (${limit} of ${scored.length})` : ""}\n`)
-    );
-    for (const { endpoint } of scored.slice(0, limit)) {
-      const runPath = toRunPath(endpoint.path);
-      const [slug, ...rest] = runPath.split("/");
-      console.log(`  ${chalk.cyan(runPath)} ${chalk.gray(formatPrice(endpoint.pricing?.normal))}`);
-      if (endpoint.name) console.log(`    ${chalk.gray(truncate(endpoint.name, 78))}`);
-      console.log(chalk.gray(`    aisa run ${slug} /${rest.join("/")}`));
-      console.log();
-    }
-  }
-
-  if (failed.length > 0) {
-    hint(`${failed.length} APIs unavailable and not searched: ${failed.join(", ")}`);
-  }
-}
-
-type Lang = "curl" | "python" | "node" | "typescript";
-
-function generateCode(lang: Lang, url: string, method: string, note: string): string {
-  const header = `# ${note}`;
-  switch (lang) {
-    case "curl":
-      return [
-        header,
-        `curl -X ${method} "${url}" \\`,
-        `  -H "Authorization: Bearer $AISA_API_KEY" \\`,
-        `  -H "Content-Type: application/json"`,
-      ].join("\n");
-
-    case "python":
-      return [
-        header,
-        `import os, requests`,
-        ``,
-        `resp = requests.${method.toLowerCase()}(`,
-        `    "${url}",`,
-        `    headers={"Authorization": f"Bearer {os.environ['AISA_API_KEY']}"},`,
-        method === "GET" ? `    params={},` : `    json={},`,
-        `)`,
-        `resp.raise_for_status()`,
-        `print(resp.json())`,
-      ].join("\n");
-
-    case "node":
-    case "typescript":
-      return [
-        `// ${note}`,
-        `const res = await fetch("${url}", {`,
-        `  method: "${method}",`,
-        `  headers: {`,
-        `    Authorization: \`Bearer \${process.env.AISA_API_KEY}\`,`,
-        `    "Content-Type": "application/json",`,
-        `  },`,
-        ...(method === "GET" ? [] : [`  body: JSON.stringify({}),`]),
-        `});`,
-        `console.log(await res.json());`,
-      ].join("\n");
-  }
-}
-
-export async function apiCodeAction(
-  slug: string,
-  path: string,
-  options: { lang?: string; method?: string; refresh?: boolean }
-): Promise<void> {
-  const lang = (options.lang || "curl").toLowerCase() as Lang;
-  if (!["curl", "python", "node", "typescript"].includes(lang)) {
-    error(`Unknown language: ${lang}. Valid: curl, python, node, typescript`);
-    return;
-  }
-
-  const cleanSlug = slug.replace(/^\/+|\/+$/g, "");
-  const cleanPath = path.replace(/^\/+/, "");
-  const runPath = toRunPath(`${cleanSlug}/${cleanPath}`);
-  const url = `${resolveBases().domain}/${runPath}`;
-
-  // Look the endpoint up when possible for validation and pricing, but never
-  // let a cold cache or an offline machine block code generation.
-  let endpoint: CatalogEndpoint | undefined;
-  try {
-    const { endpoints } = await getAllEndpoints({ refresh: options.refresh });
-    endpoint = endpoints.find((e) => toRunPath(e.endpoint.path) === runPath)?.endpoint;
-    if (!endpoint) {
-      hint(`No catalog entry for "${runPath}" — generating anyway`);
-      hint(`Search: aisa api search ${cleanPath.split("/")[0]}`);
-    }
-  } catch {
-    // offline: generate without validation
-  }
-
-  // The catalog hardcodes GET server-side, so it is a hint rather than a fact.
-  const method = (options.method || "GET").toUpperCase();
-  const price = endpoint?.pricing?.normal;
-  const note = [
-    endpoint?.name || runPath,
-    price != null ? `${formatPrice(price)} per request` : undefined,
-    "method is advisory — pass --method to override",
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
-  console.log();
-  console.log(generateCode(lang, url, method, note));
-  console.log();
 }

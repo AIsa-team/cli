@@ -557,10 +557,10 @@ async function main() {
         /-f, --file/.test(searchHelp.stdout)
     );
 
-    const deprecatedHelp = await runInstalled(installBin, ["api", "search", "--help"], isolation);
+    const apiSearch = await runInstalled(installBin, ["api", "search", "q"], isolation);
     check(
-      "help-api-search-deprecated",
-      deprecatedHelp.status === 0 && /\[deprecated\]/.test(deprecatedHelp.stdout)
+      "removed-api-search-unknown",
+      apiSearch.status !== 0 && /unknown command/i.test(`${apiSearch.stdout}\n${apiSearch.stderr}`)
     );
 
     const manifestRoot = await runInstalled(installBin, ["manifest"], isolation);
@@ -572,36 +572,38 @@ async function main() {
     }
     if (manifest) {
       check("manifest-json", manifestRoot.status === 0);
-      for (const name of ["search", "schema", "quote", "call"]) {
+      for (const name of ["search", "schema", "quote", "call", "api"]) {
         const node = findManifest(manifest, `aisa ${name}`);
         check(`manifest-${name}`, Boolean(node) && node.deprecated !== true);
       }
-      const expected = [
-        ["aisa api search", "search"],
-        ["aisa api show", "schema"],
-        ["aisa run", "call"],
+      check("manifest-api-list-kept", findManifest(manifest, "aisa api list")?.deprecated !== true);
+      check("manifest-api-show-kept", findManifest(manifest, "aisa api show")?.deprecated !== true);
+      const removed = [
+        "aisa api search",
+        "aisa api code",
+        "aisa run",
+        "aisa code",
+        "aisa web-search",
+        "aisa scholar",
+        "aisa stock",
+        "aisa crypto",
+        "aisa screener",
+        "aisa tweet",
+        "aisa twitter",
+        "aisa video",
       ];
-      for (const [path, replacement] of expected) {
-        const node = findManifest(manifest, path);
-        check(
-          `manifest-deprecation-${path.replace(/\s+/g, "-")}`,
-          Boolean(node?.deprecated) &&
-            node.replacement === replacement &&
-            typeof node.migration === "string" &&
-            /separately announced/.test(node.migration) &&
-            !/v0\.|2026/.test(node.migration)
-        );
+      for (const path of removed) {
+        check(`manifest-removed-${path.replace(/\s+/g, "-")}`, findManifest(manifest, path) === undefined);
       }
-      check("manifest-api-list-not-deprecated", findManifest(manifest, "aisa api list")?.deprecated !== true);
     }
 
     const legacy = await runInstalled(installBin, ["run", "financial", "/health"], isolation);
     check(
-      "deprecation-stderr-run",
-      legacy.status === 1 &&
-        /deprecated: aisa run/.test(legacy.stderr) &&
-        MISSING_KEY.test(legacy.stderr) &&
-        legacy.stdout.trim() === ""
+      "removed-run-unknown",
+      legacy.status !== 0 &&
+        /unknown command/i.test(`${legacy.stdout}\n${legacy.stderr}`) &&
+        !/deprecated: aisa run/.test(legacy.stderr) &&
+        !MISSING_KEY.test(legacy.stderr)
     );
 
     stub = await startStub();

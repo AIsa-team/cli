@@ -1,6 +1,5 @@
 import { publicRequest, cacheScope } from "./api.js";
 import { readCache, writeCache, touchCache } from "./cache.js";
-import { pool } from "./utils/pool.js";
 
 /**
  * Client for the unauthenticated /info/apis catalog.
@@ -56,8 +55,6 @@ export interface ProviderHealth {
 const CATEGORY_TTL_MS = 6 * 60 * 60 * 1000;
 const DETAIL_TTL_MS = 24 * 60 * 60 * 1000;
 const HEALTH_TTL_MS = 5 * 60 * 1000;
-
-export const CATALOG_CONCURRENCY = Number(process.env.AISA_CATALOG_CONCURRENCY) || 6;
 
 /** Fetch with disk caching and ETag revalidation; falls back to stale data offline. */
 async function cachedGet<T>(
@@ -131,7 +128,7 @@ export function flatEndpoints(detail: CatalogDetail): CatalogEndpoint[] {
     .sort((a, b) => a.path.localeCompare(b.path));
 }
 
-/** Strip the /apis/v1 prefix: what you'd pass to `aisa run`. */
+/** Strip the /apis/v1 prefix from a catalog path. */
 export function toRunPath(path: string): string {
   return path.replace(/^\/apis\/v1\//, "").replace(/^\/+/, "");
 }
@@ -143,44 +140,6 @@ export function toRunPath(path: string): string {
 export function runSlugOf(detail: CatalogDetail): string | undefined {
   const first = flatEndpoints(detail)[0];
   return first ? toRunPath(first.path).split("/")[0] : undefined;
-}
-
-export interface EndpointRef {
-  provider: string;
-  endpoint: CatalogEndpoint;
-}
-
-/**
- * Load every provider's endpoints. Cold this is ~29 requests and several
- * hundred KB, so it runs through a bounded pool with progress reporting; warm
- * it is entirely local.
- */
-export async function getAllEndpoints(options: {
-  refresh?: boolean;
-  onProgress?: (done: number, total: number) => void;
-}): Promise<{ endpoints: EndpointRef[]; failed: string[] }> {
-  const providers = await getProviders({ refresh: options.refresh });
-
-  const details = await pool(
-    providers.map((p) => () => getProviderDetail(p.id, { refresh: options.refresh })),
-    CATALOG_CONCURRENCY,
-    options.onProgress
-  );
-
-  const endpoints: EndpointRef[] = [];
-  const failed: string[] = [];
-
-  details.forEach((detail, i) => {
-    if (!detail) {
-      failed.push(providers[i].id);
-      return;
-    }
-    for (const endpoint of flatEndpoints(detail)) {
-      endpoints.push({ provider: providers[i].id, endpoint });
-    }
-  });
-
-  return { endpoints, failed };
 }
 
 /**

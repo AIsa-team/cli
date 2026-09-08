@@ -1,6 +1,5 @@
 import type { Command, Option, Argument } from "commander";
 import { mcpForCommand } from "../cli-guidance.js";
-import { deprecationFor } from "../deprecation.js";
 import {
   ROUTER_EXITS,
   routerContractFor,
@@ -50,9 +49,6 @@ interface ManifestCommand {
   arguments: ManifestArgument[];
   options: ManifestOption[];
   subcommands: ManifestCommand[];
-  deprecated?: boolean;
-  replacement?: string;
-  migration?: string;
   /** MCP operation this CLI command posts to. Absent on non-Router commands. */
   mcp?: { identifier: string; path: string };
   auth?: RouterCommandContract["auth"];
@@ -101,7 +97,6 @@ export function buildManifest(program: Command, prefix = ""): ManifestCommand {
   const path = prefix ? `${prefix} ${program.name()}` : program.name();
   const args = (program as unknown as { registeredArguments?: Argument[] }).registeredArguments ?? [];
   const relative = path.replace(/^aisa\s+/, "");
-  const deprecated = deprecationFor(relative);
   const mcp = mcpForCommand(relative);
   const contract = routerContractFor(relative);
   return {
@@ -111,13 +106,6 @@ export function buildManifest(program: Command, prefix = ""): ManifestCommand {
     arguments: args.map(describeArgument),
     options: (program.options as Option[]).map(describeOption),
     subcommands: visible(program).map((c) => buildManifest(c, path)),
-    ...(deprecated
-      ? {
-          deprecated: true,
-          replacement: deprecated.replacement,
-          migration: deprecated.migration,
-        }
-      : {}),
     ...(mcp ? { mcp: { identifier: mcp.identifier, path: mcp.path } } : {}),
     ...(contract
       ? {

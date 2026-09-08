@@ -228,17 +228,13 @@ Examples (POSIX sh; single-quoted --input):
   $ aisa schema ${EXAMPLE_PUBLISHED_TOOL} --json
   $ aisa quote ${shellInputFlag(EXAMPLE_BATCH_JSON)} --json
   $ aisa call ${shellInputFlag(EXAMPLE_BATCH_JSON)} --json
-  $ aisa twitter search "ai" --raw    search X, full JSON out
+  $ aisa api list                     browse the provider catalog
+  $ aisa api show coingecko           browse one provider's endpoints
 
 Router: ${MCP_CLI_MAP.search.identifier}→search, ${MCP_CLI_MAP.schema.identifier}→schema, ${MCP_CLI_MAP.quote.identifier}→quote, ${MCP_CLI_MAP.call.identifier}→call.
 --json keeps MCP identifiers. Human output maps those four names to CLI commands.
 ${FLOW}
 Use aisa <command> --help or aisa manifest <command> for complete JSON/file/stdin examples, shared API-key sources, exit codes, and cost constraints.
-
-Deprecated (stdout unchanged; not drop-in replacements; removal announced later):
-  $ aisa api search "insider trades"  old catalog keyword search; contract differs from aisa search
-  $ aisa api show coingecko           provider catalog browse; not equivalent to aisa schema
-  $ aisa run coingecko simple/price -q ids=bitcoin -q vs_currencies=usd   raw routing; not aisa call
-api list, api code, and specialized commands are unchanged.
+Catalog list/show are browsing metadata, not a substitute for schema or quote.
 `;
 }
