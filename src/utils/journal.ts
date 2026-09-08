@@ -2,6 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSyn
 import { homedir } from "node:os";
 import { join } from "node:path";
 import chalk from "chalk";
+import { cells } from "./width.js";
 
 /**
  * The console transcript of a connect run, and its log file.
@@ -166,7 +167,10 @@ export class Journal {
    * the last thing we asked the reader to remember.
    */
   encore(items: Array<{ cmd: string; why: string }>): void {
-    const width = Math.min(70, Math.max(...items.map((i) => i.cmd.length + i.why.length + 8)));
+    // Columns, not characters: the rule under these lines has to be as long
+    // as the longest of them, and a Chinese `why` is twice the width its
+    // length claims.
+    const width = Math.min(70, Math.max(...items.map((i) => cells(i.cmd) + cells(i.why) + 8)));
     const rule = "─".repeat(width);
     this.emit("", `\n${chalk.gray(rule)}`, `\n${rule}`);
     for (const { cmd, why } of items) {

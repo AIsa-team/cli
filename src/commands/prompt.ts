@@ -1,4 +1,5 @@
 import chalk from "chalk";
+import { cells, padTo, truncate } from "../utils/width.js";
 
 /**
  * Arrow-key pickers for the connect flow.
@@ -139,20 +140,6 @@ function viewport(total: number, reserved: number): number {
   return Math.max(3, Math.min(total, rows - reserved));
 }
 
-function truncate(text: string, width: number): string {
-  // Measured in cells: a CJK glyph is two, so counting characters would let a
-  // Chinese label wrap and break the redraw.
-  let out = "";
-  let w = 0;
-  for (const ch of text) {
-    const cw = /[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︰-﹏＀-｠]/.test(ch) ? 2 : 1;
-    if (w + cw > width) return out + "…";
-    out += ch;
-    w += cw;
-  }
-  return out;
-}
-
 interface RenderOptions {
   title: string;
   hint: string;
@@ -165,15 +152,6 @@ interface RenderOptions {
   detailWidth?: number;
 }
 
-const ANSI = /\u001b\[[0-9;]*m/g;
-
-/** Cells a string occupies. Colour codes print nothing, so they count nothing. */
-function cells(text: string): number {
-  let w = 0;
-  for (const ch of text.replace(ANSI, "")) w += /[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︰-﹏＀-｠]/.test(ch) ? 2 : 1;
-  return w;
-}
-
 /**
  * How many lines the cursor's description gets.
  *
@@ -182,7 +160,7 @@ function cells(text: string): number {
  * which is a worse cost than a blank line on the rows that have nothing to
  * say — and the viewport has to reserve the space either way.
  */
-const DETAIL_ROWS = 2;
+const DETAIL_ROWS = 3;
 
 /** Break to a cell width. Plain text only; details arrive unpainted. */
 function wrapCells(text: string, width: number, max: number): string[] {
@@ -203,14 +181,11 @@ function wrapCells(text: string, width: number, max: number): string[] {
 }
 
 /** The last line says there is more, rather than stopping mid-sentence. */
-function capped(out: string[], text: string, width: number, max: number): string[] {
-  const last = out[max - 1];
-  return [...out.slice(0, max - 1), truncate(last, Math.max(1, width - 1)) + "…"];
-}
-
-/** Pad to a cell width, counting what is printed rather than what is stored. */
-function padTo(text: string, width: number): string {
-  return text + " ".repeat(Math.max(0, width - cells(text)));
+function capped(out: string[], _text: string, width: number, max: number): string[] {
+  // truncate adds its own ellipsis when it cuts; adding a second one here
+  // produced "…at four depths, web plus academic searc……".
+  const last = truncate(out[max - 1] + " …", Math.max(1, width));
+  return [...out.slice(0, max - 1), last];
 }
 
 function frame(o: RenderOptions): string[] {
@@ -227,9 +202,14 @@ function frame(o: RenderOptions): string[] {
   //
   // Labels are padded to a common width too, so the metas start in one
   // column rather than wherever each label happened to end.
+  // The cap only reserves room for a meta column when there is one. Charging
+  // every list twenty-four columns for a column it may not have is what cut
+  // "Add AIsa beside it (recommended)" — a four-row menu whose rows carry
+  // nothing but their label, paying for a second column that was never drawn.
+  const anyMeta = o.choices.some((c) => c.meta);
   const labelW = Math.min(
     Math.max(...o.choices.map((c) => cells(c.label))),
-    Math.max(8, width - 24)
+    Math.max(8, width - (anyMeta ? 24 : 4))
   );
   const metaW = Math.max(10, width - labelW - 6);
   for (let i = o.offset; i < Math.min(o.offset + o.rows, o.choices.length); i++) {
@@ -338,7 +318,10 @@ export async function pick<T>(opts: {
   // pay for it — otherwise the frame outgrows the window and the redraw walks
   // up the screen.
   const hasDetail = opts.choices.some((c) => c.detail);
-  const detailWidth = hasDetail ? Math.min(process.stdout.columns || 80, 90) - 14 : 0;
+  // Seven of these columns are the gutter this block is printed in; the rest
+  // is sentence. The first version left fourteen unused, which cost it most
+  // of a line on every wrap.
+  const detailWidth = hasDetail ? Math.min(process.stdout.columns || 80, 96) - 9 : 0;
   const rows = viewport(opts.choices.length, 10 + (hasDetail ? DETAIL_ROWS + 1 : 0));
   let printed = 0;
 

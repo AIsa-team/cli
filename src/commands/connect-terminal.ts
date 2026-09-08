@@ -23,6 +23,7 @@ import { defaultModelsFor } from "./llm-config.js";
 
 import type { LiveServer } from "./mcp.js";
 import { httpFetch } from "../utils/http.js";
+import { cells } from "../utils/width.js";
 import { pick, interactive, restoreTerminal, type Choice } from "./prompt.js";
 
 /** A client as the flow sees it: detection plus whether we could install it. */
@@ -144,14 +145,9 @@ export function plain(html: string): string {
 }
 
 /** Two columns wide in a terminal: CJK, and the punctuation that comes with it. */
-const WIDE = /[\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6]/;
+/** Kept as a name because wrap() reads better with it; the maths is shared. */
+export const displayWidth = cells;
 
-/** Display width, not character count — one CJK glyph occupies two cells. */
-export function displayWidth(text: string): number {
-  let n = 0;
-  for (const ch of text) n += WIDE.test(ch) ? 2 : 1;
-  return n;
-}
 
 /**
  * Wrap to the terminal width.
