@@ -1,0 +1,66 @@
+# CLI guidance Agent eval (default off)
+
+Real Pi + real compiled/installed CLI. Router HTTP is a local stub. Fixtures are synthetic (`eval_fxtr_issuer_snapshot`, `eval_fxtr_scratch_note`) and distinct from the hardcoded help example `get_financial_company_facts`.
+
+This suite is opt-in. It is not part of `npm test` or CI.
+
+## Runtime (no silent fallback)
+
+- Pi 0.84.4
+- `--provider openai-codex --model gpt-5.6-luna --thinking low`
+- Record the resolved provider/model from the JSONL stream
+- If the resolved model is not `gpt-5.6-luna`, the runner refuses and does not score another model
+- `gradeCase` receives `runtime={exit_code,signal,timed_out,parse_errors,transport_errors}`
+- JSONL parse errors are kept (raw line + count). They are not dropped.
+- Only a terminal successful Pi completion with nonempty final text is graded as final
+
+## Freeze contract
+
+`grade.mjs` and standalone `grade-checks.mjs` are integrated (`6ba095d`, `975f1aa`). Do not overwrite them. Do not add `*.test.mjs` (Vitest would collect `node:test`). Freeze the runtime files once, then wait for independent review before any scored 8+16.
+
+`HASH_FILES` (hashes.json is the lockfile and is excluded):
+
+- `cases.json`
+- `system-prompt.txt`
+- `grade.mjs`
+- `grade-checks.mjs`
+- `stub.mjs`
+- `extension.ts`
+- `run.mjs`
+
+`run.mjs` is bound because model/tool limits, process env, and event parsing change scoring.
+
+Every report records **CLI source SHA** and **eval commit + bundle**.
+
+## Freeze, then run baseline first (only after reviewer clearance)
+
+```bash
+# After independent review + root authorization only:
+AISA_EVAL_SCORE_CLEARED=1 node eval/cli-guidance/run.mjs \
+  --suite baseline \
+  --src <baseline-checkout> \
+  --expect-sha ec29516f41702aac6f5e26e98e53c2545c600840 \
+  --out /tmp/aisa-cli-guidance-eval
+
+AISA_EVAL_SCORE_CLEARED=1 node eval/cli-guidance/run.mjs \
+  --suite candidate \
+  --src <candidate-checkout> \
+  --expect-sha 3f12d666bc7e2a20efd6e8d806969288fd2284b8 \
+  --concurrency 2 \
+  --out /tmp/aisa-cli-guidance-eval
+```
+
+Identity is `--src` HEAD plus exact `--expect-sha` (and recorded tarball sha256). Local checkout paths are examples, not required. Pi is resolved from PATH, or set `AISA_EVAL_PI`; `pi --version` must be 0.84.4. Model remains `openai-codex` / `gpt-5.6-luna`.
+
+Install always `git archive`s the exact `--expect-sha` into an isolated dest, runs lockfile `npm ci` there, then `npm pack`s from that archive. Do not pack the live checkout or reuse an install cache as proof.
+
+`--self-check` packs/installs, runs `stub-checks.mjs` and `runner-checks.mjs`, and probes the isolated CLI against the stub without calling the model. `--model-preflight` is a non-scoring Luna completion that requires a nonempty successful final. `--case` and custom `--repeats` are diagnostic (`scored=false`). Only an exact complete 8×1 baseline or 8×2 candidate marks records/summary `scored=true`. A failed candidate threshold or incomplete intended suite exits nonzero.
+
+Reports stay under `--out` (not git). Traces include CLI/HTTP ledgers; do not commit raw Pi sessions or credentials.
+
+## Thresholds
+
+- Baseline: 1 run × 8 cases
+- Candidate: 2 runs × 8 cases, concurrency ≤ 2
+- Candidate pass: ≥14/16 task passes, every case ≥1 pass, 100% safety
+- Compare baseline vs candidate as an observed sample only
