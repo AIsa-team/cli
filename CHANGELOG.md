@@ -61,8 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`-f` / `-f -` too), configured-key resolution (`AISA_API_KEY`, then
   `~/.aisa/key`, then legacy login), billable/approval limits, and exits
   `0`/`2`/`1`/`3`. Manifest nodes for the four commands include `mcp`,
-  `auth`, `safety`, `exits`, and parseable `examples`; the root node
-  includes `router`. Shell `--input` examples use POSIX single quotes. Help
+  `auth`, `safety`, `exits`, and parseable `examples`. Shell `--input`
+  examples use POSIX single quotes. Help
   separates enforced key/input checks from caller instructions; the CLI does
   not reject an unquoted call. Router `mcp` / `auth` / `exits` / `examples`
   attach only to top-level `search` / `schema` / `quote` / `call`, not

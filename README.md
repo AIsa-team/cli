@@ -57,8 +57,7 @@ directly.
 `--json` prints the unmodified application body (MCP identifiers stay).
 Human output maps only those four identifiers onto CLI names. `aisa manifest`
 and `aisa manifest search` / `schema` / `quote` / `call` expose `mcp`, `auth`,
-`enforced`, `safety`, `exits`, and parseable `examples` (the root node also
-has `router`).
+`enforced`, `safety`, `exits`, and parseable `examples`.
 
 Recommended sequence: discover a tool → `aisa schema` when
 `has_full_schema=false` → `aisa quote` → `aisa call`. Quote and call share

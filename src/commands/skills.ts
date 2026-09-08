@@ -25,7 +25,7 @@ const TEMPLATES: Record<string, string> = {
 name: my-skill
 description: "Describe what this skill does."
 homepage: https://aisa.one
-metadata: {"aisa":{"emoji":"","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
+metadata: {"aisa":{"emoji":"","requires":{"bins":["aisa"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # My Skill
@@ -71,7 +71,7 @@ aisa api show financial /news
 name: llm-assistant
 description: "Use AIsa's unified LLM gateway to chat with 70+ AI models."
 homepage: https://aisa.one
-metadata: {"aisa":{"emoji":"🤖","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
+metadata: {"aisa":{"emoji":"🤖","requires":{"bins":["aisa"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # LLM Assistant Skill
@@ -108,7 +108,7 @@ aisa models --provider anthropic
 name: web-search
 description: "Discover published AIsa tools for web and research queries, then schema/quote/call."
 homepage: https://aisa.one
-metadata: {"aisa":{"emoji":"🔍","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
+metadata: {"aisa":{"emoji":"🔍","requires":{"bins":["aisa"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Web Search Skill
@@ -147,7 +147,7 @@ aisa api show <provider>
 name: finance-analyst
 description: "Discover published AIsa finance tools, then schema/quote/call."
 homepage: https://aisa.one
-metadata: {"aisa":{"emoji":"📊","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
+metadata: {"aisa":{"emoji":"📊","requires":{"bins":["aisa"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Finance Analyst Skill
@@ -187,7 +187,7 @@ aisa api show financial
 name: twitter-manager
 description: "Discover published AIsa social tools, then schema/quote/call."
 homepage: https://aisa.one
-metadata: {"aisa":{"emoji":"🐦","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
+metadata: {"aisa":{"emoji":"🐦","requires":{"bins":["aisa"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Twitter Manager Skill
@@ -225,7 +225,7 @@ aisa api show <provider>
 name: video-generator
 description: "Discover published AIsa media tools, then schema/quote/call."
 homepage: https://aisa.one
-metadata: {"aisa":{"emoji":"🎬","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
+metadata: {"aisa":{"emoji":"🎬","requires":{"bins":["aisa"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Video Generator Skill

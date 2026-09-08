@@ -56,6 +56,8 @@ describe("skills init templates", () => {
   it.each(TEMPLATES)("%s writes only retained command invocations", (template) => {
     const content = init(template, { template });
     expectNoRemovedCommands(content);
+    expect(content).toContain('"bins":["aisa"]');
+    expect(content).not.toContain('"bins":["curl"]');
   });
 
   it("default and domain templates teach search/schema/quote/call plus catalog browse", () => {
