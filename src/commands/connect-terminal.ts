@@ -729,6 +729,10 @@ export async function runTerminalFlow(
           o.servers.map((s) => ({
             label: s.slug,
             meta: `${s.toolCount} ${t(STEP_CAPS.toolsWord, o.lang)}`,
+            // Straight from the host, the same sentence the page shows. A
+            // hand-written table here would be a second source of truth for
+            // something that ships with the server.
+            detail: s.description,
           })),
           true, initial,
           o.lang === "zh"

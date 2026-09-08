@@ -161,11 +161,77 @@ interface RenderOptions {
   selected?: Set<number>;
   offset: number;
   rows: number;
+  /** Set when any choice has a detail; zero turns the block off entirely. */
+  detailWidth?: number;
+}
+
+const ANSI = /\u001b\[[0-9;]*m/g;
+
+/** Cells a string occupies. Colour codes print nothing, so they count nothing. */
+function cells(text: string): number {
+  let w = 0;
+  for (const ch of text.replace(ANSI, "")) w += /[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︰-﹏＀-｠]/.test(ch) ? 2 : 1;
+  return w;
+}
+
+/**
+ * How many lines the cursor's description gets.
+ *
+ * Two, and always two whether the row has a description or not. A block that
+ * grows and shrinks as you move makes the list itself jump under the cursor,
+ * which is a worse cost than a blank line on the rows that have nothing to
+ * say — and the viewport has to reserve the space either way.
+ */
+const DETAIL_ROWS = 2;
+
+/** Break to a cell width. Plain text only; details arrive unpainted. */
+function wrapCells(text: string, width: number, max: number): string[] {
+  const out: string[] = [];
+  let line = "";
+  for (const word of text.split(/\s+/)) {
+    if (!line) { line = word; continue; }
+    if (cells(line) + 1 + cells(word) > width) {
+      out.push(line);
+      if (out.length === max) return capped(out, text, width, max);
+      line = word;
+    } else {
+      line += " " + word;
+    }
+  }
+  if (line) out.push(line);
+  return out.slice(0, max);
+}
+
+/** The last line says there is more, rather than stopping mid-sentence. */
+function capped(out: string[], text: string, width: number, max: number): string[] {
+  const last = out[max - 1];
+  return [...out.slice(0, max - 1), truncate(last, Math.max(1, width - 1)) + "…"];
+}
+
+/** Pad to a cell width, counting what is printed rather than what is stored. */
+function padTo(text: string, width: number): string {
+  return text + " ".repeat(Math.max(0, width - cells(text)));
 }
 
 function frame(o: RenderOptions): string[] {
   const lines: string[] = [];
   const width = Math.min(process.stdout.columns || 80, 90) - 6;
+  // Size both columns to the content instead of to a constant.
+  //
+  // The right column was capped at eighteen cells — right for a list of
+  // twenty-five servers whose metas are all "29 tools", wrong for the
+  // three-row menu that ends a run, where the meta is the sentence saying
+  // what the command does. "gpt-5.3-codex via AIsa — your usual codex is
+  // untouched" arrived as "gpt-5.3-codex via …", so the row that mattered
+  // most was the one least readable.
+  //
+  // Labels are padded to a common width too, so the metas start in one
+  // column rather than wherever each label happened to end.
+  const labelW = Math.min(
+    Math.max(...o.choices.map((c) => cells(c.label))),
+    Math.max(8, width - 24)
+  );
+  const metaW = Math.max(10, width - labelW - 6);
   for (let i = o.offset; i < Math.min(o.offset + o.rows, o.choices.length); i++) {
     const c = o.choices[i];
     const here = i === o.cursor;
@@ -176,8 +242,8 @@ function frame(o: RenderOptions): string[] {
     // whether it was ticked. Chosen is a filled green bar; the cursor alone
     // is an outline; the rest recede.
     const mark = o.selected ? (on ? "✓" : " ") : here ? "▶" : " ";
-    const body = truncate(c.label, width - 20);
-    const meta = c.meta ? "  " + truncate(c.meta, 18) : "";
+    const body = padTo(truncate(c.label, labelW), labelW);
+    const meta = c.meta ? "  " + truncate(c.meta, metaW) : "";
     const row = ` ${mark} ${body}${meta} `;
 
     let painted: string;
@@ -187,6 +253,18 @@ function frame(o: RenderOptions): string[] {
     else painted = " " + mark + " " + body + chalk.gray(meta) + " ";
 
     lines.push(chalk.gray("│") + painted);
+    // Under the cursor only. Twenty-five rows each carrying a sentence is
+    // twenty-five sentences to read past; one that follows the cursor is a
+    // sentence about the thing you are looking at, and moving is already the
+    // gesture for "tell me about the next one" — nothing to explain.
+    if (here && o.detailWidth) {
+      const body = o.choices[i].detail
+        ? wrapCells(o.choices[i].detail!, o.detailWidth, DETAIL_ROWS)
+        : [];
+      for (let k = 0; k < DETAIL_ROWS; k++) {
+        lines.push(chalk.gray("│      " + (body[k] ?? "")));
+      }
+    }
   }
   if (o.choices.length > o.rows) {
     lines.push(chalk.gray(`│   ${o.offset + 1}–${Math.min(o.offset + o.rows, o.choices.length)} / ${o.choices.length}`));
@@ -256,7 +334,12 @@ export async function pick<T>(opts: {
   const selected = new Set(opts.initial ?? []);
   let cursor = opts.cursor ?? (opts.initial?.[0] ?? 0);
   let offset = 0;
-  const rows = viewport(opts.choices.length, 10);
+  // The block under the cursor is part of the frame, so the viewport has to
+  // pay for it — otherwise the frame outgrows the window and the redraw walks
+  // up the screen.
+  const hasDetail = opts.choices.some((c) => c.detail);
+  const detailWidth = hasDetail ? Math.min(process.stdout.columns || 80, 90) - 14 : 0;
+  const rows = viewport(opts.choices.length, 10 + (hasDetail ? DETAIL_ROWS + 1 : 0));
   let printed = 0;
 
   const sorted = () => [...selected].sort((a, b) => a - b);
@@ -264,7 +347,7 @@ export async function pick<T>(opts: {
   const draw = () => {
     if (cursor < offset) offset = cursor;
     if (cursor >= offset + rows) offset = cursor - rows + 1;
-    const lines = frame({ ...opts, cursor, selected: opts.multi ? selected : undefined, offset, rows });
+    const lines = frame({ ...opts, cursor, selected: opts.multi ? selected : undefined, offset, rows, detailWidth });
     if (printed) process.stdout.write(`[${printed}A[0J`);
     process.stdout.write(lines.join("\n") + "\n");
     printed = lines.length;
