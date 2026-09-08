@@ -7,6 +7,8 @@ Do not score any run recorded under rejected bundle `dbad73ce…` / eval `9e875e
 - Baseline identity: `--expect-sha ec29516f41702aac6f5e26e98e53c2545c600840` (checkout path is local, not required)
 - Candidate identity: `--expect-sha 3f12d666bc7e2a20efd6e8d806969288fd2284b8`
 - `--src` plus that SHA and the archived tarball hash pin the subject. A wrong checkout fails closed on HEAD mismatch.
+- Fresh install: `git archive` the exact `--expect-sha`, `npm ci` in that archive, then pack from the archive. Do not pack source in place or treat an install cache as proof.
+- `summarizeSuite` rows include `run_index`. Options always pass the 8 frozen `expectedCaseIds` and set `diagnostic=true` for `--case` / custom `--repeats`. Only exact 8×1 / 8×2 sets `scored=true`. Failed candidate threshold or incomplete intended suite exits nonzero.
 
 ## Reviewer corrections (in this freeze)
 

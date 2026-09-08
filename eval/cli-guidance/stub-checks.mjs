@@ -40,8 +40,14 @@ describe("search publishes the declared NOTE schema", () => {
       const profile = res.body.tools.find((t) => t.tool === PROFILE);
       assert.equal(note.has_full_schema, true);
       assert.deepEqual(note.arguments_schema, NOTE_SCHEMA);
+      assert.equal(typeof note.description, "string");
+      assert.deepEqual(note.price, {});
       assert.equal(profile.has_full_schema, false);
       assert.equal(profile.arguments_schema, undefined);
+      assert.equal(typeof profile.description, "string");
+      assert.deepEqual(profile.price, {});
+      assert.deepEqual(res.body.plan.primary_tools, [PROFILE, NOTE]);
+      assert.deepEqual(res.body.plan.related_tools, []);
     } finally {
       await stub.close();
     }
@@ -76,7 +82,12 @@ describe("batch preflight is whole-batch 400", () => {
       const use = await post(stub.url, "/v1/tool-router/aisa-batch-use", bad, auth);
       assert.equal(quote.status, 400);
       assert.equal(use.status, 400);
-      assert.equal(quote.body.code, "invalid_arguments");
+      assert.equal(quote.body.error.code, "invalid_arguments");
+      assert.equal(typeof quote.body.request_id, "string");
+      assert.equal(typeof quote.body.error.message, "string");
+      assert.equal(typeof quote.body.error.details, "object");
+      assert.equal(quote.body.error.retryable, false);
+      assert.equal(quote.body.code, undefined);
       assert.equal(quote.body.results, undefined);
       assert.equal(use.body.results, undefined);
       const extra = await post(
@@ -100,6 +111,17 @@ describe("batch preflight is whole-batch 400", () => {
       );
       assert.equal(fail.status, 200);
       assert.equal(fail.body.results[0].successful, false);
+      assert.equal(typeof fail.body.results[0].request_id, "string");
+      assert.equal(fail.body.results[0].error.type, "upstream");
+      assert.equal(typeof fail.body.results[0].error.status, "number");
+      assert.equal(typeof fail.body.results[0].error.retryable, "boolean");
+
+      const unauth = await post(stub.url, "/v1/tool-router/aisa-batch-quote", { calls: [nvda()] });
+      assert.equal(unauth.status, 401);
+      assert.equal(unauth.body.error.code, "authentication_required");
+      assert.equal(typeof unauth.body.request_id, "string");
+      assert.equal(typeof unauth.body.error.details, "object");
+      assert.equal(unauth.body.error.retryable, false);
     } finally {
       await stub.close();
     }

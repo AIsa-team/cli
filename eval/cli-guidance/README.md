@@ -52,7 +52,9 @@ AISA_EVAL_SCORE_CLEARED=1 node eval/cli-guidance/run.mjs \
 
 Identity is `--src` HEAD plus exact `--expect-sha` (and recorded tarball sha256). Local checkout paths are examples, not required. Pi is resolved from PATH, or set `AISA_EVAL_PI`; `pi --version` must be 0.84.4. Model remains `openai-codex` / `gpt-5.6-luna`.
 
-`--self-check` packs/installs, runs `stub-checks.mjs` (whole-batch quote/use 400 + NOTE schema), and probes the isolated CLI against the stub without calling the model. `--model-preflight` is a non-scoring Luna completion that requires a nonempty successful final.
+Install always `git archive`s the exact `--expect-sha` into an isolated dest, runs lockfile `npm ci` there, then `npm pack`s from that archive. Do not pack the live checkout or reuse an install cache as proof.
+
+`--self-check` packs/installs, runs `stub-checks.mjs` and `runner-checks.mjs`, and probes the isolated CLI against the stub without calling the model. `--model-preflight` is a non-scoring Luna completion that requires a nonempty successful final. `--case` and custom `--repeats` are diagnostic (`scored=false`). Only an exact complete 8×1 baseline or 8×2 candidate marks records/summary `scored=true`. A failed candidate threshold or incomplete intended suite exits nonzero.
 
 Reports stay under `--out` (not git). Traces include CLI/HTTP ledgers; do not commit raw Pi sessions or credentials.
 

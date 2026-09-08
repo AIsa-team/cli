@@ -6,7 +6,7 @@ Rejected / C-c / fetch-failed / empty-final traffic is **diagnostic only**. Do n
 - Pilot / model-preflight: `/tmp/aisa-cli-guidance-eval/pilot`
 - Rejected freeze: `dbad73ce…` / eval `9e875ed`
 
-Scored 8+16 starts only after independent review of the **clean freeze commit** in this branch, then root authorization.
+Scored 8+16 starts only after independent review of the **new freeze commit** in this branch, then root authorization. No model 8+16 has been run for this bundle.
 
 Next scored sources (not run yet):
 

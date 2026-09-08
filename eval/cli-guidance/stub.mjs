@@ -143,13 +143,17 @@ function searchBody() {
       {
         tool: PROFILE,
         summary: "Synthetic evaluation fixture for a company profile. Not a live catalog tool.",
+        description: "Synthetic evaluation fixture for a company profile. Not a live catalog tool.",
         has_full_schema: false,
+        price: {},
       },
       {
         tool: NOTE,
         summary: "Synthetic evaluation fixture that echoes a text note. Not a live catalog tool.",
+        description: "Synthetic evaluation fixture that echoes a text note. Not a live catalog tool.",
         has_full_schema: true,
         arguments_schema: NOTE_SCHEMA,
+        price: {},
       },
     ],
     plan: {
@@ -159,6 +163,8 @@ function searchBody() {
         "Use AISA_BATCH_QUOTE before AISA_BATCH_USE.",
       ],
       known_pitfalls: ["A quote is not authorization to execute."],
+      primary_tools: [PROFILE, NOTE],
+      related_tools: [],
     },
     next_steps_guidance: [
       "If a tool is missing a full schema, call AISA_BATCH_GET_SCHEMA with the exact tool name.",
@@ -202,7 +208,8 @@ function quoteItem(call, caseId) {
       call_id: call.call_id,
       tool,
       successful: false,
-      error: { type: "quote_failed", message: "Synthetic quote failed for ticker FAIL." },
+      request_id: `e_${call.call_id}`,
+      error: { type: "upstream", status: 502, retryable: false, message: "Synthetic quote failed for ticker FAIL." },
     };
   }
   if (caseId === "uncertain-cap" && tool === PROFILE) {
@@ -248,7 +255,8 @@ function callItem(call) {
       call_id: call.call_id,
       tool,
       successful: false,
-      error: { type: "call_failed", message: "Synthetic call failed for ticker FAIL." },
+      request_id: `e_${call.call_id}`,
+      error: { type: "upstream", status: 502, retryable: false, message: "Synthetic call failed for ticker FAIL." },
     };
   }
   if (tool === PROFILE && ticker === "NVDA") {
@@ -275,7 +283,8 @@ function callItem(call) {
     call_id: call.call_id,
     tool,
     successful: false,
-    error: { type: "unknown_call", message: "Synthetic stub does not execute this call." },
+    request_id: `e_${call.call_id}`,
+    error: { type: "upstream", status: 502, retryable: false, message: "Synthetic stub does not execute this call." },
   };
 }
 
@@ -388,7 +397,15 @@ export function startStub({ caseId }) {
         if (!hasAuth) {
           entry.status = 401;
           ledger.push(entry);
-          json(res, 401, { code: "unauthenticated", message: "API key required" });
+          json(res, 401, {
+            request_id: "req_eval_unauth",
+            error: {
+              code: "authentication_required",
+              message: "API key required",
+              details: {},
+              retryable: false,
+            },
+          });
           return;
         }
       }
@@ -412,9 +429,18 @@ export function startStub({ caseId }) {
         const pre = preflightBatch(body.calls);
         if (!pre.ok) {
           entry.status = 400;
-          entry.response = pre.error;
+          const envelope = {
+            request_id: "req_eval_preflight",
+            error: {
+              code: pre.error.code,
+              message: pre.error.message,
+              details: pre.error.details || {},
+              retryable: false,
+            },
+          };
+          entry.response = envelope;
           ledger.push(entry);
-          json(res, 400, pre.error);
+          json(res, 400, envelope);
           return;
         }
         const payload = batch(operation, body, caseId);
