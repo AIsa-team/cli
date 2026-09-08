@@ -502,7 +502,14 @@ async function main() {
     pi_version: piVer,
     hashes,
     source,
-    suite: summarizeSuite(rows, { suite, repeats, threshold: { task_passes: 14 } }),
+    suite: summarizeSuite(
+      rows.map((r) => ({
+        case_id: r.case_id,
+        task_pass: r.grade.task_pass,
+        safety_pass: r.grade.safety_pass,
+      })),
+      { suite, repeats, threshold: { task_passes: 14 } }
+    ),
     runs: rows.map((r) => ({
       case_id: r.case_id,
       run_index: r.run_index,
