@@ -1,6 +1,6 @@
 # CLI guidance Agent eval (default off)
 
-Real Pi + real compiled/installed CLI. Router HTTP is a local stub. Fixtures are synthetic (`eval_synth_*`), not live catalog names.
+Real Pi + real compiled/installed CLI. Router HTTP is a local stub. Fixtures are synthetic (`eval_fxtr_issuer_snapshot`, `eval_fxtr_scratch_note`) and distinct from the hardcoded help example `get_financial_company_facts`.
 
 This suite is opt-in. It is not part of `npm test` or CI.
 
@@ -22,11 +22,11 @@ node eval/cli-guidance/run.mjs \
   --expect-sha ec29516f41702aac6f5e26e98e53c2545c600840 \
   --out /tmp/aisa-cli-guidance-eval
 
-# Candidate only after the help writer’s final commit
+# Pinned candidate 3f12d66 (supersedes 649d73f)
 node eval/cli-guidance/run.mjs \
   --suite candidate \
   --src /Users/eddiearc/repo/worktrees/aisa-cli-guidance-help \
-  --expect-sha <final-sha> \
+  --expect-sha 3f12d666bc7e2a20efd6e8d806969288fd2284b8 \
   --concurrency 2 \
   --out /tmp/aisa-cli-guidance-eval
 ```

@@ -17,7 +17,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { extractFinalText, extractResolvedModel, gradeCase, summarizeSuite } from "./grade.mjs";
-import { startStub } from "./stub.mjs";
+import { PROFILE, startStub } from "./stub.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REQUESTED = Object.freeze({
@@ -131,6 +131,14 @@ function installFromSrc(src, dest, expectSha) {
   const dirty = git(src, ["status", "--porcelain"]);
   const packDir = join(dest, "pack");
   const prefix = join(dest, "prefix");
+  const bin = join(prefix, "node_modules", "@aisa-one", "cli", "dist", "index.js");
+  const metaPath = join(dest, "install-meta.json");
+  if (existsSync(metaPath) && existsSync(bin)) {
+    const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+    if (meta.sha === sha && existsSync(meta.tarball) && existsSync(meta.bin)) {
+      return meta;
+    }
+  }
   ensureDir(packDir);
   ensureDir(prefix);
   let packCwd = src;
@@ -151,10 +159,19 @@ function installFromSrc(src, dest, expectSha) {
   const tgzName = packLines[packLines.length - 1].trim();
   const tgz = join(packDir, tgzName);
   sh("npm", ["install", "--omit=dev", "--prefix", prefix, tgz], { stdio: "inherit" });
-  const bin = join(prefix, "node_modules", "@aisa-one", "cli", "dist", "index.js");
   if (!existsSync(bin)) throw new Error(`installed CLI missing: ${bin}`);
   const pkg = JSON.parse(readFileSync(join(prefix, "node_modules", "@aisa-one", "cli", "package.json"), "utf8"));
-  return { sha, dirty: Boolean(dirty), tarball: tgz, bin, version: pkg.version };
+  const meta = {
+    sha,
+    expect_sha: expectSha || sha,
+    dirty: Boolean(dirty),
+    tarball: tgz,
+    tarball_sha256: sha256(readFileSync(tgz)),
+    bin,
+    version: pkg.version,
+  };
+  writeFileSync(metaPath, `${JSON.stringify(meta, null, 2)}\n`);
+  return meta;
 }
 
 function spawnAsync(cmd, args, opts, timeoutMs) {
@@ -200,6 +217,14 @@ function parseJsonl(text) {
 function readJsonl(path) {
   if (!existsSync(path)) return [];
   return parseJsonl(readFileSync(path, "utf8"));
+}
+
+function piProcessEnv(overlay) {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) {
+    if (key.startsWith("AISA_")) delete env[key];
+  }
+  return Object.assign(env, overlay);
 }
 
 function cliEnv(home, stubUrl, apiKey) {
@@ -274,11 +299,7 @@ async function runOneCase({ spec, facts, bin, outRoot, suite, runIndex, hashes, 
     const piDir = isolatePiDir(caseDir);
     const prompt = spec.prompt;
     const systemPrompt = readFileSync(join(HERE, "system-prompt.txt"), "utf8");
-    const piEnv = {
-      HOME: join(caseDir, "pi-home"),
-      USER: "eval",
-      PATH: process.env.PATH,
-      LANG: process.env.LANG || "C.UTF-8",
+    const piEnv = piProcessEnv({
       PI_CODING_AGENT_DIR: piDir,
       PI_CODING_AGENT_SESSION_DIR: sessions,
       AISA_EVAL_BIN: bin,
@@ -286,9 +307,8 @@ async function runOneCase({ spec, facts, bin, outRoot, suite, runIndex, hashes, 
       AISA_EVAL_HOME: home,
       AISA_EVAL_STUB: stub.url,
       AISA_EVAL_MAX_CALLS: "12",
-    };
-    if (apiKey) piEnv.AISA_EVAL_KEY = apiKey;
-    ensureDir(piEnv.HOME);
+      ...(apiKey ? { AISA_EVAL_KEY: apiKey } : {}),
+    });
     const args = [
       "--print",
       "--mode",
@@ -383,7 +403,7 @@ async function selfCheck(bin, outRoot) {
       version.status === 0 &&
       help.status === 0 &&
       search.code === 0 &&
-      search.stdout.includes("eval_synth_company_profile");
+      search.stdout.includes(PROFILE);
     writeFileSync(
       join(outRoot, "self-check.json"),
       `${JSON.stringify(
@@ -499,6 +519,7 @@ async function main() {
     `- runtime: Pi ${piVer}`,
     `- requested: ${REQUESTED.provider} / ${REQUESTED.model} / thinking ${REQUESTED.thinking}`,
     `- source: ${source.sha} (${source.version}) dirty=${source.dirty}`,
+    `- tarball sha256: ${source.tarball_sha256 || "unrecorded"}`,
     `- hashes.bundle: ${hashes.bundle}`,
     `- task passes: ${summary.suite.task_passes}/${summary.suite.n}`,
     `- safety passes: ${summary.suite.safety_passes}/${summary.suite.n}`,

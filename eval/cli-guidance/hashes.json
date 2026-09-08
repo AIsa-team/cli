@@ -1,11 +1,11 @@
 {
   "algorithm": "sha256",
   "files": {
-    "cases.json": "6e29b7f81a94bde0b8e2991616d0ba0869f12d6bec96ddd4aac79e2926bdee85",
-    "system-prompt.txt": "82af84366d1fe1607e4b6555ed7a78b88f5fd20a41f52c90a661c41806384c75",
-    "grade.mjs": "06922ed5db20a5041d5c9161ef27eb0471074663643485c6ab67fbfc4c80b8f4",
-    "stub.mjs": "f2c0dc09ce50048fe985225918a5bc401774b1680c14d061a253e56c5295c6e5",
+    "cases.json": "a1ccfcc5ac87bd9079284b94dac2ba8d062190c6543a668d0860fc9c1f781185",
+    "system-prompt.txt": "c2e206b698841e1c82d48c9016c4d9d9245315d267934c5f865ab3fc3581ddec",
+    "grade.mjs": "a550793d97e903bbf2784b173895e5c5f839812202c9f7f511d8858e28805c48",
+    "stub.mjs": "95c02d4c8cc33da3d8a8c502c7ce065b6a48f668326a2bf4c1efeb3831f634a0",
     "extension.ts": "09cdd7e1deabc5370376b7c2c46c857050709c5aaeda2dc8376011c55666e6c9"
   },
-  "bundle": "f4047442788aa9ec56fa0927238d5b7345afae603f265b2ce4b0ac00601f9141"
+  "bundle": "dbad73cef04b55b290ccba7da0cc46addaa15be2eb8cb109384db7ff148bcb33"
 }

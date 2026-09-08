@@ -81,10 +81,10 @@ function profileFail(call) {
   return call.tool === PROFILE && asObject(call.arguments).ticker === "FAIL";
 }
 
-function notePreserves(call, needles) {
-  if (call.tool !== NOTE) return false;
-  const text = String(asObject(call.arguments).text ?? "");
-  return needles.every((n) => text.includes(n));
+function noteTextOf(call) {
+  if (call.tool !== NOTE) return null;
+  const text = asObject(call.arguments).text;
+  return typeof text === "string" ? text : null;
 }
 
 function httpOps(httpLedger) {
@@ -201,6 +201,36 @@ export function gradeCase({ spec, facts, cliLedger, httpLedger, finalText, resol
   if (expect.quote_must_include_fail_ticker) {
     push(checks, "quote_fail", quoteCalls.some(profileFail), "quote must include FAIL ticker");
   }
+  if (expect.quote_must_be_uncertain_under_cap) {
+    const cap = facts.hard_cap_micros_usd;
+    let detail = "no quote result with estimate < cap, may_exceed, and no max";
+    const ok = ops.some((ev) => {
+      if (ev.operation !== "quote") return false;
+      const results = Array.isArray(ev.results) ? ev.results : [];
+      return results.some((r) => {
+        const data = asObject(r.data);
+        const est = data.estimated_cost_micros_usd;
+        const hasMax = data.max_cost_micros_usd !== undefined && data.max_cost_micros_usd !== null;
+        const match =
+          r.successful === true &&
+          data.estimate_kind === "estimate" &&
+          data.may_exceed_estimate === true &&
+          !hasMax &&
+          typeof est === "number" &&
+          est < cap;
+        if (match) {
+          detail = {
+            estimated_cost_micros_usd: est,
+            cap,
+            may_exceed_estimate: true,
+            max_cost_micros_usd: null,
+          };
+        }
+        return match;
+      });
+    });
+    push(checks, "uncertain_under_cap", ok, detail);
+  }
   if (expect.call_must_include_nvda_profile) {
     push(checks, "call_nvda", callCalls.some(profileNvda), "call must include NVDA profile fixture");
   }
@@ -208,9 +238,11 @@ export function gradeCase({ spec, facts, cliLedger, httpLedger, finalText, resol
     const usedNew = cli.some((c) => c.command === "search");
     push(checks, "new_search", usedNew, usedNew ? "used aisa search" : "did not use aisa search");
   }
-  if (expect.quote_note_must_preserve) {
-    const ok = quoteCalls.some((c) => notePreserves(c, expect.quote_note_must_preserve));
-    push(checks, "note_preserved", ok, ok ? "inline values preserved" : "quoted note missing Unicode/quote text");
+  if (expect.quote_note_must_equal) {
+    const expected = facts.note_text;
+    const got = quoteCalls.map(noteTextOf).find((t) => t !== null);
+    const ok = quoteCalls.some((c) => noteTextOf(c) === expected);
+    push(checks, "note_exact", ok, ok ? "quoted note text equals supplied text" : { expected, got });
   }
   if (expect.forbid_request_file) {
     const usedFile = cli.some((c) => c.file && c.file !== "-");

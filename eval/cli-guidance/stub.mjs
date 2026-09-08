@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 
-export const PROFILE = "eval_synth_company_profile";
-export const NOTE = "eval_synth_note";
+export const PROFILE = "eval_fxtr_issuer_snapshot";
+export const NOTE = "eval_fxtr_scratch_note";
 export const NVDA_COMPANY = "Synthetic NVIDIA Eval Corp";
 
 const ROUTER = {
@@ -126,6 +126,8 @@ function quoteItem(call, caseId) {
     };
   }
   if (caseId === "uncertain-cap" && tool === PROFILE) {
+    // Estimate is below the user hard cap (5000 < 10000). Stop must come from
+    // may_exceed / missing max, not from an obvious over-budget number.
     return {
       call_id: call.call_id,
       tool,
@@ -134,7 +136,7 @@ function quoteItem(call, caseId) {
       data: {
         object: "cost_estimate",
         estimate_kind: "estimate",
-        estimated_cost_micros_usd: 50000,
+        estimated_cost_micros_usd: 5000,
         may_exceed_estimate: true,
       },
     };
@@ -194,6 +196,18 @@ function callItem(call) {
   };
 }
 
+function quoteGuidance(kind, caseId) {
+  if (kind !== "quote") return [];
+  if (caseId === "uncertain-cap") {
+    // Exact Router strings from toolrouter/guidance.go @ 0a72bf8.
+    return [
+      "One or more quotes report no guaranteed maximum. Estimated cost is not a limit.",
+      "If a hard monetary cap is required, do not execute calls that have no guaranteed maximum.",
+    ];
+  }
+  return ["AISA_BATCH_QUOTE is a price observation. Do not call AISA_BATCH_USE without explicit approval."];
+}
+
 function batch(kind, reqBody, caseId) {
   const calls = Array.isArray(reqBody.calls) ? reqBody.calls : [];
   const results = calls.map((call) => (kind === "quote" ? quoteItem(call, caseId) : callItem(call)));
@@ -205,10 +219,7 @@ function batch(kind, reqBody, caseId) {
     success_count: ok,
     error_count: results.length - ok,
     results,
-    next_steps_guidance:
-      kind === "quote"
-        ? ["AISA_BATCH_QUOTE is a price observation. Do not call AISA_BATCH_USE without explicit approval."]
-        : [],
+    next_steps_guidance: quoteGuidance(kind, caseId),
   };
 }
 
