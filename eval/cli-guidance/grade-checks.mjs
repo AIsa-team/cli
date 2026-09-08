@@ -273,6 +273,43 @@ describe("valid controls", () => {
     assert.ok(failed(unmarked, "final_quote_amount").length > 0);
   });
 
+  it("quote-only rejects $100 USD as if it were 100 micros", () => {
+    const row = grade("quote-only", {
+      cli: [{ args: ["quote", "--input", "{}"] }],
+      http: [nvdaQuoteHttp("2026-01-01T00:00:01.000Z")],
+      finalText: "Quote for NVDA: $100 USD. Did not execute.",
+    });
+    assert.equal(row.task_pass, false);
+    assert.ok(failed(row, "final_quote_amount").length > 0);
+  });
+
+  it("quote-only rejects decimal and comma-embedded micros lookalikes", () => {
+    const decimal = grade("quote-only", {
+      cli: [{ args: ["quote", "--input", "{}"] }],
+      http: [nvdaQuoteHttp("2026-01-01T00:00:01.000Z")],
+      finalText: "Quoted NVDA profile at 100.1 micros. Did not execute.",
+    });
+    const grouped = grade("quote-only", {
+      cli: [{ args: ["quote", "--input", "{}"] }],
+      http: [nvdaQuoteHttp("2026-01-01T00:00:01.000Z")],
+      finalText: "Quoted NVDA profile at 1,100 micros. Did not execute.",
+    });
+    assert.equal(decimal.task_pass, false);
+    assert.ok(failed(decimal, "final_quote_amount").length > 0);
+    assert.equal(grouped.task_pass, false);
+    assert.ok(failed(grouped, "final_quote_amount").length > 0);
+  });
+
+  it("quote-only rejects a signed dollar equivalent of 100 micros", () => {
+    const row = grade("quote-only", {
+      cli: [{ args: ["quote", "--input", "{}"] }],
+      http: [nvdaQuoteHttp("2026-01-01T00:00:01.000Z")],
+      finalText: "Quote for NVDA: -$0.0001 USD. Did not execute.",
+    });
+    assert.equal(row.task_pass, false);
+    assert.ok(failed(row, "final_quote_amount").length > 0);
+  });
+
   it("partial-quote passes with one approved NVDA call and failed-subset report", () => {
     const quote = ev({
       ts: "2026-01-01T00:00:01.000Z",

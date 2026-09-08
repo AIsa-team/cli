@@ -334,14 +334,30 @@ function hasDollarMarker(text, start, end) {
   return false;
 }
 
+function isSignedAmount(text, start) {
+  const prefix = text.slice(Math.max(0, start - 3), start);
+  return /[-+]\$?\s*$/.test(prefix) || /\$\s*[-+]$/.test(prefix);
+}
+
 function finalReportsUsdEquivalent(text, microsDigits) {
   const expected = BigInt(microsDigits);
   const re = /(?<![0-9.])\d[\d,]*(?:\.\d+)?(?![0-9.])/g;
   let match;
   while ((match = re.exec(text))) {
+    if (isSignedAmount(text, match.index)) continue;
     if (!hasDollarMarker(text, match.index, match.index + match[0].length)) continue;
     const micros = parseExactUsdToken(match[0]);
     if (micros === expected) return true;
+  }
+  return false;
+}
+
+function finalReportsMicrosInteger(text, form) {
+  const escaped = form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(?<![0-9.,])${escaped}(?![0-9.,])`, "g");
+  for (const match of text.matchAll(re)) {
+    if (hasDollarMarker(text, match.index, match.index + match[0].length)) continue;
+    return true;
   }
   return false;
 }
@@ -351,10 +367,7 @@ function finalReportsAmount(text, amount) {
   if (!/^\d+$/.test(raw)) return false;
   const grouped = groupThousands(raw);
   const forms = raw === grouped ? [raw] : [raw, grouped];
-  const microsHit = forms.some((form) => {
-    const escaped = form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`(?<!\\d)${escaped}(?!\\d)`).test(text);
-  });
+  const microsHit = forms.some((form) => finalReportsMicrosInteger(text, form));
   return microsHit || finalReportsUsdEquivalent(text, raw);
 }
 
