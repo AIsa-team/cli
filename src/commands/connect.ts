@@ -2871,7 +2871,12 @@ export async function connectAction(options: {
           // away to the authorization rarely come back to the first tab.
           const doneUrl = `http://127.0.0.1:${port}/done?token=${token}`;
           state.doneUrl = doneUrl;
-          log.line("info", "Finishing up on the page…", "waiting for its checklist to settle");
+          // Printed before the wait, so it has to be true before the wait.
+          // "Finishing up…" with a tick would be a receipt for something that
+          // has not happened yet; what *has* happened is everything on this
+          // machine — runPlan has returned and every file is written. The
+          // only thing outstanding is an animation in a browser.
+          log.line("ok", "Everything on this machine is done", "waiting for the page to catch up");
           // Only a page that ran the apply itself has a checklist to finish.
           // Waiting on one that never started meant the terminal sat here for
           // the full ninety seconds after everything was already done.

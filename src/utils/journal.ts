@@ -20,25 +20,42 @@ const KEEP_LOGS = 20;
 
 export type Mark = "step" | "ok" | "warn" | "fail" | "info" | "write" | "cmd" | "choice";
 
-const MARKS: Record<Mark, { icon: string; paint: (s: string) => string }> = {
-  step: { icon: "▸", paint: (s) => chalk.bold(s) },
-  ok: { icon: "✅", paint: (s) => s },
-  warn: { icon: "⚠️ ", paint: (s) => chalk.yellow(s) },
-  fail: { icon: "❌", paint: (s) => chalk.red(s) },
-  info: { icon: "ℹ️ ", paint: (s) => s },
-  // Not an emoji. This mark is used once, in "What changed on this machine",
-  // where every line already carries its own arrow — "2 MCP servers →
-  // ~/.codex/config.toml". A notepad glyph beside that says nothing the
-  // heading has not said, and it is the loudest thing in a section whose
-  // whole job is to be scanned. The turned arrow reads as "and it landed
-  // here", and is a different shape from the → inside the line, so the two
-  // do not have to be told apart.
-  //
-  // Trailing space because it is one column wide where ✅ is two: without it
-  // this section's text starts a column left of every other section's.
-  write: { icon: "↳ ", paint: (s) => s },
+/**
+ * One column of structure on the left, one glyph of outcome on the right.
+ *
+ * Every reporting line used to open with its own status emoji — ✅ ⚠️ ❌ ℹ️ —
+ * four different shapes in the first column, which is the column the eye uses
+ * to find the shape of the section. The result was that the *structure* was
+ * unreadable: you could not see at a glance that five lines are one list,
+ * because no two of them started the same way.
+ *
+ * So the left column says "here is a line" and nothing else, and the outcome
+ * moves to the end where it belongs — you read what happened, then whether it
+ * worked. Lines with no outcome to report simply end.
+ *
+ * A plain bullet, the same one "What you chose" already used. An arrow was
+ * tried here first and read as clutter: it points, and there is nothing for
+ * it to point at when every line in the log starts with one.
+ *
+ * `step` keeps its own mark: a heading is not a result, and giving it the
+ * same opener would say it was.
+ *
+ * Every icon is padded to two columns. ✅ was two wide and ▸ was one, so the
+ * text in a section of headings started one column left of the text in a
+ * section of results — a misalignment nobody could name but everybody saw.
+ */
+const MARKS: Record<Mark, { icon: string; paint: (s: string) => string; tail?: string; tailPlain?: string }> = {
+  step: { icon: "▸ ", paint: (s) => chalk.bold(s) },
+  ok: { icon: "• ", paint: (s) => s, tail: chalk.green("✓"), tailPlain: "✓" },
+  warn: { icon: "• ", paint: (s) => chalk.yellow(s), tail: chalk.yellow("⚠"), tailPlain: "⚠" },
+  fail: { icon: "• ", paint: (s) => chalk.red(s), tail: chalk.red("✗"), tailPlain: "✗" },
+  info: { icon: "• ", paint: (s) => s },
+  // No tail: the whole "What changed on this machine" section is things that
+  // happened, and a tick on every line of it would say once per line what the
+  // heading already said.
+  write: { icon: "• ", paint: (s) => s },
   cmd: { icon: "⌨️ ", paint: (s) => s },
-  choice: { icon: "•", paint: (s) => s },
+  choice: { icon: "• ", paint: (s) => s },
 };
 
 export class Journal {
@@ -86,10 +103,10 @@ export class Journal {
 
   line(mark: Mark, text: string, detail?: string): void {
     const m = MARKS[mark];
-    const plain = detail ? `${text} — ${detail}` : text;
+    const plain = (detail ? `${text} — ${detail}` : text) + (m.tailPlain ? ` ${m.tailPlain}` : "");
     this.emit(
       m.icon,
-      `${m.icon} ${m.paint(text)}${detail ? chalk.gray(` — ${detail}`) : ""}`,
+      `${m.icon} ${m.paint(text)}${detail ? chalk.gray(` — ${detail}`) : ""}${m.tail ? ` ${m.tail}` : ""}`,
       `${m.icon} ${plain}`
     );
   }
@@ -142,9 +159,16 @@ export class Journal {
     this.emit("", "", "");
   }
 
-  /** Log-only: detail worth having in a bug report, noise in a terminal. */
+  /**
+   * Log-only: detail worth having in a bug report, noise in a terminal.
+   *
+   * Indented past the line above rather than level with it. At three spaces
+   * it started in the same column as its parent's text, which reads as the
+   * next item in a list rather than as detail belonging to the one before —
+   * and once it is properly indented the bullet has nothing left to do.
+   */
   record(text: string): void {
-    this.write(`   · ${text}`);
+    this.write(`      ${text}`);
   }
 
   private emit(_icon: string, pretty: string, plain: string): void {
