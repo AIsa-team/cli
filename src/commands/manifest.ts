@@ -108,7 +108,6 @@ export function buildManifest(program: Command, prefix = ""): ManifestCommand {
   const deprecated = deprecationFor(relative);
   const mcp = mcpForCommand(relative);
   const contract = routerContractFor(relative);
-  const isRoot = !prefix && program.name() === "aisa";
   return {
     path,
     description: program.description(),
@@ -137,7 +136,6 @@ export function buildManifest(program: Command, prefix = ""): ManifestCommand {
             : {}),
         }
       : {}),
-    ...(isRoot ? { router: routerRootContract() } : {}),
   };
 }
 

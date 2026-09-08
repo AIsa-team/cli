@@ -266,7 +266,6 @@ export function callHelpAfter(): string {
 }
 
 export function rootHelpAfter(): string {
-  const root = routerRootContract();
   return `
 Examples (POSIX sh; single-quoted --input):
   $ aisa connect                      wire your coding agent to AIsa (start here)
@@ -278,11 +277,8 @@ Examples (POSIX sh; single-quoted --input):
 
 Router: ${MCP_CLI_MAP.search.identifier}→search, ${MCP_CLI_MAP.schema.identifier}→schema, ${MCP_CLI_MAP.quote.identifier}→quote, ${MCP_CLI_MAP.call.identifier}→call.
 --json keeps MCP identifiers. Human output maps those four names to CLI commands.
-${root.enforced.join("\n")}
-${root.safety.join("\n")}
-${INLINE}
-${EXITS}
-Command --help has file/stdin examples. aisa manifest includes the MCP mapping and safety fields.
+${FLOW}
+Use aisa <command> --help or aisa manifest <command> for complete JSON/file/stdin examples, shared API-key sources, exit codes, and cost constraints.
 
 Deprecated (stdout unchanged; not drop-in replacements; removal announced later):
   $ aisa api search "insider trades"  old catalog keyword search; contract differs from aisa search
