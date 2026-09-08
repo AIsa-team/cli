@@ -8,7 +8,8 @@ that commit is merged and reviewed. A push to `main` runs CI only;
 
 | Item | Value |
 | --- | --- |
-| Version | `0.4.0` |
+| Version | `0.4.0` (unpublished candidate; recheck registry before tagging) |
+| Command surface | 22 root help entries including implicit `help`; `api` is `list`/`show` only |
 | Registry latest (recheck before tagging) | `0.3.0` on `https://registry.npmjs.org` |
 | Default Router origin | `https://tools.aisa.one` |
 | LLM / catalog host | `https://api.aisa.one` |

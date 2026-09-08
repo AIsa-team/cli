@@ -11,9 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking
 
-- **`aisa search` is no longer an alias for `api search`.** It now calls the
-  Tool Router (`POST /v1/tool-router/aisa-search-tool`) and prints Router
-  results. The old catalog keyword search remains as `aisa api search`.
+- **`aisa search` is no longer an alias for catalog keyword search.** It
+  calls the Tool Router (`POST /v1/tool-router/aisa-search-tool`) and prints
+  Router results.
+- **Domain shortcuts and raw execution are removed.** These names are
+  unknown commands — not aliases and not auto-forwarded to `aisa call`:
+  `web-search`, `scholar`, `stock`, `crypto`, `screener`, `tweet`, `twitter`
+  (all children), `video` (all children), `run`, top-level `code`,
+  `api search`, and `api code`. Root help is 22 entries including implicit
+  `help` (21 explicit commands).
+- **`aisa api list` and `aisa api show` stay** as the supported read-only
+  provider/endpoint catalog. They are not deprecated and are not a
+  substitute for `schema` / `quote`. Catalog paths and prices are browsing
+  metadata. `api show` is not equivalent to `aisa schema`.
 
 ### Added
 
@@ -48,23 +58,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Surrounding policy text is unchanged. `--json` still prints the unmodified
   application body, including MCP identifiers.
 - Root and Router command help include complete `--input` JSON examples
-  (`-f` / `-f -` too), configured-key resolution shared with `run`
-  (`AISA_API_KEY`, then `~/.aisa/key`, then legacy login), billable/approval
-  limits, and exits `0`/`2`/`1`/`3`. Manifest nodes for the four commands
-  include `mcp`, `auth`, `safety`, `exits`, and parseable `examples`; the
-  root node includes `router`. Shell `--input` examples use POSIX single
-  quotes. Help separates enforced key/input checks from caller instructions;
-  the CLI does not reject an unquoted call. Router `mcp` / `auth` / `exits` /
-  `examples` attach only to top-level `search` / `schema` / `quote` / `call`,
-  not nested `api search` / `twitter search` / `skills search`.
-
-### Deprecated
-
-- **`aisa api search`, `aisa api show`, and `aisa run`** keep their previous
-  behavior, stdout, and exit semantics. Help, one stderr warning, and
-  manifest `deprecated` / `replacement` / `migration` fields mark them as
-  not drop-in replacements. `api list`, `api code`, and specialized commands
-  are unchanged. Removal will be a separately announced breaking release.
+  (`-f` / `-f -` too), configured-key resolution (`AISA_API_KEY`, then
+  `~/.aisa/key`, then legacy login), billable/approval limits, and exits
+  `0`/`2`/`1`/`3`. Manifest nodes for the four commands include `mcp`,
+  `auth`, `safety`, `exits`, and parseable `examples`; the root node
+  includes `router`. Shell `--input` examples use POSIX single quotes. Help
+  separates enforced key/input checks from caller instructions; the CLI does
+  not reject an unquoted call. Router `mcp` / `auth` / `exits` / `examples`
+  attach only to top-level `search` / `schema` / `quote` / `call`, not
+  nested `skills search`.
+- Bundled `aisa skills init` templates may keep domain labels (`search`,
+  `finance`, `twitter`, `video`). Runnable steps use `search` / `schema` /
+  `quote` / `call` and optional `api list` / `api show`. They do not invent
+  tool names or treat Router as covering every removed domain function. The
+  `llm` template stays on `chat` / `models`.
 
 ### Added
 

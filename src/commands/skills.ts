@@ -19,6 +19,7 @@ import {
 
 // --- Skill Templates (for init) ---
 
+// Domain labels may stay; runnable steps use retained commands only.
 const TEMPLATES: Record<string, string> = {
   default: `---
 name: my-skill
@@ -37,26 +38,32 @@ Describe how an AI agent should use this skill.
 export AISA_API_KEY=sk-your-key
 \`\`\`
 
-## Usage
+Same key as \`aisa login\`: \`AISA_API_KEY\`, then \`~/.aisa/key\`, then legacy login.
 
-Published Router tools (same \`AISA_API_KEY\` as \`aisa login\` / \`aisa run\`):
+## Published tools
+
+Discover → schema when needed → quote → authorized call. Do not invent tool names.
+\`get_financial_company_facts\` is a published tool whose schema includes \`ticker\`.
+Quote is not authorization. \`aisa call\` is billable.
 
 \`\`\`bash
 aisa search --input '{"query":"company facts"}' --json
 aisa schema --input '{"tools":["get_financial_company_facts"]}' --json
 aisa quote --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
 aisa call --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
-# or the same JSON from a file / stdin:
 aisa quote -f request.json --json
 aisa call -f - --json < request.json
 \`\`\`
 
-Quote is not authorization. \`aisa call\` is billable.
+## Provider catalog
 
-Raw provider/LLM routing is deprecated for published tools and is not a drop-in for \`aisa call\`:
+Read-only browse. Paths and prices are metadata, not a substitute for schema or quote.
 
 \`\`\`bash
-aisa run <slug> <path> -q "param=value"
+aisa api list
+aisa api list --category finance
+aisa api show financial
+aisa api show financial /news
 \`\`\`
 `,
 
@@ -99,14 +106,16 @@ aisa models --provider anthropic
 
   search: `---
 name: web-search
-description: "Search the web, YouTube, and academic papers via AIsa APIs."
+description: "Discover published AIsa tools for web and research queries, then schema/quote/call."
 homepage: https://aisa.one
 metadata: {"aisa":{"emoji":"🔍","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Web Search Skill
 
-Search the web, YouTube, and academic papers through AIsa's unified search APIs.
+Discover published Router tools for web or research questions. Use a tool name
+exactly as search returned it. Do not invent names. Router does not guarantee
+every former search-provider function.
 
 ## Authentication
 
@@ -114,35 +123,40 @@ Search the web, YouTube, and academic papers through AIsa's unified search APIs.
 export AISA_API_KEY=sk-your-key
 \`\`\`
 
-## Smart Search
+## Discover, inspect, quote, then call
 
 \`\`\`bash
-aisa web-search "latest AI research" --type tavily
+aisa search "web search" --json
+aisa search "academic papers" --json
+aisa schema --input '{"tools":["<exact tool from search>"]}' --json
+aisa quote --input '{"calls":[{"call_id":"c1","tool":"<exact tool from search>","arguments":{}}]}' --json
+aisa call --input '{"calls":[{"call_id":"c1","tool":"<exact tool from search>","arguments":{}}]}' --json
 \`\`\`
 
-## YouTube Search
+Fill arguments from schema. Quote is not authorization. \`aisa call\` is billable.
+
+Optional catalog browse (not a substitute for schema or quote):
 
 \`\`\`bash
-aisa web-search "machine learning tutorial" --type youtube
-\`\`\`
-
-## Scholar Search
-
-\`\`\`bash
-aisa scholar "transformer architecture"
+aisa api list --category search
+aisa api show <provider>
 \`\`\`
 `,
 
   finance: `---
 name: finance-analyst
-description: "Access stock prices, earnings, SEC filings, and financial data via AIsa."
+description: "Discover published AIsa finance tools, then schema/quote/call."
 homepage: https://aisa.one
 metadata: {"aisa":{"emoji":"📊","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Finance Analyst Skill
 
-Access real-time and historical financial data through AIsa's finance APIs.
+Discover published Router tools for financial questions. Do not invent tool
+names. Router does not guarantee every former stock, crypto, or screener
+shortcut.
+
+\`get_financial_company_facts\` is a published tool whose schema includes \`ticker\`.
 
 ## Authentication
 
@@ -150,32 +164,37 @@ Access real-time and historical financial data through AIsa's finance APIs.
 export AISA_API_KEY=sk-your-key
 \`\`\`
 
-## Stock Prices
+## Discover, inspect, quote, then call
 
 \`\`\`bash
-aisa stock AAPL
-aisa stock MSFT --field earnings
-aisa stock TSLA --field filings
+aisa search "company facts" --json
+aisa schema get_financial_company_facts --json
+aisa quote --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
+aisa call --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
 \`\`\`
 
-## Crypto Prices
+Quote is not authorization. \`aisa call\` is billable.
+
+Optional catalog browse (not a substitute for schema or quote):
 
 \`\`\`bash
-aisa crypto BTC
-aisa crypto ETH --period 30d
+aisa api list --category finance
+aisa api show financial
 \`\`\`
 `,
 
   twitter: `---
 name: twitter-manager
-description: "Search Twitter, get user profiles and trends via AIsa."
+description: "Discover published AIsa social tools, then schema/quote/call."
 homepage: https://aisa.one
 metadata: {"aisa":{"emoji":"🐦","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Twitter Manager Skill
 
-Interact with Twitter/X through AIsa's Twitter APIs.
+Discover published Router tools for social or Twitter/X questions. Use a tool
+name exactly as search returned it. Do not invent names. Router does not
+guarantee every former Twitter CLI function.
 
 ## Authentication
 
@@ -183,35 +202,37 @@ Interact with Twitter/X through AIsa's Twitter APIs.
 export AISA_API_KEY=sk-your-key
 \`\`\`
 
-## Search Tweets
+## Discover, inspect, quote, then call
 
 \`\`\`bash
-aisa twitter search "AI agents" --limit 20
+aisa search "twitter" --json
+aisa schema --input '{"tools":["<exact tool from search>"]}' --json
+aisa quote --input '{"calls":[{"call_id":"c1","tool":"<exact tool from search>","arguments":{}}]}' --json
+aisa call --input '{"calls":[{"call_id":"c1","tool":"<exact tool from search>","arguments":{}}]}' --json
 \`\`\`
 
-## Get User Profile
+Fill arguments from schema. Quote is not authorization. \`aisa call\` is billable.
+
+Optional catalog browse (not a substitute for schema or quote):
 
 \`\`\`bash
-aisa twitter user elonmusk
-\`\`\`
-
-## Trending Topics
-
-\`\`\`bash
-aisa twitter trends
+aisa api list --category social
+aisa api show <provider>
 \`\`\`
 `,
 
   video: `---
 name: video-generator
-description: "Generate videos from text prompts using AIsa's video synthesis API."
+description: "Discover published AIsa media tools, then schema/quote/call."
 homepage: https://aisa.one
 metadata: {"aisa":{"emoji":"🎬","requires":{"bins":["curl"],"env":["AISA_API_KEY"]},"primaryEnv":"AISA_API_KEY","compatibility":["openclaw","claude-code","hermes"]}}
 ---
 
 # Video Generator Skill
 
-Generate videos from text prompts using AIsa's AI video generation APIs.
+Discover published Router tools for media or video questions. Use a tool name
+exactly as search returned it. Do not invent names. Router does not guarantee
+former video-generation CLI functions.
 
 ## Authentication
 
@@ -219,22 +240,22 @@ Generate videos from text prompts using AIsa's AI video generation APIs.
 export AISA_API_KEY=sk-your-key
 \`\`\`
 
-## Create Video
+## Discover, inspect, quote, then call
 
 \`\`\`bash
-aisa video create "A cat playing piano in a jazz bar"
+aisa search "video generation" --json
+aisa schema --input '{"tools":["<exact tool from search>"]}' --json
+aisa quote --input '{"calls":[{"call_id":"c1","tool":"<exact tool from search>","arguments":{}}]}' --json
+aisa call --input '{"calls":[{"call_id":"c1","tool":"<exact tool from search>","arguments":{}}]}' --json
 \`\`\`
 
-## Create and Wait for Result
+Fill arguments from schema. Quote is not authorization. \`aisa call\` is billable.
+
+Optional catalog browse (not a substitute for schema or quote):
 
 \`\`\`bash
-aisa video create "Sunset over mountains timelapse" --wait
-\`\`\`
-
-## Check Task Status
-
-\`\`\`bash
-aisa video status <task-id>
+aisa api list
+aisa api show <provider>
 \`\`\`
 `,
 };
