@@ -170,6 +170,32 @@ describe("compiled --help and manifest", () => {
     expect(find(tree, "aisa run")?.migration).toMatch(/Not a drop-in/);
   });
 
+  it("does not attach Router MCP metadata to nested search commands", async () => {
+    const home = isolatedHome();
+    const rootSearch = JSON.parse((await runCompiledCli(["manifest", "search"], { HOME: home })).stdout) as ManifestNode;
+    expect(rootSearch.path).toBe("aisa search");
+    expect(rootSearch.mcp?.identifier).toBe(MCP_CLI_MAP.search.identifier);
+    expect(rootSearch.auth).toBe("optional");
+    expect(rootSearch.exits?.["0"]).toBeDefined();
+    expect(rootSearch.examples?.length).toBeGreaterThan(0);
+
+    for (const args of [["api", "search"], ["twitter", "search"], ["skills", "search"]]) {
+      const nested = JSON.parse((await runCompiledCli(["manifest", ...args], { HOME: home })).stdout) as ManifestNode;
+      expect(nested.path, args.join(" ")).toBe(`aisa ${args.join(" ")}`);
+      expect(nested.mcp, args.join(" ")).toBeUndefined();
+      expect(nested.auth, args.join(" ")).toBeUndefined();
+      expect(nested.exits, args.join(" ")).toBeUndefined();
+      expect(nested.examples, args.join(" ")).toBeUndefined();
+      expect(nested.enforced, args.join(" ")).toBeUndefined();
+      expect(nested.flow, args.join(" ")).toBeUndefined();
+      expect(nested.safety, args.join(" ")).toBeUndefined();
+    }
+
+    const apiSearch = JSON.parse((await runCompiledCli(["manifest", "api", "search"], { HOME: home })).stdout) as ManifestNode;
+    expect(apiSearch.deprecated).toBe(true);
+    expect(apiSearch.mcp).toBeUndefined();
+  });
+
   it("accepts inline --input with apostrophe and Unicode without requiring a file", async () => {
     const home = isolatedHome();
     const ran = await runCompiledCli(

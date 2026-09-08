@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MCP_CLI_MAP, projectMcpIdentifiersToCli } from "../src/cli-guidance.js";
+import { MCP_CLI_MAP, mcpForCommand, projectMcpIdentifiersToCli } from "../src/cli-guidance.js";
 
 /**
  * Exact Router strings from internal/toolrouter/guidance.go (0a72bf8).
@@ -60,6 +60,19 @@ function expectMapped(input: string, required: string[], mappedTo: string[]): vo
     }
   }
 }
+
+describe("mcpForCommand path scoping", () => {
+  it("matches only top-level Router paths, not nested search leaves", () => {
+    expect(mcpForCommand("search")?.identifier).toBe("AISA_SEARCH_TOOL");
+    expect(mcpForCommand("schema")?.identifier).toBe("AISA_BATCH_GET_SCHEMA");
+    expect(mcpForCommand("quote")?.identifier).toBe("AISA_BATCH_QUOTE");
+    expect(mcpForCommand("call")?.identifier).toBe("AISA_BATCH_USE");
+    expect(mcpForCommand("api search")).toBeUndefined();
+    expect(mcpForCommand("twitter search")).toBeUndefined();
+    expect(mcpForCommand("skills search")).toBeUndefined();
+    expect(mcpForCommand("aisa")).toBeUndefined();
+  });
+});
 
 describe("projectMcpIdentifiersToCli", () => {
   it("maps missing-schema search guidance and keeps do-not-guess / schema-false conditions", () => {

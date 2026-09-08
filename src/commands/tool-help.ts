@@ -189,9 +189,15 @@ export function routerRootContract(): RouterRootContract {
   };
 }
 
-export function routerContractFor(name: string): RouterCommandContract | undefined {
-  if (name === "search" || name === "schema" || name === "quote" || name === "call") {
-    return routerContract(name);
+/** Path after `aisa`. Only the four top-level Router commands. */
+export function routerContractFor(commandPath: string): RouterCommandContract | undefined {
+  if (
+    commandPath === "search" ||
+    commandPath === "schema" ||
+    commandPath === "quote" ||
+    commandPath === "call"
+  ) {
+    return routerContract(commandPath);
   }
   return undefined;
 }

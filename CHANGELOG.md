@@ -54,7 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   include `mcp`, `auth`, `safety`, `exits`, and parseable `examples`; the
   root node includes `router`. Shell `--input` examples use POSIX single
   quotes. Help separates enforced key/input checks from caller instructions;
-  the CLI does not reject an unquoted call.
+  the CLI does not reject an unquoted call. Router `mcp` / `auth` / `exits` /
+  `examples` attach only to top-level `search` / `schema` / `quote` / `call`,
+  not nested `api search` / `twitter search` / `skills search`.
 
 ### Deprecated
 

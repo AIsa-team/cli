@@ -104,9 +104,10 @@ function visible(cmd: Command): Command[] {
 export function buildManifest(program: Command, prefix = ""): ManifestCommand {
   const path = prefix ? `${prefix} ${program.name()}` : program.name();
   const args = (program as unknown as { registeredArguments?: Argument[] }).registeredArguments ?? [];
-  const deprecated = deprecationFor(path.replace(/^aisa\s+/, ""));
-  const mcp = mcpForCommand(program.name());
-  const contract = routerContractFor(program.name());
+  const relative = path.replace(/^aisa\s+/, "");
+  const deprecated = deprecationFor(relative);
+  const mcp = mcpForCommand(relative);
+  const contract = routerContractFor(relative);
   const isRoot = !prefix && program.name() === "aisa";
   return {
     path,

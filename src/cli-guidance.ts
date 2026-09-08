@@ -38,9 +38,15 @@ const REPLACEMENTS = Object.values(MCP_CLI_MAP)
   }))
   .sort((a, b) => b.identifier.length - a.identifier.length);
 
-export function mcpForCommand(name: string): (typeof MCP_CLI_MAP)[RouterOperation] | undefined {
-  if (name === "search" || name === "schema" || name === "quote" || name === "call") {
-    return MCP_CLI_MAP[name];
+/** Path after `aisa`, e.g. `search` — not a nested leaf like `api search`. */
+export function mcpForCommand(commandPath: string): (typeof MCP_CLI_MAP)[RouterOperation] | undefined {
+  if (
+    commandPath === "search" ||
+    commandPath === "schema" ||
+    commandPath === "quote" ||
+    commandPath === "call"
+  ) {
+    return MCP_CLI_MAP[commandPath];
   }
   return undefined;
 }

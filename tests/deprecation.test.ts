@@ -56,6 +56,10 @@ describe("deprecation metadata", () => {
     expect(search?.deprecated).toBe(true);
     expect(search?.replacement).toBe("search");
     expect(search?.migration).toMatch(/Router/);
+    expect(search?.mcp).toBeUndefined();
+    expect(search?.auth).toBeUndefined();
+    expect(search?.exits).toBeUndefined();
+    expect(search?.examples).toBeUndefined();
 
     const show = find("aisa api show");
     expect(show?.deprecated).toBe(true);
