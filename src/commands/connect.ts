@@ -50,7 +50,7 @@ import { renderT2Page } from "./connect-t2.js";
 import { runTerminalFlow, flowClients } from "./connect-terminal.js";
 import { pick, type Choice } from "./prompt.js";
 import { handOverResults, closeStaleResults, SUPERSEDE_GRACE_MS } from "./serve-results.js";
-import { restoreTerminal } from "./prompt.js";
+import { restoreTerminal, handOffStdin } from "./prompt.js";
 import { printBanner } from "../utils/banner.js";
 import { verifyKey, type KeyVerdict } from "../utils/key-check.js";
 
@@ -232,6 +232,9 @@ function codexAdd(
     // of a column of • rows and ahead of the very line that summarises it.
     // Captured, it becomes what it is: detail belonging to that summary.
     const capture = Boolean(key) && Boolean(said);
+    // Inherited means it may prompt, which means it needs the keyboard to
+    // itself. See handOffStdin.
+    if (!capture) handOffStdin();
     const child = spawn("codex", args, capture ? { stdio: ["ignore", "pipe", "pipe"] } : { stdio: "inherit" });
     if (capture) {
       const take = (buf: Buffer) => {
@@ -264,6 +267,7 @@ function codexAdd(
  */
 function claudeCodeLogin(name: string): Promise<boolean> {
   return new Promise((resolve) => {
+    handOffStdin();
     const child = spawn("claude", ["mcp", "login", name], { stdio: "inherit" });
     const timer = setTimeout(() => {
       child.kill("SIGTERM");
@@ -2226,6 +2230,9 @@ async function offerLaunch(
   console.log(chalk.gray(`\nStarting ${picked.cmd}… exit it normally to come back here.\n`));
   const startedAt = Date.now();
   const code = await new Promise<number | null>((resolve) => {
+    // The agent owns the keyboard from here; this process must stop reading
+    // the same descriptor or the two of them share the user's keystrokes.
+    handOffStdin();
     const child = spawn(picked.cmd, [], { stdio: "inherit", cwd: process.cwd() });
     child.once("exit", (code) => resolve(code));
     child.once("error", () => resolve(null));

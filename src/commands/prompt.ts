@@ -74,6 +74,31 @@ export function restoreTerminal(): void {
 }
 
 /**
+ * Let a child process own the keyboard.
+ *
+ * leaveRaw resumes stdin, which is right when this process is about to read
+ * it again and wrong when something else is. A resumed stream with no `data`
+ * listener still pulls bytes off the file descriptor and drops them — so with
+ * stdio inherited, every keystroke was a race between this process and the
+ * agent it had just started. The user saw it as characters going missing and
+ * lines submitting themselves: enter is the keystroke where losing the race
+ * has consequences.
+ *
+ * Paused, this process reads nothing and the child gets all of it. Anything
+ * here that wants stdin back takes it — the pickers call enterRaw and the
+ * prompts build a fresh readline, and both resume.
+ */
+export function handOffStdin(): void {
+  leaveRaw();
+  drain();
+  try {
+    process.stdin.pause();
+  } catch {
+    /* not a stream we own; the child will manage */
+  }
+}
+
+/**
  * Throw away anything typed but not yet consumed.
  *
  * Switching between raw mode and readline leaves whatever was in flight for
