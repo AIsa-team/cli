@@ -47,9 +47,9 @@ When packing from this checkout, `package.json`, `package-lock.json`, `src/const
 - Tarball contains `package.json`, `dist/index.js`, `README.md`, and the `aisa` bin; excludes `src/` and `tests/`
 - `package.json` `license` is `MIT`. The tarball must contain the MIT `LICENSE`; when packing this checkout, the text must match the source file. A missing license is a failure.
 - Isolated `HOME` / `XDG_*` / `TMPDIR`; parent `AISA_*` is never forwarded
-- Installed `--version`, `--help`, and `manifest` (including deprecation / replacement / migration on `api search`, `api show`, and `run`)
+- Installed `--version`, `--help`, and `manifest` (22 root help entries including implicit `help`; `api` exposes `list` / `show` only; those two are not deprecated)
+- Removed names (`web-search`, `scholar`, `stock`, `crypto`, `screener`, `tweet`, `twitter`, `video`, `run`, `code`, `api search`, `api code`) are unknown and absent from help/manifest
 - Local usage errors (exit 2) and quote-without-key (exit 1, empty stdout, missing-key diagnostic) do not dispatch
-- Deprecated `aisa run` prints the stderr warning and stops at the local missing-key gate
 - Controlled loopback HTTP for installed `search` / `schema` / `quote` / `call`: `--input`, `-f FILE`, `-f -`, `--json` stdout is the unmodified application body. Only `AISA_ROUTER_BASE_URL` is set (no `AISA_ROUTER_URL` alias).
 - Partial schema → exit 3; quote keeps the `9007199254740993` token; quote does not follow a 307
 - Quote/call use only the fake key `local-smoke-key`
