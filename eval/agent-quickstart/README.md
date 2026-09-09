@@ -8,7 +8,9 @@ Required flags: `--docs` `--docs-sha` `--skill` `--skill-sha` `--install-meta` `
 
 `--install-meta` is the `install-meta.json` written by `eval/cli-guidance/run.mjs` archive/pack (sha, tarball SHA-256, installed bin). Do not pass a free `--cli-bin`.
 
-Both conditions get the same setup guide and CLI help. Skill **timing**:
+No-terminal setup source is the same for both arms: `read_guide` or runner-recorded initial Skill-body exposure. Scoring does not use the condition label.
+
+Skill **timing**:
 - reuse / no-terminal skill arm: append `SKILL.md` at process start (no-terminal cannot npx)
 - cold-start skill arm only: expose the Skill body after the canonical mock `npx_skills_add`
 - no-skill arm: never expose the body (install may still be recorded)

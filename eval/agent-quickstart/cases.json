@@ -68,6 +68,7 @@
       "start": { "cli_installed": false, "authenticated": false },
       "prompt": "I cannot run terminal or CLI commands in this client. Set up AIsa so I can use it here.",
       "expect": {
+        "must_have_setup_instructions": true,
         "must_mcp_connect": true,
         "mcp_url_must_be_unified": true,
         "mcp_auth_must_be_oauth": true,

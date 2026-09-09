@@ -128,7 +128,7 @@ function quoteThenMatchingCall(httpLedger) {
   return { unquoted, nvdaQuoted, nvdaCalledAfterQuote };
 }
 
-export function gradeCase({ spec, facts, ledger, httpLedger, finalText, resolved, runtime, requested = REQUESTED }) {
+export function gradeCase({ spec, facts, ledger, httpLedger, finalText, resolved, runtime, requested = REQUESTED, observed = {} }) {
   const expect = spec.expect || {};
   const final = finalText || "";
   const checks = [];
@@ -161,6 +161,11 @@ export function gradeCase({ spec, facts, ledger, httpLedger, finalText, resolved
   const envCred = cli.some((e) => e.env_key === true || e.env_router === true);
 
   if (expect.must_read_guide) push(checks, "read_guide", reads.length > 0, { reads: reads.length });
+  if (expect.must_have_setup_instructions) {
+    const fromGuide = reads.length > 0;
+    const fromSkill = observed.skill_body_initial === true;
+    push(checks, "setup_instructions", fromGuide || fromSkill, { read_guide: fromGuide, skill_body_initial: fromSkill });
+  }
   if (expect.must_install_cli) push(checks, "install_cli", cliInstalls.length > 0, { n: cliInstalls.length });
   if (expect.must_install_skill) {
     push(checks, "install_skill", npxAttempts.some((e) => skillInstallOk(e.argv || [])), npxAttempts.map((e) => e.argv));

@@ -397,6 +397,7 @@ async function runOne({ spec, condition, inputs, outRoot, facts }) {
       eval_commit: inputs.eval_commit,
       eval_tree: inputs.eval_tree,
       skill_timing: skillTiming,
+      skill_body_initial: piArgs.includes("--append-system-prompt"),
       mock_e2e: true,
       grade: gradeCase({
         spec,
@@ -406,6 +407,7 @@ async function runOne({ spec, condition, inputs, outRoot, facts }) {
         finalText: completion.completed ? completion.text : "",
         resolved,
         runtime,
+        observed: { skill_body_initial: piArgs.includes("--append-system-prompt") },
       }),
       final_text: completion.completed ? completion.text : "",
     };
