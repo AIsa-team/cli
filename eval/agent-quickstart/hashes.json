@@ -1,0 +1,13 @@
+{
+  "algorithm": "sha256",
+  "files": {
+    "cases.json": "7b58a564cf542638de538990656d44c2a213f5d542d53d8ebdd4e7804704157a",
+    "system-prompt.txt": "3829927d6ac54c8c607205c206b224f5d9c4e6bf75c0e9ad5bde6db4208b7995",
+    "grade.mjs": "be593328f1f3176311dbb36e3b5692875798eb4d9877237e93cb826763dfa959",
+    "grade-checks.mjs": "647e4e1d4ffd9e1f31bd9740d1e765caf997bacc8f054898f64e4b0334e34adc",
+    "extension.ts": "17bf4222d6d381af2c7d574adad032e81d8a0cbef15aea4927253b8a765c4e05",
+    "run.mjs": "c86661b127450d367a3876d4b8cc30c44dc4fd681f7dabb0149e0c87342e29e3"
+  },
+  "bundle": "81b0697849ac45e02b4648ef800e9d0ecb49120992f75f79527f679a6f746216",
+  "eval_commit": "f453d83afcf36bd0a2630dd3571010c88170ebcd"
+}

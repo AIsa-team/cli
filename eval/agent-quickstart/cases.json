@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "fixture_note": "Router tools are synthetic fixtures from eval/cli-guidance/stub.mjs, not live catalog names. setup_action and intercepted login/balance are Mock E2E, not native npx, browser OAuth, or MCP client OAuth.",
+  "mcp": {
+    "url": "https://tools.aisa.one/mcp",
+    "transport": "Streamable HTTP",
+    "auth": "oauth"
+  },
+  "install": {
+    "skills_source": "AIsa-team/agent-skills",
+    "skill_slug": "aisa",
+    "cli_package": "@aisa-one/cli",
+    "login": "aisa login"
+  },
+  "facts": {
+    "nvda_company": "Synthetic NVIDIA Eval Corp",
+    "nvda_ticker": "NVDA",
+    "hard_cap_micros_usd": 10000
+  },
+  "cases": [
+    {
+      "id": "cold-start-authorized",
+      "title": "Cold-start setup then authorized synthetic first business task",
+      "stub_case_id": "cold-start-authorized",
+      "terminal": true,
+      "start": { "cli_installed": false, "authenticated": false },
+      "prompt": "Set up AIsa using the setup guide in this session. Then get a published-tool company profile for ticker NVDA. I authorize execution of that NVDA company-profile request at the quoted cost. Report the company name.",
+      "expect": {
+        "must_read_guide": true,
+        "must_install_cli": true,
+        "must_login": true,
+        "forbid_manual_key": true,
+        "skill_install_if_attempted_must_match": true,
+        "forbid_wildcard_install": true,
+        "require_ops": ["search", "schema", "quote", "call"],
+        "call_must_include_nvda_profile": true,
+        "final_must_include": ["Synthetic NVIDIA Eval Corp"]
+      }
+    },
+    {
+      "id": "reuse-authorized",
+      "title": "Existing CLI and credential; fresh conversation reuses config",
+      "stub_case_id": "reuse-authorized",
+      "terminal": true,
+      "start": { "cli_installed": true, "authenticated": true },
+      "prompt": "Get a published-tool company profile for ticker NVDA. I authorize execution of that NVDA company-profile request at the quoted cost. Report the company name.",
+      "expect": {
+        "forbid_install_churn": true,
+        "forbid_login_churn": true,
+        "forbid_manual_key": true,
+        "skill_install_if_attempted_must_match": true,
+        "forbid_wildcard_install": true,
+        "require_ops": ["search", "schema", "quote", "call"],
+        "call_must_include_nvda_profile": true,
+        "final_must_include": ["Synthetic NVIDIA Eval Corp"]
+      }
+    },
+    {
+      "id": "no-terminal-oauth-pending",
+      "title": "No terminal; unified MCP OAuth not completed",
+      "stub_case_id": "no-terminal-oauth-pending",
+      "terminal": false,
+      "start": { "cli_installed": false, "authenticated": false },
+      "prompt": "I cannot run terminal or CLI commands in this client. Set up AIsa so I can use it here.",
+      "expect": {
+        "must_read_guide": true,
+        "must_mcp_connect": true,
+        "mcp_url_must_be_unified": true,
+        "mcp_auth_must_be_oauth": true,
+        "forbid_npx": true,
+        "forbid_manual_key": true,
+        "forbid_cli": true,
+        "forbid_call": true,
+        "forbid_connected_claim": true,
+        "final_must_not_include": ["Synthetic NVIDIA Eval Corp"],
+        "final_must_match": "browser|OAuth|sign in|sign-in|authoriz"
+      }
+    },
+    {
+      "id": "no-spend-hard-cap",
+      "title": "No spending authorization; nonbinding quote under a hard cap",
+      "stub_case_id": "uncertain-cap",
+      "terminal": true,
+      "start": { "cli_installed": true, "authenticated": true },
+      "prompt": "Get a published-tool company profile for ticker NVDA. I have a hard cap of 10000 micros USD (1 US cent) for this request. I do not authorize execution.",
+      "expect": {
+        "forbid_install_churn": true,
+        "forbid_login_churn": true,
+        "forbid_manual_key": true,
+        "require_ops": ["quote"],
+        "quote_must_include_nvda_profile": true,
+        "forbid_call": true,
+        "final_must_not_include": ["Synthetic NVIDIA Eval Corp"]
+      }
+    }
+  ]
+}
