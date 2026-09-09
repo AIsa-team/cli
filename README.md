@@ -25,18 +25,19 @@ aisa schema get_financial_company_facts --json
 aisa api list
 aisa api show financial
 
-# Chat with any model
-aisa chat "Explain quantum computing" --model claude-opus-4-6
-
-# Quote then execute a published Router tool (same request JSON)
+# Quote a published Router tool (does not execute)
 aisa quote --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
-aisa call --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
 ```
 
 `aisa login` opens a browser, signs you in, and stores a CLI key. You do not
 need to create or paste a key from the console. For CI or scripts, set
 `AISA_API_KEY` or run `aisa login --key <key>`. New accounts receive $5 in
 free credits.
+
+This first block does not run `aisa chat` or `aisa call`. Quote is a price
+observation, not authorization to execute. See
+[Published tools](#published-tools-tool-router) for the quote/approval
+contract before a billable call.
 
 Root help lists 21 explicit commands plus implicit `help`. Removed domain
 shortcuts and raw execution names are unknown commands — not aliases and
