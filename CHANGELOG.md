@@ -386,8 +386,8 @@ supports today; nothing here depends on a backend change.
   (`aisa login|logout|whoami`).
 
 [Unreleased]: https://github.com/AIsa-team/cli/compare/v0.5.0...HEAD
-[0.5.0]: https://github.com/AIsa-team/cli/compare/v0.4.0...v0.5.0
-[0.4.0]: https://github.com/AIsa-team/cli/compare/v0.3.0...v0.4.0
+[0.5.0]: https://github.com/AIsa-team/cli/compare/v0.3.0...v0.5.0
+[0.4.0]: https://github.com/AIsa-team/cli/compare/v0.3.0...b5c0b04b2a7a2cb9efcb568be5ee5440d7f7d94d
 [0.3.0]: https://github.com/AIsa-team/cli/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/AIsa-team/cli/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/AIsa-team/cli/compare/v0.2.2...v0.2.3
