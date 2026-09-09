@@ -17,11 +17,11 @@ node scripts/package-smoke.mjs
 Default path: `npm ci` if `node_modules` is missing; then `npm pack` (via `prepack` when that script exists, otherwise `npm run build` then pack); isolated `npm install --prefix`; then probes. Installed CLI probes use async `spawn` so the in-process loopback server can answer. Dependencies come from the npm registry. No live paid APIs.
 
 ```bash
-node scripts/package-smoke.mjs --tarball /path/to/aisa-one-cli-0.4.0.tgz
+node scripts/package-smoke.mjs --tarball /path/to/aisa-one-cli-0.5.0.tgz
 node scripts/package-smoke.mjs --output /tmp/cli-smoke-out
 node scripts/package-smoke.mjs --keep-output
 node scripts/package-smoke.mjs --live-discovery
-node scripts/package-smoke.mjs --tarball /tmp/aisa-cli-release-candidate-040/artifacts/aisa-one-cli-0.4.0.tgz --live-discovery
+node scripts/package-smoke.mjs --tarball /tmp/aisa-cli-release-candidate-050/artifacts/aisa-one-cli-0.5.0.tgz --live-discovery
 ```
 
 | Flag | Effect |
