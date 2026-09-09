@@ -8,9 +8,9 @@ that commit is merged and reviewed. A push to `main` runs CI only;
 
 | Item | Value |
 | --- | --- |
-| Version | `0.5.1` (unpublished candidate; recheck registry before tagging) |
+| Version | `0.5.1` (release target) |
 | Command surface | 22 root help entries including implicit `help`; `api` is `list`/`show` only |
-| Registry latest (recheck before tagging) | `0.5.0` on `https://registry.npmjs.org` |
+| Registry latest | `0.5.0` on `https://registry.npmjs.org` (baseline at this preparation; recheck before tagging) |
 | Default Router origin | `https://tools.aisa.one` |
 | LLM / catalog host | `https://api.aisa.one` |
 | Node | `engines` `>=18`. CI on Ubuntu: 18/20 legacy compatibility, 22/24 maintained, 26 current. Publish job uses Node 24 and npm `11.6.0`. |
@@ -37,15 +37,15 @@ Publisher:
 
 `v0.5.0` published via OIDC (GitHub Actions run `34305298596`). Do not
 add a stored npm token, disable 2FA, or change GitHub `id-token`
-permissions. Do not treat `0.5.1` as published until its own tag
-succeeds on the official registry.
+permissions. Claim a new release only after that tag's workflow and the
+official registry agree.
 
 ## Tag from reviewed main
 
 ```bash
 # Official registry only — do not use a mirror as the source of truth.
 npm view @aisa-one/cli version --registry https://registry.npmjs.org
-# expected while 0.5.1 is unpublished: 0.5.0
+# baseline at this preparation: 0.5.0 — recheck before tagging
 # 0.4.0 is the unpublished main baseline, not a registry release.
 
 git checkout main

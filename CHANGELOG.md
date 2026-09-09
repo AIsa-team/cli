@@ -7,11 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.5.1] — Unreleased
+## [0.5.1] — 2026-09-10
 
 Compatible patch on published `0.5.0`. Browser-login-first onboarding
 guidance and an opt-in Quickstart Skill evaluation. No new commands, auth
-mechanisms, or credential-precedence changes. Not tagged and not published.
+mechanisms, or credential-precedence changes.
 
 ### Changed
 
@@ -20,8 +20,8 @@ mechanisms, or credential-precedence changes. Not tagged and not published.
   `aisa login --key` remain for CI. Resolution order is unchanged:
   `AISA_API_KEY`, then `~/.aisa/key`, then legacy login.
 - Quick Start covers login, discovery, catalog browse, and quote. It does not
-  copy `aisa chat` or `aisa call`; paid execution stays behind the existing
-  quote/approval contract.
+  copy `aisa chat` or `aisa call`. Quote is a price observation; approval and
+  whether to execute remain caller-owned guidance, not an enforced CLI gate.
 
 ### Added
 
