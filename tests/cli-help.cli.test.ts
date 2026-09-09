@@ -89,8 +89,12 @@ describe("compiled --help and manifest", () => {
     expect(pages.root).toContain("aisa <command> --help or aisa manifest <command>");
     expect(pages.root).toContain(EXAMPLE_BATCH_JSON);
     expect(pages.root).toContain(EXAMPLE_PUBLISHED_TOOL);
-    expect(pages.root).toMatch(/not drop-in/);
-    expect(pages.root).toMatch(/api list[\s\S]*unchanged/);
+    expect(pages.root).toContain("aisa api list");
+    expect(pages.root).toContain("aisa api show");
+    expect(pages.root).toMatch(/not a substitute for schema or quote/);
+    expect(pages.root).not.toMatch(/\bdeprecated\b/i);
+    expect(pages.root).not.toMatch(/\baisa (run|code|web-search|scholar|stock|crypto|screener|tweet|twitter|video)\b/);
+    expect(pages.root).not.toMatch(/aisa api (search|code)\b/);
 
     expect(pages.search).toContain(EXAMPLE_SEARCH_JSON);
     expect(pages.search).toContain(EXAMPLE_SEARCH_LIMIT_JSON);
@@ -127,7 +131,7 @@ describe("compiled --help and manifest", () => {
     }
   });
 
-  it("manifest documents MCP mapping and only the three legacy deprecations", async () => {
+  it("manifest documents MCP mapping, remaining tree, and no deprecations", async () => {
     const home = isolatedHome();
     const rootManifest = await runCompiledCli(["manifest"], { HOME: home });
     expect(rootManifest.status).toBe(0);
@@ -162,13 +166,29 @@ describe("compiled --help and manifest", () => {
     const quoted = searchNode.examples?.find((ex) => JSON.stringify(ex.input).includes("O'Reilly"));
     expect(quoted?.input).toEqual(EXAMPLE_SEARCH_QUOTED);
 
+    expect(tree.subcommands?.map((node) => node.path.replace(/^aisa /, "")).sort()).toEqual(
+      [...REMAINING_ROOT_COMMANDS].sort()
+    );
     expect(find(tree, "aisa api list")?.deprecated).toBeUndefined();
-    expect(find(tree, "aisa api code")?.deprecated).toBeUndefined();
-    expect(find(tree, "aisa api search")?.deprecated).toBe(true);
-    expect(find(tree, "aisa api show")?.deprecated).toBe(true);
-    expect(find(tree, "aisa run")?.deprecated).toBe(true);
-    expect(find(tree, "aisa api search")?.migration).toMatch(/Not a drop-in/);
-    expect(find(tree, "aisa run")?.migration).toMatch(/Not a drop-in/);
+    expect(find(tree, "aisa api show")?.deprecated).toBeUndefined();
+    expect(find(tree, "aisa api show")).toBeDefined();
+    expect(find(tree, "aisa api list")).toBeDefined();
+    for (const path of [
+      "aisa api search",
+      "aisa api code",
+      "aisa run",
+      "aisa code",
+      "aisa web-search",
+      "aisa scholar",
+      "aisa stock",
+      "aisa crypto",
+      "aisa screener",
+      "aisa tweet",
+      "aisa twitter",
+      "aisa video",
+    ]) {
+      expect(find(tree, path), path).toBeUndefined();
+    }
   });
 
   it("does not attach Router MCP metadata to nested search commands", async () => {
@@ -180,21 +200,62 @@ describe("compiled --help and manifest", () => {
     expect(rootSearch.exits?.["0"]).toBeDefined();
     expect(rootSearch.examples?.length).toBeGreaterThan(0);
 
-    for (const args of [["api", "search"], ["twitter", "search"], ["skills", "search"]]) {
-      const nested = JSON.parse((await runCompiledCli(["manifest", ...args], { HOME: home })).stdout) as ManifestNode;
-      expect(nested.path, args.join(" ")).toBe(`aisa ${args.join(" ")}`);
-      expect(nested.mcp, args.join(" ")).toBeUndefined();
-      expect(nested.auth, args.join(" ")).toBeUndefined();
-      expect(nested.exits, args.join(" ")).toBeUndefined();
-      expect(nested.examples, args.join(" ")).toBeUndefined();
-      expect(nested.enforced, args.join(" ")).toBeUndefined();
-      expect(nested.flow, args.join(" ")).toBeUndefined();
-      expect(nested.safety, args.join(" ")).toBeUndefined();
-    }
+    const nested = JSON.parse((await runCompiledCli(["manifest", "skills", "search"], { HOME: home })).stdout) as ManifestNode;
+    expect(nested.path).toBe("aisa skills search");
+    expect(nested.mcp).toBeUndefined();
+    expect(nested.auth).toBeUndefined();
+    expect(nested.exits).toBeUndefined();
+    expect(nested.examples).toBeUndefined();
+    expect(nested.enforced).toBeUndefined();
+    expect(nested.flow).toBeUndefined();
+    expect(nested.safety).toBeUndefined();
+  });
 
-    const apiSearch = JSON.parse((await runCompiledCli(["manifest", "api", "search"], { HOME: home })).stdout) as ManifestNode;
-    expect(apiSearch.deprecated).toBe(true);
-    expect(apiSearch.mcp).toBeUndefined();
+  it("rejects removed commands as unknown with no dispatch", async () => {
+    const home = isolatedHome();
+    const env = { HOME: home, AISA_ROUTER_BASE_URL: "http://127.0.0.1:1" };
+    for (const args of [
+      ["web-search", "q"],
+      ["scholar", "q"],
+      ["stock", "AAPL"],
+      ["crypto", "btc"],
+      ["screener"],
+      ["tweet", "hi"],
+      ["twitter", "search", "q"],
+      ["video", "create", "a cat"],
+      ["run", "financial", "/news"],
+      ["code", "financial", "/news"],
+      ["api", "search", "q"],
+      ["api", "code", "financial", "/news"],
+    ]) {
+      const ran = await runCompiledCli(args, env);
+      expect(ran.status, args.join(" ")).not.toBe(0);
+      expect(`${ran.stdout}\n${ran.stderr}`, args.join(" ")).toMatch(/unknown command/i);
+      expect(`${ran.stdout}\n${ran.stderr}`, args.join(" ")).not.toMatch(/deprecated/i);
+    }
+  });
+
+  it("root help lists the remaining commands plus implicit help", async () => {
+    const home = isolatedHome();
+    const ran = await runCompiledCli(["--help"], { HOME: home });
+    expect(ran.status).toBe(0);
+    const names = listedHelpCommands(ran.stdout);
+    expect(names).toEqual(expect.arrayContaining([...REMAINING_ROOT_COMMANDS, "help"]));
+    expect(names).toHaveLength(REMAINING_ROOT_COMMANDS.length + 1);
+    for (const removed of [
+      "web-search",
+      "scholar",
+      "stock",
+      "crypto",
+      "screener",
+      "tweet",
+      "twitter",
+      "video",
+      "run",
+      "code",
+    ]) {
+      expect(names, removed).not.toContain(removed);
+    }
   });
 
   it("accepts inline --input with apostrophe and Unicode without requiring a file", async () => {
@@ -208,6 +269,30 @@ describe("compiled --help and manifest", () => {
     expect(ran.status).toBe(1);
   });
 });
+
+const REMAINING_ROOT_COMMANDS = [
+  "login",
+  "logout",
+  "whoami",
+  "topup",
+  "balance",
+  "usage",
+  "search",
+  "schema",
+  "quote",
+  "call",
+  "api",
+  "chat",
+  "models",
+  "skills",
+  "connect",
+  "update",
+  "mcp",
+  "config",
+  "cache",
+  "manifest",
+  "completion",
+] as const;
 
 interface ManifestNode {
   path: string;
@@ -230,6 +315,12 @@ function find(node: ManifestNode, path: string): ManifestNode | undefined {
     if (hit) return hit;
   }
   return undefined;
+}
+
+function listedHelpCommands(help: string): string[] {
+  const block = help.match(/Commands:([\s\S]*?)(?:\n\n[A-Z]|\n\nExamples:|\n\n$)/);
+  if (!block) return [];
+  return [...block[1].matchAll(/^\s{2}(\S+)/gm)].map((match) => match[1]);
 }
 
 function extractInputObjects(help: string): unknown[] {

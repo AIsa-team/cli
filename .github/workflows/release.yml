@@ -1,6 +1,6 @@
 # Release — publish to npm when a v* tag is pushed.
 #
-# The tag is the publish button. `git push origin v0.4.0` triggers this;
+# The tag is the publish button. `git push origin v0.5.0` triggers this;
 # a push to main runs CI only.
 #
 # npm Trusted Publisher must be configured for repository AIsa-team/cli and

@@ -4,7 +4,7 @@ import { success, info, hint } from "../utils/display.js";
 import { resolveBases } from "../api.js";
 import { resolveRouterBase } from "../router.js";
 
-const VALID_KEYS = ["defaultModel", "baseUrl", "routerUrl", "outputFormat", "twitterCookies", "twitterProxy", "lang"];
+const VALID_KEYS = ["defaultModel", "baseUrl", "routerUrl", "outputFormat", "lang"];
 
 export function configSetAction(key: string, value: string): void {
   if (!VALID_KEYS.includes(key)) {

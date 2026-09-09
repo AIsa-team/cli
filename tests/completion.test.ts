@@ -14,23 +14,14 @@ function buildProgram(): Command {
   const api = program.command("api").description("Discover and inspect APIs");
   api.command("list").description("List available APIs").option("--category <cat>", "Filter");
   api.command("show <api> [path]").description("Show endpoints").option("--all", "Show every endpoint");
-  api.command("code <slug> <path>").description("Generate a snippet").option("--lang <language>", "Language", "curl");
-
-  program
-    .command("run <slug> <path>")
-    .description("Execute an API call")
-    .option("-q, --query <params...>", "Query parameters")
-    .option("--raw", "Raw JSON output");
 
   program.command("search [query]").description("Discover published tools").option("--json", "Raw JSON");
   program.command("schema [tools...]").description("Get published tool schemas").option("--json", "Raw JSON");
   program.command("quote").description("Quote published tools").option("-f, --file <path>", "Request file");
   program.command("call").description("Execute published tools").option("--input <json>", "Request JSON");
-  program.command("web-search <query>").description("Search the web").option("--type <type>", "Search type", "tavily");
   const models = program.command("models").description("Browse models");
   models.command("list", { isDefault: true }).description("List models").option("--provider <p>", "Filter");
   models.command("show <id>").description("Show one model");
-  program.command("stock <symbol>").description("Look up stock data").option("--field <field>", "Data field");
   const skills = program.command("skills").description("Skills");
   skills.command("show <slug>").description("Show skill details");
   skills.command("list").description("List skills").option("--category <cat>", "Filter");
@@ -61,26 +52,26 @@ describe("shell completion", () => {
   it("completes top-level commands and hides internal ones", () => {
     const out = values([]);
     expect(out).toContain("api");
-    expect(out).toContain("run");
     expect(out).toContain("search");
     expect(out).toContain("schema");
     expect(out).toContain("quote");
     expect(out).toContain("call");
+    expect(out).not.toContain("run");
+    expect(out).not.toContain("code");
+    expect(out).not.toContain("web-search");
     expect(out).not.toContain("__complete");
   });
 
   it("completes subcommands and options of the current command", () => {
-    expect(values(["api"])).toEqual(expect.arrayContaining(["list", "show", "code", "--help"]));
+    expect(values(["api"])).toEqual(expect.arrayContaining(["list", "show", "--help"]));
+    expect(values(["api"])).not.toContain("code");
+    expect(values(["api"])).not.toContain("search");
     expect(values(["api", "list"])).toContain("--category");
   });
 
   it("completes values for options that take one", () => {
-    expect(values(["web-search", "AI", "--type"])).toEqual(
-      expect.arrayContaining(["tavily", "youtube", "smart"])
-    );
-    expect(values(["stock", "AAPL", "--field"])).toContain("insider");
-    expect(values(["api", "code", "financial", "/news", "--lang"])).toEqual(
-      expect.arrayContaining(["curl", "python", "node", "typescript"])
+    expect(values(["api", "list", "--category"])).toEqual(
+      expect.arrayContaining(["finance", "search", "social", "productivity", "other"])
     );
   });
 
@@ -106,31 +97,16 @@ describe("shell completion", () => {
 
   it("completes nothing dynamic when the cache is cold, rather than hanging", () => {
     // A completion that hit the network would block the terminal on every Tab.
-    expect(values(["run"])).not.toContain("financial");
+    expect(values(["api", "show"])).not.toContain("financial");
     // Static candidates still come through; only the cache-backed ones drop out.
     expect(values(["skills", "show"])).toEqual(["--help"]);
   });
 
-  it("offers run slugs from the cached catalog, using the real URL slug", () => {
+  it("offers provider ids from the cached catalog for api show", () => {
     writeCatalogCache();
-    const out = values(["run"]);
-    // Provider id is `brave-search` but requests go to /apis/v1/brave/...
-    expect(out).toContain("brave");
-    expect(out).not.toContain("brave-search");
+    const out = values(["api", "show"]);
     expect(out).toContain("financial");
-  });
-
-  it("offers endpoint paths once a slug is given", () => {
-    writeCatalogCache();
-    expect(values(["run", "financial"])).toContain("/news");
-  });
-
-  it("keys endpoint completion on the parsed positional, not the last word", () => {
-    // Options are legal before the path: `run financial --raw <TAB>` and
-    // `api code financial --lang curl <TAB>` must still complete endpoints.
-    writeCatalogCache();
-    expect(values(["run", "financial", "--raw"])).toContain("/news");
-    expect(values(["api", "code", "financial", "--lang", "curl"])).toContain("/news");
+    expect(out).toContain("brave-search");
   });
 
   it("completes skill leaf names, not canonical slugs", () => {

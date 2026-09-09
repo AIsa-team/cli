@@ -1,8 +1,9 @@
 # @aisa-one/cli
 
 Command-line access to [AIsa](https://aisa.one): **one API key** for
-**Claude, GPT, Gemini, DeepSeek, Kimi, GLM** and the live data behind them —
-finance, web search, social, research, and video generation.
+**Claude, GPT, Gemini, DeepSeek, Kimi, GLM** and published Tool Router
+operations. Browse the public provider/endpoint catalog separately;
+catalog metadata is not a substitute for `schema` or `quote`.
 
 ## Install
 
@@ -20,30 +21,25 @@ aisa login --key sk-your-api-key
 aisa search "company facts" --json
 aisa schema get_financial_company_facts --json
 
-# Old catalog keyword search is still available (deprecated; not a drop-in)
+# Browse the read-only provider/endpoint catalog
 aisa api list
-aisa api search "insider trades"
+aisa api show financial
 
 # Chat with any model
 aisa chat "Explain quantum computing" --model claude-opus-4-6
 
-# Look up a stock
-aisa stock AAPL
-
-# Search the web
-aisa web-search "latest AI research"
-
-# Quote then execute a published Router tool (same request JSON; shared AISA_API_KEY)
+# Quote then execute a published Router tool (same request JSON)
 aisa quote --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
 aisa call --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
-
-# Raw provider/LLM routing is still available (deprecated; not a drop-in for aisa call)
-aisa run financial /insider-trades -q "ticker=AAPL"
 ```
 
 Get your API key at
 [console.aisa.one/api-keys](https://console.aisa.one/api-keys). New accounts
 receive $5 in free credits.
+
+Root help lists 21 explicit commands plus implicit `help`. Removed domain
+shortcuts and raw execution names are unknown commands — not aliases and
+not forwarded to `aisa call`.
 
 ## Published tools (Tool Router)
 
@@ -61,8 +57,7 @@ directly.
 `--json` prints the unmodified application body (MCP identifiers stay).
 Human output maps only those four identifiers onto CLI names. `aisa manifest`
 and `aisa manifest search` / `schema` / `quote` / `call` expose `mcp`, `auth`,
-`enforced`, `safety`, `exits`, and parseable `examples` (the root node also
-has `router`).
+`enforced`, `safety`, `exits`, and parseable `examples`.
 
 Recommended sequence: discover a tool → `aisa schema` when
 `has_full_schema=false` → `aisa quote` → `aisa call`. Quote and call share
@@ -84,7 +79,8 @@ POSIX single quotes so apostrophes, Unicode, `$()`, and backticks stay
 literal.
 
 `get_financial_company_facts` is a published tool whose schema includes
-`ticker`. Do not invent unpublished tool names.
+`ticker`. Do not invent unpublished tool names. Router search does not
+guarantee every former domain-shortcut function.
 
 ```sh
 aisa search "company facts" --json
@@ -106,9 +102,8 @@ HTTP error; `3` means the Router returned a batch with at least one failed
 item.
 
 `search` and `schema` may be anonymous. `quote` and `call` require a
-configured AIsa API key, same resolution as `aisa run`: `AISA_API_KEY`, then
-`~/.aisa/key`, then legacy login. `aisa login` and `AISA_API_KEY` are
-alternatives. The default Router
+configured AIsa API key: `AISA_API_KEY`, then `~/.aisa/key`, then legacy
+login. `aisa login` and `AISA_API_KEY` are alternatives. The default Router
 origin is `https://tools.aisa.one` (independent of `baseUrl` /
 `https://api.aisa.one`). Point a test Router at `AISA_ROUTER_BASE_URL` (origin
 or prefix before `/v1/tool-router/...`), or `aisa config set routerUrl`. There
@@ -120,59 +115,28 @@ retry.
 
 ## API Catalog
 
-The catalog still lists integration providers. `api list` and `api code` are
-unchanged. `api search` and `api show` keep their previous catalog behavior
-and are deprecated; they are not drop-in replacements for `search` / `schema`
-(catalog keyword/id browse vs Router published tools).
+`api list` and `api show` are the supported read-only catalog. They browse
+public provider and endpoint metadata (`--json`, `--refresh`, `--health`,
+`--category`, path filters). They are not deprecated and are not Router
+`search` / `schema`. Catalog paths and prices are browsing metadata, not a
+substitute for schema or quote, and not a way to execute an endpoint.
 
 ```bash
-aisa api list                          # all 29 providers
+aisa api list                          # all catalog providers
 aisa api list --category finance       # finance, search, social, productivity, other
 aisa api list --health                 # include provider health
 
-aisa api show financial                # every endpoint in one provider
-aisa api show financial /news          # one endpoint: params, price, run command
-aisa api show dataforseo --all         # 453 endpoints (truncated to 40 by default)
-
-aisa api search "stock screener"       # search across every endpoint
-aisa api search rank --provider dataforseo
-
-aisa api code financial /news --lang curl     # curl, python, node, typescript
+aisa api show financial                # endpoints in one provider
+aisa api show financial /news          # one endpoint: params and catalog price
+aisa api show dataforseo --all         # long lists truncate to 40 by default
 ```
 
-Two things worth knowing: a provider's **id is not always its URL slug** —
-`brave-search` serves `/apis/v1/brave/...`, and `api show` prints the path you
-actually call. And the catalog reports every method as `GET`; pass `--method` to
-`api code` when an endpoint takes a POST.
+A provider **id is not always its URL slug** — `brave-search` serves
+`/apis/v1/brave/...`, and `api show` prints the catalog path. The catalog
+reports every method as `GET`; treat that as advisory.
 
 The catalog is cached in `~/.aisa/cache` (override with `AISA_CACHE_DIR`). Pass
 `--refresh` to any command to bypass it, or `aisa cache clear`.
-
-## Execute Any Endpoint
-
-`aisa run` still sends raw provider and LLM requests. It is not a drop-in for
-`aisa call` (`AISA_BATCH_USE`). `run` is deprecated but unchanged. Specialized
-commands (`stock`, `web-search`, `twitter`, …) are unaffected.
-
-```bash
-aisa run financial /insider-trades -q "ticker=AAPL"
-aisa run coingecko /simple/price -q "ids=bitcoin&vs_currencies=usd"
-aisa run brave /web/search -q "q=AI agents"
-aisa run tavily /search -d '{"query": "AI news"}'
-aisa run twitter /tweet/advanced_search -q "query=AI agents" --raw
-aisa run dataforseo /serp/google/organic/live -d '{...}' --show-cost
-```
-
-`run` sends anything that isn't a known LLM gateway route to the integration
-APIs, so providers added to the platform work without a CLI upgrade. Use
-`--llm` or `--domain` to force a base.
-
-`--show-cost` prints the gateway's billing headers on stderr, so it stays out of
-the way of `--raw | jq`. Metered providers (DataForSEO, Jina) report the amount
-actually charged and the credits consumed — for those the catalog's flat
-per-request price is not what you pay. Other routes report only a price key, and
-the LLM gateway reports nothing; the output says so rather than implying a call
-was free.
 
 ## LLM Gateway
 
@@ -191,84 +155,6 @@ aisa models show gpt-4.1-mini        # model details
 ```
 
 Streaming is on by default; pass `--no-stream` to disable it.
-
-## Finance
-
-```bash
-aisa stock AAPL                     # summary: company info + estimates + news
-aisa stock AAPL --field insider     # insider trades
-aisa stock AAPL --field news        # company news
-aisa stock TSLA --field filings     # SEC filings
-aisa stock MSFT --field estimates   # analyst EPS & revenue estimates
-aisa stock AAPL --field financials  # balance sheets, income statements
-
-aisa crypto BTC                     # price, 24h change, market cap
-aisa crypto ETH --period 30d        # historical
-aisa crypto --id render-token RNDR  # exact CoinGecko id when a symbol is ambiguous
-
-aisa screener --sector "Information Technology"
-aisa screener --min-market-cap 1000000000000 --limit 10
-aisa screener --filter market_cap:gt:1e12 --filter sector:eq:Financials
-```
-
-Sectors use GICS names; short forms like `Technology` are mapped automatically.
-
-## Web Search
-
-```bash
-aisa web-search "query"                     # Tavily (default)
-aisa web-search "query" --type youtube      # YouTube search
-aisa scholar "transformer architecture"     # academic papers
-```
-
-`--type smart` and `--type full` are currently degraded upstream and return 404
-regardless of parameters. Use `tavily` until that is resolved.
-
-## Twitter/X
-
-```bash
-aisa twitter user elonmusk                  # user profile
-aisa twitter search "AI agents" --limit 20  # search tweets
-aisa twitter trends                         # trending topics
-aisa twitter user-tweets elonmusk           # recent tweets
-aisa twitter thread <tweet-id>              # full conversation
-```
-
-Read operations work with just your API key. **Write operations** (`aisa tweet`,
-`like`, `retweet`, `follow`, `dm`) additionally require Twitter login cookies
-and a proxy — run `aisa twitter login --username <u> --password <p> --proxy <url>`
-first. Run `aisa twitter --help` for the full list of 30+ subcommands.
-
-## Video Generation
-
-```bash
-aisa video create "A sunset timelapse"                  # returns a task id
-aisa video create "Dancing robot" --wait                # poll until done
-aisa video create "A cat" --output cat.mp4              # wait and download
-aisa video status <task-id>
-
-# image-to-video: --image is shorthand for --media first_frame=<url>
-aisa video create "the bird turns its head" --model wan2.7-i2v --image https://…/photo.jpg
-aisa video create "extend this clip" --model wan2.7-r2v --media first_clip=https://…/in.mp4
-
-# Seedance uses a different request shape; the CLI handles it
-aisa video create "a cat walking" --model dreamina-seedance-2-0-fast-260128
-```
-
-| Model | Needs | Billing |
-|-------|-------|---------|
-| `wan2.7-t2v` (default), `happyhorse-1.1-t2v` | prompt only | per second |
-| `wan2.7-i2v`, `happyhorse-1.1-i2v` | `--image` / `--media first_frame=` | per second |
-| `wan2.7-r2v`, `happyhorse-1.1-r2v` | `--media first_clip=` | per second |
-| `dreamina-seedance-2-0-260128`, `…-fast-260128` | prompt only | per token |
-
-Media types: `first_frame`, `last_frame`, `driving_audio`, `first_clip`.
-
-The gateway forwards the request body to whichever vendor owns the model, so the
-shape differs per family — the CLI builds it for you and refuses up front if a
-model needs source media you did not supply (the upstream would otherwise accept
-the job, bill it, and fail a minute later). For a vendor or parameter the CLI
-does not model, `--body '<json>'` is sent verbatim.
 
 ## Account
 
@@ -291,9 +177,8 @@ in the meantime.
 ## Skills
 
 Skills are markdown files that teach AI coding agents (Claude Code, Cursor,
-Copilot, …) how to use AIsa APIs. They come from the
-[agent-skills](https://github.com/AIsa-team/agent-skills) repository — 42 skills
-across six categories.
+Copilot, …) how to use AIsa. They come from the
+[agent-skills](https://github.com/AIsa-team/agent-skills) repository.
 
 ```bash
 aisa skills list                              # all skills
@@ -335,6 +220,11 @@ Skills install to whichever agent directories exist on your machine:
 aisa skills init my-skill                          # default template
 aisa skills init my-skill --template finance       # finance, llm, search, twitter, video
 ```
+
+Bundled templates may keep those domain labels. Their runnable steps use
+`search` / `schema` / `quote` / `call` (and optional `api list` / `api show`).
+They do not invent tool names or treat Router as a replacement for every
+removed shortcut. The `llm` template stays on `chat` / `models`.
 
 To publish a skill, open a pull request against
 [AIsa-team/agent-skills](https://github.com/AIsa-team/agent-skills).
@@ -401,12 +291,10 @@ Completion covers commands, subcommands, and options, plus values pulled from
 the local cache:
 
 ```
-aisa run <TAB>                 → 29 provider slugs
-aisa run financial <TAB>       → that provider's endpoints
 aisa api show <TAB>            → provider ids
-aisa skills show <TAB>         → 42 skill names
+aisa api list --category <TAB> → finance, search, social, productivity, other
+aisa skills show <TAB>         → skill names
 aisa chat --model <TAB>        → model ids
-aisa web-search --type <TAB>   → tavily, youtube, scholar, …
 ```
 
 The cache-backed suggestions only appear once the relevant command has been run
@@ -460,12 +348,6 @@ configured `baseUrl`. It tolerates a value with either suffix already attached,
 because the shipped default has always included `/v1` and is persisted in every
 existing user's config.
 
-**Routing in `run`.** `resolveRunTarget()` (`src/commands/run.ts`) treats the LLM
-gateway routes as the whitelist and everything else as an integration API. That
-direction matters: gateway routes are hardcoded server-side and change roughly
-annually, while provider slugs are database rows that operations edit
-continuously.
-
 **The catalog's shape has three traps.** `endpoints[].method` is hardcoded to
 `GET` server-side. `endpoint_groups[].name` is an operator-entered label
 (`Zero`, `One`, `default`) with no business meaning, which is why `api show`
@@ -474,22 +356,8 @@ per-endpoint counts are one value repeated.
 
 **Parameter naming varies by endpoint.** Scholar uses `query`, finance uses
 `ticker` (not `symbol`), Twitter uses `userName`. `aisa api show <api> <path>`
-prints each endpoint's description and path parameters.
-
-**Video generation is async.** `POST /v1/video/generations` returns `202` with a
-gateway-local `video_task_<hex>` id. Poll `GET /v1/video/generations/:id` until
-`status` is one of `completed`, `failed`, or `cancelled`. The finished URL sits
-at a different place in `result` for each vendor, so `findVideoUrl()` searches
-for it.
-
-**Twitter write operations require login cookies.** `create_tweet_v2` and the
-other action endpoints need `login_cookies` and `proxy` in the body — the
-gateway does not hold your Twitter session.
-
-**Some financial endpoints return empty data.** `financial/prices` and
-`financial/financial-metrics/snapshot` return `{}` for all tickers. `aisa stock`
-uses `company/facts` + `analyst-estimates` + `news` instead. Working fields:
-`info`, `estimates`, `financials`, `filings`, `insider`, `institutional`, `news`.
+prints each endpoint's description and path parameters. That listing is
+catalog metadata, not an execution recipe.
 
 ## License
 

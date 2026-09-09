@@ -1,5 +1,11 @@
 # Known issues — findings from the 0.2.3 CLI audit
 
+Historical audit notes, not current CLI instructions. Repro lines that call
+`aisa run`, `aisa crypto`, `aisa web-search`, or `aisa api code` record what
+was tested in 0.2.3. The current candidate removes those commands; browse
+with `aisa api list` / `aisa api show`, and use published tools through
+`search` / `schema` / `quote` / `call`.
+
 Every command documented on the npm page for `@aisa-one/cli` 0.2.2 was executed
 against production `api.aisa.one` on 2026-08-06. The CLI-side breakages are
 fixed in 0.2.3. What remains below needs someone else's decision or a backend

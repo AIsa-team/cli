@@ -7,7 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] — 2026-09-08
+## [0.5.0] — Unreleased
+
+PR21 command-surface cleanup. Distinct from the unpublished `0.4.0` main
+baseline (registry latest remains `0.3.0`; `0.4.0` was never tagged or
+published).
+
+### Breaking
+
+- **Domain shortcuts and raw execution are removed.** These names are
+  unknown commands — not aliases and not auto-forwarded to `aisa call`:
+  `web-search`, `scholar`, `stock`, `crypto`, `screener`, `tweet`, `twitter`
+  (all children), `video` (all children), `run`, top-level `code`,
+  `api search`, and `api code`. Root help is 22 entries including implicit
+  `help` (21 explicit commands).
+- **`aisa api list` and `aisa api show` stay** as the supported read-only
+  provider/endpoint catalog. They are not deprecated and are not a
+  substitute for `schema` / `quote`. Catalog paths and prices are browsing
+  metadata. `api show` is not equivalent to `aisa schema`. The `0.4.0`
+  deprecation of `api show` is withdrawn because the command is retained.
+
+### Changed
+
+- Bundled `aisa skills init` templates may keep domain labels (`search`,
+  `finance`, `twitter`, `video`). Runnable steps use `search` / `schema` /
+  `quote` / `call` and optional `api list` / `api show`. They do not invent
+  tool names or treat Router as covering every removed domain function. The
+  `llm` template stays on `chat` / `models`.
+- Root and Router help/manifest no longer document removed names. Router
+  `mcp` / `auth` / `exits` / `examples` still attach only to top-level
+  `search` / `schema` / `quote` / `call`, not nested `skills search`.
+
+## [0.4.0] — unpublished main baseline
+
+Unpublished `main` candidate as of 2026-09-08. Not tagged and not on npm
+(registry latest remains `0.3.0`). Kept so the Router work and the
+`api search` / `api show` / `run` deprecation history stay identifiable.
 
 ### Breaking
 
@@ -350,8 +385,9 @@ supports today; nothing here depends on a backend change.
 - Config commands (`aisa config get|set|list|reset`) and auth
   (`aisa login|logout|whoami`).
 
-[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.4.0...HEAD
-[0.4.0]: https://github.com/AIsa-team/cli/compare/v0.3.0...v0.4.0
+[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/AIsa-team/cli/compare/v0.3.0...v0.5.0
+[0.4.0]: https://github.com/AIsa-team/cli/compare/v0.3.0...b5c0b04b2a7a2cb9efcb568be5ee5440d7f7d94d
 [0.3.0]: https://github.com/AIsa-team/cli/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/AIsa-team/cli/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/AIsa-team/cli/compare/v0.2.2...v0.2.3
