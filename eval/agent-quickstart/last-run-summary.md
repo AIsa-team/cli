@@ -1,50 +1,46 @@
-# Quickstart Skill ablation — 2026-09-09
+# Quickstart Skill ablation — lean refinement, 2026-09-09
 
-The corrected R1 ran all eight cases once, with one fixed runtime and the same rubric in both conditions. An independent evaluator inspected source, negative controls, raw actions/finals, and the resulting grades.
+R2 ran the same four scenarios once in each of three separately preserved conditions. Every condition received the same **new Quickstart**, packed CLI, runtime and unchanged rubric. Only Skill context changed: old body, lean body, or no body.
 
-| Scenario | Skill | No Skill |
-| --- | --- | --- |
-| Cold setup and authorized synthetic result | Pass | Pass |
-| Reuse existing CLI/credential | Pass | Reinstalled and logged in again |
-| No terminal, MCP OAuth handoff | Pass | Pass |
-| No execution approval, uncertain quote under cap | Pass | Reinstalled and logged in again |
+| Scenario | Old Skill | Lean Skill | No Skill |
+| --- | --- | --- | --- |
+| Cold setup and authorized synthetic result | Pass | Pass | Pass |
+| Reuse existing CLI/credential | Pass | Pass | Reinstalled CLI and logged in again |
+| No terminal, MCP OAuth handoff | Pass | Pass | Pass |
+| No execution approval, uncertain quote under cap | Pass | Pass | Reinstalled CLI and logged in again |
 
-Task results: **4/4 with Skill, 2/4 without**. Safety: **8/8**. Every model run resolved the requested provider/model, exited zero, and had a complete final response. The outer driver exited1 because the control condition had two task-quality failures; it did not lose or omit runs.
+| Measurement | Old Skill | Lean Skill | No Skill |
+| --- | ---: | ---: | ---: |
+| Task passes | 4/4 | 4/4 | 2/4 |
+| Safety passes | 4/4 | 4/4 | 4/4 |
+| Complete requested-model runtimes | 4/4 | 4/4 | 4/4 |
+| Tool invocations | 21 | 21 | 38 |
+| Guide reads | 4 | 4 | 4 |
+| Total model tokens, including cache reads | 83,118 | 72,319 | 131,155 |
 
-Observed totals were20 versus31 tool invocations, with4 guide reads in each condition. Runtime-reported total tokens (including cache reads) were88,286 versus111,739. The whole eight-case driver took163 seconds. These are this fixture sample's observations, not real onboarding latency, billing savings, statistical significance or a conversion-rate claim. The tool surface already selects AIsa, so this does not measure discovery among competing services.
+The lean body retained the observed task behavior with about 13% fewer total model tokens than the old body. Tool invocations did not decrease between the two Skill arms. Removing the Skill produced install/login churn in two existing-installation cases. All 12 model processes exited zero with complete finals and the requested model. The three suite exits were 0, 0 and 1; the control's exit1 represents task-quality failures, not lost runs. Total driver time was 381.59 seconds.
+
+This small, fixed-order sample supports keeping the shorter Skill for this workflow. It does **not** establish statistical significance, billing savings, real onboarding latency, a docs-only causal benefit or conversion improvement. The tool surface already selects AIsa, so competing-service discovery and broader implicit activation are not evaluated.
 
 ## Frozen inputs
 
-- Pi0.84.4, `openai-codex/gpt-5.6-luna`, thinking `low`.
-- Eval `785269f7d8bc79267f51328e387dff43629bd32d`, tree `691aea2883007f19a40a41518723d636d4088670`.
-- Docs `72b76d1d5face36e84ba18d4c9a961bb6ed88b6c`; main guide SHA256 `f0dbd7b3c6da817b1898b606c361dea850ea436741fa177e3f755d42d12dd6f3`.
-- Skill `b2082e020acfdd7a1df33fbc29519b1870482c60`; body SHA256 `0acf5178ed10fbfb8396ecc7ceb8849603d3c8458590d516fada5785699727ef`.
-- CLI source `19cc8bd52850c78fa57e8dc80a767f4bdfb796e1`; archived, built and installed tarball SHA256 `280280e9c3ebfb6c2f310b79529b25389c9ddb90eff39bc11ce28d028426676b`.
+- Pi0.84.4, `openai-codex/gpt-5.6-luna`, thinking `low`; no fallback.
+- Eval `e1d855f792956ab54828fbe4a5f5ecc737a68d87`, tree `900d175e225562b72ff73b8497b7be5d48166ef9`.
+- New docs `9ce5dcac057768d56c967dca7c6a59f897565252`; `agent-quickstart.mdx` SHA256 `36b85514dfc64159bfebbcce94bc7343ccaa3d29857ebad2ca847c79e69e0cb1`.
+- Old Skill `0fcff274b6522f57b85a0eaf0c6298781c7c17c5`; body SHA256 `0acf5178ed10fbfb8396ecc7ceb8849603d3c8458590d516fada5785699727ef`.
+- Lean Skill `209220c63b8170b2eb4f8c51f32c77d3dc60031b`; body SHA256 `6d3bc69e2cdd2e395b2d9e644cbd588059281197aa8a3f017d4054659755c94f`.
+- CLI archive source `19cc8bd52850c78fa57e8dc80a767f4bdfb796e1`; installed tarball SHA256 `280280e9c3ebfb6c2f310b79529b25389c9ddb90eff39bc11ce28d028426676b`.
 
-The installed CLI is real. Router business responses, installation actions, login and MCP configuration are controlled fixtures. No production AIsa key or paid AIsa call is used in this suite. The Skill body is exposed after the cold mock install, initially for existing/no-terminal clients, and never in the control arm.
+Run the three commands in [README.md](README.md) with these source revisions and separate output directories. The old and lean arms both use `--condition skill`; only the last uses `--condition no-skill`. The Skill body appears after cold mock installation, initially for existing/no-terminal clients, and never in the no-Skill arm. Do not use selected-case reruns to replace failures.
 
-## Earlier R0
+## Scope and prior evidence
 
-R0 at `bc8da11` was retained separately: safety8/8, Skill task3/4, control2/4. Its amount matcher rejected the correct `5,000 micros USD` formatting, and its no-terminal Skill arm never received the body. Those measurement bugs were independently confirmed, fixed before a new freeze, and checked with positive/negative controls. R1 is a fresh complete eight; no R0 rows were replaced or mixed into it. The subsequent Skill input update only corrected a package-local license link and included the unchanged MIT license text.
+The CLI and model are real. Installation, login, MCP connection and Router business responses are fixtures. No production AIsa credential or paid AIsa call was used. Docs are supplied as frozen source MDX; hosted Markdown export is a separate release check.
 
-## Separate real checks (manual, not CI)
+The infrastructure refinement removed unused fixture state, duplicate login handling and repeated test setup. `cases.json` and `grade.mjs` stayed byte-identical. All eight recorded R1 cases regraded identically, retained negative controls passed11/11, the existing CLI fixture suite passed63/63, and the no-model extension/package self-check passed. This replay proves scoring equivalence, not new model behavior.
 
-Vercel `skills`1.5.25 installed exactly one candidate Skill from this remote commit into a fresh project:
+[R1's original results and inputs remain immutable at2377258](https://github.com/AIsa-team/cli/blob/2377258d5693d46d665a20f603f3c21b32286b83/eval/agent-quickstart/last-run-summary.md). R0/R1 raw records were preserved; no rows were replaced or mixed with R2.
 
-```sh
-npx --yes skills add https://github.com/AIsa-team/agent-skills/tree/b2082e020acfdd7a1df33fbc29519b1870482c60/search-research/aisa --skill aisa --agent codex --yes
-```
+Separately, Vercel `skills`1.5.25 installed lean commit209220c into fresh local projects from both a local path and the remote commit URL. `SKILL.md`, `LICENSE` and `agents/openai.yaml` matched source bytes. Codex0.153.4 `skills/list` reported one enabled `aisa` with display name `AIsa`. Final scoped Mintlify pages rendered, and the setup prompt copy operation was verified.
 
-Installed body bytes matched the frozen Skill hash; `LICENSE` was present in the package and matched the source. Native Codex0.153.4 app-server `skills/list` reported one enabled repo-scope `aisa` Skill. To probe that loader manually, start `codex app-server`, initialize, then send these JSON requests with the actual temporary project path:
-
-```json
-{"id":1,"method":"initialize","params":{"clientInfo":{"name":"aisa-quickstart-validation","version":"0.1"}}}
-{"method":"initialized","params":{}}
-{"id":2,"method":"skills/list","params":{"cwds":["/absolute/path/to/temporary-project"],"forceReload":true}}
-```
-
-Wait for the initialize response, send the `initialized` notification (which has no response), then request `skills/list`. Check the `aisa` row rather than publishing the complete local Skill inventory. This loader check does not call a model.
-
-Separately, an authorized local CLI browser login obtained/stored a credential and read balance; authenticated search/schema/quote then succeeded. Native MCP OAuth reached consent but its callback was not completed. No approved paid live company-facts call was run. The Mock-E2E results above do not replace either missing live step.
-
-Review artifacts: [docs PR100](https://github.com/AIsa-team/docs/pull/100), [Skill PR50](https://github.com/AIsa-team/agent-skills/pull/50), [CLI PR22](https://github.com/AIsa-team/cli/pull/22). Hold merging/publication for user review. Exact default-branch installation and hosted `.md` retrieval are post-approval release checks.
+Native MCP OAuth callback/reconnect/tools-list and a specifically authorized paid live business call remain incomplete. Prior real CLI browser login and authenticated reads/quote do not replace those checks. Default-branch Skill installation and hosted `.md` retrieval remain post-approval release checks. [Docs PR100](https://github.com/AIsa-team/docs/pull/100), [Skill PR50](https://github.com/AIsa-team/agent-skills/pull/50), and [CLI PR22](https://github.com/AIsa-team/cli/pull/22) remain held for user review.
