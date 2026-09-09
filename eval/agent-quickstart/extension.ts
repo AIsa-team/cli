@@ -71,6 +71,20 @@ function result(text: string, details: Record<string, unknown> = {}) {
   return { content: [{ type: "text" as const, text }], details };
 }
 
+function loginMock(state: Record<string, unknown>, home: string, argv: string[]) {
+  const manual = hasFlag(argv, "--key");
+  if (!manual) {
+    state.authenticated = true;
+    writeKey(home);
+  }
+  return {
+    manual,
+    text: manual
+      ? "Mock E2E: login --key recorded. Prefer aisa login without --key."
+      : "Mock E2E: browser sign-in completed; CLI key stored. Not real OAuth.",
+  };
+}
+
 export default function (pi: ExtensionAPI) {
   const bin = process.env.AISA_EVAL_BIN || "";
   const ledgerPath = process.env.AISA_EVAL_LEDGER || "";
@@ -152,33 +166,19 @@ export default function (pi: ExtensionAPI) {
       let details: Record<string, unknown> = { action };
       if (calls > maxCalls) return result(`blocked: max ${maxCalls} tool calls reached`, { blocked: true });
       if (action === "npx_skills_add") {
-        state.skill_installs = [...(state.skill_installs || []), argv];
         const expose = skillTiming === "after_install" && skillPath && existsSync(skillPath);
         details = { action, skill_body_exposed: Boolean(expose), skill_timing: skillTiming };
-        if (expose) {
-          text = `Mock E2E: canonical skill install recorded. Skill body follows (not a real npx).\n\n${readFileSync(skillPath, "utf8")}`;
-        } else {
-          text = "Mock E2E: skill install recorded. The skill file is not loaded by this fixture.";
-        }
+        text = expose
+          ? `Mock E2E: canonical skill install recorded. Skill body follows (not a real npx).\n\n${readFileSync(skillPath, "utf8")}`
+          : "Mock E2E: skill install recorded. The skill file is not loaded by this fixture.";
       } else if (action === "npm_install_cli") {
         state.cli_installed = true;
         text = "Mock E2E: @aisa-one/cli is now available to aisa_cli. Not a real npm install.";
       } else if (action === "aisa_login") {
-        const manual = hasFlag(argv, "--key");
-        state.login_attempts = [...(state.login_attempts || []), { argv, manual_key: manual }];
-        details = { action, manual_key: manual };
-        if (manual) {
-          text = "Mock E2E: login --key recorded. Prefer aisa login without --key.";
-        } else {
-          state.authenticated = true;
-          writeKey(home);
-          text = "Mock E2E: browser sign-in completed; CLI key stored. Not real OAuth.";
-        }
+        const login = loginMock(state, home, argv);
+        details = { action, manual_key: login.manual };
+        text = login.text;
       } else if (action === "mcp_connect") {
-        state.mcp_attempts = [
-          ...(state.mcp_attempts || []),
-          { url: p.url || "", transport: p.transport || "", auth: p.auth || "" },
-        ];
         details = { action, url: p.url || "", transport: p.transport || "", auth: p.auth || "" };
         text =
           "Mock E2E: MCP connector recorded. OAuth is not completed in this suite. Hand the user a browser sign-in. Do not claim AIsa is connected or return a business result.";
@@ -219,20 +219,10 @@ export default function (pi: ExtensionAPI) {
       if (!blocked && !state.cli_installed) blocked = "aisa is not installed in this Mock E2E session; use setup_action npm_install_cli";
       const envKey = Boolean(process.env.AISA_API_KEY);
       if (!blocked && args[0] === "login") {
-        const manual = hasFlag(args.slice(1), "--key");
-        state.login_attempts = [...(state.login_attempts || []), { argv: args, manual_key: manual }];
-        if (!manual) {
-          state.authenticated = true;
-          writeKey(home);
-        }
+        const login = loginMock(state, home, args.slice(1));
         saveState(statePath, state);
-        record({ tool: "aisa_cli", args, blocked: null, intercepted: "login", manual_key: manual, env_key: envKey });
-        return result(
-          manual
-            ? "Mock E2E: login --key recorded. Prefer aisa login without --key."
-            : "Mock E2E: browser sign-in completed; CLI key stored. Not real OAuth.",
-          { intercepted: "login", manual_key: manual, env_key: envKey }
-        );
+        record({ tool: "aisa_cli", args, blocked: null, intercepted: "login", manual_key: login.manual, env_key: envKey });
+        return result(login.text, { intercepted: "login", manual_key: login.manual, env_key: envKey });
       }
       if (!blocked && args[0] === "balance" && state.authenticated) {
         record({ tool: "aisa_cli", args, blocked: null, intercepted: "balance", env_key: envKey });

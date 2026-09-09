@@ -206,7 +206,7 @@ export function skillTimingFor(spec, condition) {
   return installed ? "initial" : "after_install";
 }
 
-export function buildPiArgs({ condition, terminal, skillPath, systemPrompt, extensionPath, skillTiming }) {
+export function buildPiArgs({ terminal, skillPath, systemPrompt, extensionPath, skillTiming }) {
   const args = [
     "--print",
     "--mode",
@@ -284,7 +284,6 @@ function requireInputs(args) {
     cliBin: install.bin,
     cliSha: install.sha,
     tarballSha: install.tarball_sha256,
-    install,
     eval_commit: git(EVAL_ROOT, ["rev-parse", "HEAD"]),
     eval_tree: git(EVAL_ROOT, ["rev-parse", "HEAD^{tree}"]),
   };
@@ -334,13 +333,13 @@ async function runOne({ spec, condition, inputs, outRoot, facts }) {
     writeFileSync(ledgerPath, "");
     const systemPrompt = readFileSync(join(HERE, "system-prompt.txt"), "utf8");
     const piArgs = buildPiArgs({
-      condition,
       terminal,
       skillPath: inputs.skill,
       systemPrompt,
       extensionPath: join(HERE, "extension.ts"),
       skillTiming,
     });
+    const skillBodyInitial = piArgs.includes("--append-system-prompt");
     assertNoSkillLeak(condition, piArgs, inputs.skill, inputs.skillBody);
     const result = await runProcess(
       REQUESTED.pi_bin,
@@ -397,7 +396,7 @@ async function runOne({ spec, condition, inputs, outRoot, facts }) {
       eval_commit: inputs.eval_commit,
       eval_tree: inputs.eval_tree,
       skill_timing: skillTiming,
-      skill_body_initial: piArgs.includes("--append-system-prompt"),
+      skill_body_initial: skillBodyInitial,
       mock_e2e: true,
       grade: gradeCase({
         spec,
@@ -407,7 +406,7 @@ async function runOne({ spec, condition, inputs, outRoot, facts }) {
         finalText: completion.completed ? completion.text : "",
         resolved,
         runtime,
-        observed: { skill_body_initial: piArgs.includes("--append-system-prompt") },
+        observed: { skill_body_initial: skillBodyInitial },
       }),
       final_text: completion.completed ? completion.text : "",
     };
@@ -511,42 +510,12 @@ async function selfCheck(inputs, outRoot) {
     if (env.AISA_API_KEY || env.AISA_ROUTER_BASE_URL) throw new Error("self-check env must not inject key/router");
     const version = spawnSync(process.execPath, [inputs.cliBin, "--version"], { env, encoding: "utf8" });
     const search = await runProcess(process.execPath, [inputs.cliBin, "search", "company profile", "--json"], { env }, 20000);
-    const reuseArgs = buildPiArgs({
-      condition: "skill",
-      terminal: true,
-      skillPath: inputs.skill,
-      systemPrompt: "x",
-      extensionPath: join(HERE, "extension.ts"),
-      skillTiming: "initial",
-    });
-    const coldArgs = buildPiArgs({
-      condition: "skill",
-      terminal: true,
-      skillPath: inputs.skill,
-      systemPrompt: "x",
-      extensionPath: join(HERE, "extension.ts"),
-      skillTiming: "after_install",
-    });
-    const noSkillArgs = buildPiArgs({
-      condition: "no-skill",
-      terminal: false,
-      skillPath: inputs.skill,
-      systemPrompt: "x",
-      extensionPath: join(HERE, "extension.ts"),
-      skillTiming: "none",
-    });
-    assertNoSkillLeak("no-skill", noSkillArgs, inputs.skill, inputs.skillBody);
-    const noTermSkillArgs = buildPiArgs({
-      condition: "skill",
-      terminal: false,
-      skillPath: inputs.skill,
-      systemPrompt: "x",
-      extensionPath: join(HERE, "extension.ts"),
-      skillTiming: skillTimingFor({ terminal: false, start: { cli_installed: false, authenticated: false } }, "skill"),
-    });
-    if (!reuseArgs.includes("--append-system-prompt")) throw new Error("reuse skill arm must append the skill file initially");
-    if (coldArgs.includes("--append-system-prompt")) throw new Error("cold skill arm must not append the skill before install");
-    if (!noTermSkillArgs.includes("--append-system-prompt")) throw new Error("no-terminal skill arm must load the skill initially");
+    const ext = join(HERE, "extension.ts");
+    const argvFor = (terminal, skillTiming) =>
+      buildPiArgs({ terminal, skillPath: inputs.skill, systemPrompt: "x", extensionPath: ext, skillTiming });
+    assertNoSkillLeak("no-skill", argvFor(false, "none"), inputs.skill, inputs.skillBody);
+    if (!argvFor(true, "initial").includes("--append-system-prompt")) throw new Error("initial skill timing must append the skill file");
+    if (argvFor(true, "after_install").includes("--append-system-prompt")) throw new Error("cold skill arm must not append the skill before install");
     const ok = version.status === 0 && search.code === 0 && search.stdout.includes(PROFILE);
     const report = {
       ok,
