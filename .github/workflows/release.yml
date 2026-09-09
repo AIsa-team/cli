@@ -1,13 +1,11 @@
 # Release — publish to npm when a v* tag is pushed.
 #
-# The tag is the publish button. `git push origin v0.5.0` triggers this;
+# The tag is the publish button. `git push origin v0.5.1` triggers this;
 # a push to main runs CI only.
 #
-# npm Trusted Publisher must be configured for repository AIsa-team/cli and
-# workflow release.yml before a tag can publish. This workflow has not
-# recorded a successful OIDC publish. Until that setup exists, `npm publish`
-# 403s and the tag is harmless. Do not add NODE_AUTH_TOKEN or change these
-# permissions.
+# npm Trusted Publisher is configured for repository AIsa-team/cli and
+# workflow release.yml. v0.5.0 published via OIDC (GitHub Actions run
+# 34305298596). Do not add NODE_AUTH_TOKEN or change these permissions.
 #
 # The job publishes the smoke-tested tarball, not a second pack of the
 # source tree. A tag that does not match package.json is refused.

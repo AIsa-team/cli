@@ -61,7 +61,7 @@ const JSON_CONTRACT =
   "--json writes the unmodified application body, including MCP identifiers and numeric tokens. Human output maps only AISA_SEARCH_TOOL, AISA_BATCH_GET_SCHEMA, AISA_BATCH_QUOTE, and AISA_BATCH_USE to aisa search / schema / quote / call.";
 
 const KEY_RESOLUTION =
-  "AISA_API_KEY, then ~/.aisa/key, then legacy login. aisa login and AISA_API_KEY are alternatives.";
+  "Prefer aisa login (stores a CLI key). Resolution: AISA_API_KEY, then ~/.aisa/key, then legacy login. CI: AISA_API_KEY or aisa login --key.";
 
 const ENFORCED_OPTIONAL = `Enforced: invalid local input exits 2 and is not sent. A configured AIsa API key is optional (${KEY_RESOLUTION}).`;
 

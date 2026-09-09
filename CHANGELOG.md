@@ -7,11 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.5.0] — Unreleased
+## [0.5.1] — 2026-09-10
 
-PR21 command-surface cleanup. Distinct from the unpublished `0.4.0` main
-baseline (registry latest remains `0.3.0`; `0.4.0` was never tagged or
-published).
+Compatible patch on published `0.5.0`. Browser-login-first onboarding
+guidance and an opt-in Quickstart Skill evaluation. No new commands, auth
+mechanisms, or credential-precedence changes.
+
+### Changed
+
+- README, missing-key errors, `whoami`, and Router help recommend `aisa login`
+  (browser; stores a CLI key) before pasting a key. `AISA_API_KEY` and
+  `aisa login --key` remain for CI. Resolution order is unchanged:
+  `AISA_API_KEY`, then `~/.aisa/key`, then legacy login.
+- Quick Start covers login, discovery, catalog browse, and quote. It does not
+  copy `aisa chat` or `aisa call`. Quote is a price observation; approval and
+  whether to execute remain caller-owned guidance, not an enforced CLI gate.
+
+### Added
+
+- Default-off `eval/agent-quickstart/` Skill ablation. Reuses the existing
+  Router stub and pack path. Excluded from the npm package; does not run in
+  default CI or against production AIsa credentials.
+
+## [0.5.0] — 2026-09-09
+
+PR21 command-surface cleanup. Published to npm as `0.5.0`. Distinct from the
+unpublished `0.4.0` main baseline (`0.4.0` was never tagged or published).
 
 ### Breaking
 
@@ -41,7 +62,7 @@ published).
 ## [0.4.0] — unpublished main baseline
 
 Unpublished `main` candidate as of 2026-09-08. Not tagged and not on npm
-(registry latest remains `0.3.0`). Kept so the Router work and the
+(skipped between `0.3.0` and published `0.5.0`). Kept so the Router work and the
 `api search` / `api show` / `run` deprecation history stay identifiable.
 
 ### Breaking
@@ -385,7 +406,8 @@ supports today; nothing here depends on a backend change.
 - Config commands (`aisa config get|set|list|reset`) and auth
   (`aisa login|logout|whoami`).
 
-[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/AIsa-team/cli/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/AIsa-team/cli/compare/v0.3.0...v0.5.0
 [0.4.0]: https://github.com/AIsa-team/cli/compare/v0.3.0...b5c0b04b2a7a2cb9efcb568be5ee5440d7f7d94d
 [0.3.0]: https://github.com/AIsa-team/cli/compare/v0.2.4...v0.3.0

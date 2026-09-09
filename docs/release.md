@@ -8,58 +8,60 @@ that commit is merged and reviewed. A push to `main` runs CI only;
 
 | Item | Value |
 | --- | --- |
-| Version | `0.5.0` (unpublished candidate; recheck registry before tagging) |
+| Version | `0.5.1` (release target) |
 | Command surface | 22 root help entries including implicit `help`; `api` is `list`/`show` only |
-| Registry latest (recheck before tagging) | `0.3.0` on `https://registry.npmjs.org` |
+| Registry latest | `0.5.0` on `https://registry.npmjs.org` (baseline at this preparation; recheck before tagging) |
 | Default Router origin | `https://tools.aisa.one` |
 | LLM / catalog host | `https://api.aisa.one` |
 | Node | `engines` `>=18`. CI on Ubuntu: 18/20 legacy compatibility, 22/24 maintained, 26 current. Publish job uses Node 24 and npm `11.6.0`. |
 
 `package.json`, `package-lock.json` (root / `packages[""]`),
 `src/constants.ts` `VERSION`, installed `aisa --version`, and
-`CHANGELOG.md` `## [0.5.0]` must agree. Confirm with
+`CHANGELOG.md` `## [0.5.1]` must agree. Confirm with
 `node scripts/package-smoke.mjs` (or `--tarball` of the candidate
 archive). The VS Code extension is not version-bumped with this CLI
 release unless its own packaging requires it.
 
 The packed archive must include `dist/index.js`, the `aisa` bin, and
-`LICENSE` (MIT, Copyright (c) 2026 AIsa Team).
+`LICENSE` (MIT, Copyright (c) 2026 AIsa Team). `eval/` stays out of the
+npm package.
 
 ## Trusted Publisher
 
-Before the first tag that should ship, configure npm Trusted Publisher
-on `https://www.npmjs.com/package/@aisa-one/cli` → Settings → Trusted
+npm Trusted Publisher is configured on
+`https://www.npmjs.com/package/@aisa-one/cli` → Settings → Trusted
 Publisher:
 
 - Repository: `AIsa-team/cli`
 - Workflow: `release.yml`
 
-Do not add a stored npm token, disable 2FA, or change GitHub
-`id-token` permissions. Until this is configured, the publish step 403s
-and the tag is harmless. Do not treat OIDC publish as already proven.
+`v0.5.0` published via OIDC (GitHub Actions run `34305298596`). Do not
+add a stored npm token, disable 2FA, or change GitHub `id-token`
+permissions. Claim a new release only after that tag's workflow and the
+official registry agree.
 
 ## Tag from reviewed main
 
 ```bash
 # Official registry only — do not use a mirror as the source of truth.
 npm view @aisa-one/cli version --registry https://registry.npmjs.org
-# expected while 0.5.0 is unpublished: 0.3.0
+# baseline at this preparation: 0.5.0 — recheck before tagging
 # 0.4.0 is the unpublished main baseline, not a registry release.
 
 git checkout main
 git pull origin main
-# Confirm this commit is the reviewed merge of the 0.5.0 candidate.
-node -p "require('./package.json').version"   # 0.5.0
-grep -E '^export const VERSION' src/constants.ts   # "0.5.0"
+# Confirm this commit is the reviewed merge of the 0.5.1 candidate.
+node -p "require('./package.json').version"   # 0.5.1
+grep -E '^export const VERSION' src/constants.ts   # "0.5.1"
 
-git tag -a v0.5.0 -m "v0.5.0"
-git push origin v0.5.0
+git tag -a v0.5.1 -m "v0.5.1"
+git push origin v0.5.1
 ```
 
 Do not tag a worktree or unmerged branch. Do not run `npm publish` on a
-laptop. Do not retag or force-push `v0.5.0`. Do not push a tag whose
-`v*` suffix differs from `package.json` `version` (the workflow refuses
-that mismatch).
+laptop. Do not retag or force-push `v0.5.0` or `v0.5.1`. Do not push a
+tag whose `v*` suffix differs from `package.json` `version` (the
+workflow refuses that mismatch).
 
 ## What the Release workflow publishes
 
@@ -76,7 +78,7 @@ again via `prepack`). It:
 Local smoke of an existing archive:
 
 ```bash
-node scripts/package-smoke.mjs --tarball /path/to/aisa-one-cli-0.5.0.tgz
+node scripts/package-smoke.mjs --tarball /path/to/aisa-one-cli-0.5.1.tgz
 ```
 
 `prepack` (`npm run build`) is what puts `dist/` into a clean `npm pack`.
@@ -84,7 +86,6 @@ CI still runs an explicit `npm run build` before `npm test`.
 
 ## After the tag
 
-Watch the Release workflow. Success is `0.5.0` on
-`https://registry.npmjs.org/@aisa-one/cli`. A 403 means Trusted Publisher
-is still missing — configure it on npmjs.com, then decide whether to
-re-run the workflow on the same tag.
+Watch the Release workflow. Success is `0.5.1` on
+`https://registry.npmjs.org/@aisa-one/cli`. Recheck the official registry
+before assuming the tag published. Do not retag `v0.5.0`.

@@ -1,7 +1,6 @@
 import ora from "ora";
 import chalk from "chalk";
-import { getApiKey } from "../config.js";
-import { ENV_VAR_NAME } from "../constants.js";
+import { getApiKey, MISSING_API_KEY_GUIDANCE } from "../config.js";
 import { CliError, EXIT_PARTIAL, EXIT_TRANSPORT, transportError } from "../cli-error.js";
 import { routerPost, type RouterOperation } from "../router.js";
 import { error as printError } from "../utils/display.js";
@@ -80,7 +79,7 @@ function requireRouterKey(kind: RouterKind): string {
   const key = getApiKey();
   if (!key) {
     throw new CliError(
-      `No API key found. Run "aisa login --key <key>" or set ${ENV_VAR_NAME}. ` +
+      `${MISSING_API_KEY_GUIDANCE} ` +
         `search and schema may be anonymous; ${kind} will not run without a key. ` +
         `Do not invent a business result.`,
       EXIT_TRANSPORT

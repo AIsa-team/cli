@@ -87,12 +87,16 @@ export function getApiKey(): string | undefined {
   return undefined;
 }
 
+/** Next step when no local credential is present. Browser login first; env/--key are CI. */
+export const AUTH_SETUP_GUIDANCE =
+  `Run "aisa login". For CI, set ${ENV_VAR_NAME} or use "aisa login --key <key>".`;
+
+export const MISSING_API_KEY_GUIDANCE = `No API key found. ${AUTH_SETUP_GUIDANCE}`;
+
 export function requireApiKey(): string {
   const key = getApiKey();
   if (!key) {
-    console.error(
-      `No API key found. Run "aisa login --key <key>" or set ${ENV_VAR_NAME}.`
-    );
+    console.error(MISSING_API_KEY_GUIDANCE);
     process.exit(1);
   }
   return key;

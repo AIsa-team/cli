@@ -1,0 +1,609 @@
+#!/usr/bin/env node
+/**
+ * Default-off Quickstart Skill ablation. Not eval/cli-guidance.
+ * Setup/login/MCP are Mock E2E. Do not launch Pi until AISA_EVAL_SCORE_CLEARED=1.
+ */
+import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import {
+  accessSync,
+  constants as fsConstants,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { delimiter, dirname, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { extractResolvedModel } from "../cli-guidance/grade.mjs";
+import { extractCompletedFinal, parseJsonl } from "../cli-guidance/run.mjs";
+import { PROFILE, startStub } from "../cli-guidance/stub.mjs";
+import { CONDITIONS, REQUESTED, gradeCase } from "./grade.mjs";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const EVAL_ROOT = resolve(HERE, "../..");
+const SYNTH_KEY = "aisa_eval_synthetic_key_not_real";
+const KIDS = new Set();
+
+function sha256File(path) {
+  return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
+
+function git(src, args) {
+  const r = spawnSync("git", ["-C", src, ...args], { encoding: "utf8" });
+  if (r.status !== 0) throw new Error(`git ${args.join(" ")} failed\n${r.stderr || r.stdout}`);
+  return r.stdout.trim();
+}
+
+function findPi() {
+  if (REQUESTED.pi_bin) return REQUESTED;
+  const fromEnv = process.env.AISA_EVAL_PI;
+  let pi_bin = fromEnv || null;
+  if (!pi_bin) {
+    for (const dir of (process.env.PATH || "").split(delimiter)) {
+      if (!dir) continue;
+      const candidate = resolve(dir, "pi");
+      try {
+        accessSync(candidate, fsConstants.X_OK);
+        pi_bin = candidate;
+        break;
+      } catch {
+        /* next */
+      }
+    }
+  }
+  if (!pi_bin) throw new Error("pi not found; set AISA_EVAL_PI to the 0.84.4 binary");
+  const probe = spawnSync(pi_bin, ["--version"], { encoding: "utf8" });
+  if (probe.status !== 0) throw new Error(`pi --version failed: ${pi_bin}`);
+  const version = (probe.stdout || "").trim();
+  if (version !== "0.84.4") throw new Error(`refusing Pi ${version}; expected 0.84.4`);
+  REQUESTED.pi_bin = pi_bin;
+  REQUESTED.pi_version = version;
+  return REQUESTED;
+}
+
+function parseArgs(argv) {
+  const out = {
+    selfCheck: false,
+    docs: "",
+    docsSha: "",
+    skill: "",
+    skillSha: "",
+    installMeta: "",
+    out: "",
+    condition: "",
+    caseId: "",
+  };
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (a === "--self-check") out.selfCheck = true;
+    else if (a === "--docs") out.docs = argv[++i];
+    else if (a === "--docs-sha") out.docsSha = argv[++i];
+    else if (a === "--skill") out.skill = argv[++i];
+    else if (a === "--skill-sha") out.skillSha = argv[++i];
+    else if (a === "--install-meta") out.installMeta = argv[++i];
+    else if (a === "--out") out.out = argv[++i];
+    else if (a === "--condition") out.condition = argv[++i];
+    else if (a === "--case") out.caseId = argv[++i];
+    else if (a === "--help" || a === "-h") out.help = true;
+    else throw new Error(`unknown arg: ${a}`);
+  }
+  return out;
+}
+
+function ensureDir(p) {
+  mkdirSync(p, { recursive: true });
+}
+
+function isolatePiDir(root) {
+  const dir = join(root, "pi-agent");
+  ensureDir(dir);
+  const authSrc = join(process.env.HOME || "", ".pi/agent/auth.json");
+  if (!existsSync(authSrc)) throw new Error(`missing Pi auth.json at ${authSrc}`);
+  if (!existsSync(join(dir, "auth.json"))) symlinkSync(authSrc, join(dir, "auth.json"));
+  writeFileSync(
+    join(dir, "settings.json"),
+    `${JSON.stringify({ packages: [], extensions: [], skills: [], defaultProjectTrust: "never" }, null, 2)}\n`
+  );
+  return dir;
+}
+
+function killPid(pid) {
+  if (!pid) return;
+  try {
+    process.kill(-pid, "SIGKILL");
+  } catch {
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      /* gone */
+    }
+  }
+}
+
+process.on("exit", () => {
+  for (const pid of KIDS) killPid(pid);
+});
+
+function runProcess(cmd, args, opts, timeoutMs) {
+  return new Promise((resolvePromise) => {
+    const child = spawn(cmd, args, { ...opts, stdio: ["ignore", "pipe", "pipe"], detached: true });
+    if (child.pid) KIDS.add(child.pid);
+    let stdout = "";
+    let stderr = "";
+    let timed_out = false;
+    if (child.stdout) {
+      child.stdout.setEncoding("utf8");
+      child.stdout.on("data", (c) => {
+        stdout += c;
+      });
+    }
+    if (child.stderr) {
+      child.stderr.setEncoding("utf8");
+      child.stderr.on("data", (c) => {
+        stderr += c;
+      });
+    }
+    const timer = setTimeout(() => {
+      timed_out = true;
+      killPid(child.pid);
+    }, timeoutMs);
+    const done = (extra) => {
+      clearTimeout(timer);
+      if (child.pid) KIDS.delete(child.pid);
+      resolvePromise({ stdout, stderr, timed_out, ...extra });
+    };
+    child.on("error", (err) => done({ code: null, signal: null, spawn_error: String(err) }));
+    child.on("close", (code, signal) => done({ code, signal }));
+  });
+}
+
+function stripAisaEnv(overlay) {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) {
+    if (key.startsWith("AISA_")) delete env[key];
+  }
+  return Object.assign(env, overlay);
+}
+
+function cliEnv(home) {
+  return {
+    HOME: home,
+    USER: "eval",
+    PATH: process.env.PATH,
+    LANG: process.env.LANG || "C.UTF-8",
+    TMPDIR: join(home, "tmp"),
+    XDG_CONFIG_HOME: join(home, "xdg-config"),
+    XDG_CACHE_HOME: join(home, "xdg-cache"),
+    XDG_DATA_HOME: join(home, "xdg-data"),
+    XDG_STATE_HOME: join(home, "xdg-state"),
+    AISA_CACHE_DIR: join(home, "cache"),
+    AISA_NO_UPDATE_NOTICE: "1",
+    AISA_NO_BROWSER: "1",
+    NO_COLOR: "1",
+    FORCE_COLOR: "0",
+  };
+}
+
+function prepareCliHome(home, bin, stubUrl) {
+  for (const p of ["tmp", "xdg-config", "xdg-cache", "xdg-data", "xdg-state", "cache"]) ensureDir(join(home, p));
+  const env = cliEnv(home);
+  for (const key of ["baseUrl", "routerUrl"]) {
+    const r = spawnSync(process.execPath, [bin, "config", "set", key, stubUrl], { env, encoding: "utf8" });
+    if (r.status !== 0) throw new Error(`config set ${key} failed: ${r.stderr || r.stdout}`);
+  }
+}
+
+export function skillTimingFor(spec, condition) {
+  if (condition !== "skill") return "none";
+  // Delayed body only for terminal cold install. No-terminal cannot npx, so treatment is preinstalled/readable.
+  if (spec.terminal === false) return "initial";
+  const installed = spec.start?.cli_installed && spec.start?.authenticated;
+  return installed ? "initial" : "after_install";
+}
+
+export function buildPiArgs({ terminal, skillPath, systemPrompt, extensionPath, skillTiming }) {
+  const args = [
+    "--print",
+    "--mode",
+    "json",
+    "--provider",
+    REQUESTED.provider,
+    "--model",
+    REQUESTED.model,
+    "--thinking",
+    REQUESTED.thinking,
+    "--no-builtin-tools",
+    "--tools",
+    terminal ? "read_guide,setup_action,aisa_cli" : "read_guide,setup_action",
+    "--no-extensions",
+    "-e",
+    extensionPath,
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-themes",
+    "--no-context-files",
+    "--no-session",
+    "--no-approve",
+    "--system-prompt",
+    systemPrompt,
+  ];
+  if (skillTiming === "initial") args.push("--append-system-prompt", skillPath);
+  return args;
+}
+
+export function assertNoSkillLeak(condition, piArgs, skillPath, skillBody) {
+  if (condition !== "no-skill") return;
+  if (piArgs.includes("--append-system-prompt") || piArgs.includes("--skill")) {
+    throw new Error("no-skill argv must not pass --skill or --append-system-prompt");
+  }
+  const joined = piArgs.join("\0");
+  if (skillPath && joined.includes(skillPath)) throw new Error("no-skill argv contains skill path");
+  if (skillBody && joined.includes(skillBody.slice(0, 80))) throw new Error("no-skill argv contains skill body");
+}
+
+function loadInstallMeta(path) {
+  const metaPath = resolve(path);
+  if (!existsSync(metaPath)) throw new Error(`install-meta missing: ${metaPath}`);
+  const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+  if (!meta.sha || !meta.tarball_sha256 || !meta.bin) throw new Error("install-meta must include sha, tarball_sha256, and bin");
+  const bin = resolve(meta.bin);
+  if (!existsSync(bin)) throw new Error(`installed bin missing: ${bin}`);
+  if (meta.tarball) {
+    const tarball = resolve(meta.tarball);
+    if (!existsSync(tarball)) throw new Error(`tarball missing: ${tarball}`);
+    const got = sha256File(tarball);
+    if (got !== meta.tarball_sha256) throw new Error(`tarball sha mismatch\nwant ${meta.tarball_sha256}\ngot  ${got}`);
+  }
+  return { ...meta, bin, meta_path: metaPath };
+}
+
+function requireInputs(args) {
+  for (const k of ["docs", "docsSha", "skill", "skillSha", "installMeta"]) {
+    if (!args[k]) throw new Error(`missing --${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`);
+  }
+  const docs = resolve(args.docs);
+  const skill = resolve(args.skill);
+  if (!existsSync(docs)) throw new Error(`docs missing: ${docs}`);
+  if (!existsSync(skill)) throw new Error(`skill missing: ${skill}`);
+  const docsSha = sha256File(docs);
+  const skillSha = sha256File(skill);
+  if (docsSha !== args.docsSha) throw new Error(`docs sha mismatch\nwant ${args.docsSha}\ngot  ${docsSha}`);
+  if (skillSha !== args.skillSha) throw new Error(`skill sha mismatch\nwant ${args.skillSha}\ngot  ${skillSha}`);
+  const install = loadInstallMeta(args.installMeta);
+  return {
+    docs,
+    skill,
+    docsSha,
+    skillSha,
+    skillBody: readFileSync(skill, "utf8"),
+    cliBin: install.bin,
+    cliSha: install.sha,
+    tarballSha: install.tarball_sha256,
+    eval_commit: git(EVAL_ROOT, ["rev-parse", "HEAD"]),
+    eval_tree: git(EVAL_ROOT, ["rev-parse", "HEAD^{tree}"]),
+  };
+}
+
+export function suiteExitCode(rows, requested = REQUESTED) {
+  const modelBad = rows.some((r) => {
+    const resolved = r.resolved || {};
+    return resolved.provider !== requested.provider || resolved.model !== requested.model;
+  });
+  if (modelBad) return 2;
+  if (rows.some((r) => !r.grade?.task_pass || !r.grade?.safety_pass)) return 1;
+  return 0;
+}
+
+function readLedger(path) {
+  if (!existsSync(path)) return [];
+  return parseJsonl(readFileSync(path, "utf8")).events.filter((e) => e && e.type !== "parse_error");
+}
+
+async function runOne({ spec, condition, inputs, outRoot, facts }) {
+  const caseDir = join(outRoot, "runs", condition, spec.id);
+  rmSync(caseDir, { recursive: true, force: true });
+  ensureDir(caseDir);
+  const home = join(caseDir, "cli-home");
+  const cwd = join(caseDir, "cwd");
+  const sessions = join(caseDir, "sessions");
+  ensureDir(home);
+  ensureDir(cwd);
+  ensureDir(sessions);
+  const start = spec.start || {};
+  const terminal = spec.terminal === true;
+  const stub = terminal ? await startStub({ caseId: spec.stub_case_id || spec.id }) : null;
+  const skillTiming = skillTimingFor(spec, condition);
+  try {
+    if (terminal) prepareCliHome(home, inputs.cliBin, stub.url);
+    if (start.authenticated) {
+      ensureDir(join(home, ".aisa"));
+      writeFileSync(join(home, ".aisa", "key"), `${SYNTH_KEY}\n`, { mode: 0o600 });
+    }
+    const statePath = join(caseDir, "state.json");
+    writeFileSync(
+      statePath,
+      `${JSON.stringify({ cli_installed: Boolean(start.cli_installed), authenticated: Boolean(start.authenticated) })}\n`
+    );
+    const ledgerPath = join(caseDir, "actions.jsonl");
+    writeFileSync(ledgerPath, "");
+    const systemPrompt = readFileSync(join(HERE, "system-prompt.txt"), "utf8");
+    const piArgs = buildPiArgs({
+      terminal,
+      skillPath: inputs.skill,
+      systemPrompt,
+      extensionPath: join(HERE, "extension.ts"),
+      skillTiming,
+    });
+    const skillBodyInitial = piArgs.includes("--append-system-prompt");
+    assertNoSkillLeak(condition, piArgs, inputs.skill, inputs.skillBody);
+    const result = await runProcess(
+      REQUESTED.pi_bin,
+      [...piArgs, "--", spec.prompt],
+      {
+        cwd,
+        env: stripAisaEnv({
+          PI_CODING_AGENT_DIR: isolatePiDir(caseDir),
+          PI_CODING_AGENT_SESSION_DIR: sessions,
+          AISA_EVAL_BIN: inputs.cliBin,
+          AISA_EVAL_LEDGER: ledgerPath,
+          AISA_EVAL_HOME: home,
+          AISA_EVAL_GUIDE: inputs.docs,
+          AISA_EVAL_SKILL: inputs.skill,
+          AISA_EVAL_SKILL_TIMING: skillTiming,
+          AISA_EVAL_STATE: statePath,
+          AISA_EVAL_TERMINAL: terminal ? "1" : "0",
+          AISA_EVAL_MAX_CALLS: "16",
+        }),
+      },
+      180000
+    );
+    const parsed = parseJsonl(result.stdout);
+    const resolved = extractResolvedModel(parsed.events);
+    const completion = extractCompletedFinal(parsed.events, { timed_out: result.timed_out === true });
+    const transport = [];
+    if (result.spawn_error) transport.push({ errorMessage: result.spawn_error });
+    if (completion.reason === "terminal_error") transport.push({ errorMessage: "terminal_error" });
+    const runtime = {
+      exit_code: result.code,
+      signal: result.signal ?? null,
+      timed_out: result.timed_out === true,
+      parse_errors: parsed.parse_errors,
+      transport_errors: transport,
+    };
+    const ledger = readLedger(ledgerPath);
+    if (condition === "no-skill" && `${result.stdout}${JSON.stringify(ledger)}`.includes(inputs.skillBody.slice(0, 120))) {
+      throw new Error(`${spec.id} no-skill run contained skill body`);
+    }
+    writeFileSync(join(caseDir, "pi.stdout.jsonl"), result.stdout);
+    writeFileSync(join(caseDir, "pi.stderr.txt"), result.stderr);
+    if (stub) writeFileSync(join(caseDir, "http.json"), `${JSON.stringify(stub.ledger, null, 2)}\n`);
+    const record = {
+      condition,
+      case_id: spec.id,
+      requested: REQUESTED,
+      resolved,
+      runtime,
+      docs_sha: inputs.docsSha,
+      skill_sha: inputs.skillSha,
+      cli_sha: inputs.cliSha,
+      tarball_sha256: inputs.tarballSha,
+      install_bin: inputs.cliBin,
+      eval_commit: inputs.eval_commit,
+      eval_tree: inputs.eval_tree,
+      skill_timing: skillTiming,
+      skill_body_initial: skillBodyInitial,
+      mock_e2e: true,
+      grade: gradeCase({
+        spec,
+        facts,
+        ledger,
+        httpLedger: stub ? stub.ledger : [],
+        finalText: completion.completed ? completion.text : "",
+        resolved,
+        runtime,
+        observed: { skill_body_initial: skillBodyInitial },
+      }),
+      final_text: completion.completed ? completion.text : "",
+    };
+    writeFileSync(join(caseDir, "grade.json"), `${JSON.stringify(record, null, 2)}\n`);
+    return record;
+  } finally {
+    if (stub) await stub.close().catch(() => {});
+  }
+}
+
+function piPackageDir() {
+  let dir = dirname(realpathSync(findPi().pi_bin));
+  for (let i = 0; i < 10; i += 1) {
+    const pkgPath = join(dir, "package.json");
+    if (existsSync(pkgPath)) {
+      try {
+        if (JSON.parse(readFileSync(pkgPath, "utf8")).name === "@earendil-works/pi-coding-agent") return dir;
+      } catch {
+        /* keep walking */
+      }
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  throw new Error("cannot locate @earendil-works/pi-coding-agent 0.84.4 package");
+}
+
+function smokeExtension(outRoot) {
+  const piDir = piPackageDir();
+  const tsc = join(EVAL_ROOT, "node_modules", "typescript", "bin", "tsc");
+  if (!existsSync(tsc)) throw new Error("typescript tsc missing; npm install in the CLI checkout");
+  const emitDir = join(outRoot, "extension-js");
+  rmSync(emitDir, { recursive: true, force: true });
+  ensureDir(emitDir);
+  const tsconfig = {
+    compilerOptions: {
+      noEmit: false,
+      outDir: emitDir,
+      strict: true,
+      skipLibCheck: true,
+      module: "nodenext",
+      moduleResolution: "nodenext",
+      target: "es2022",
+      types: ["node"],
+      typeRoots: [join(EVAL_ROOT, "node_modules/@types")],
+      paths: {
+        "@earendil-works/pi-ai": [join(piDir, "node_modules/@earendil-works/pi-ai/dist/index.d.ts")],
+        "@earendil-works/pi-coding-agent": [join(piDir, "dist/index.d.ts")],
+      },
+    },
+    files: [join(HERE, "extension.ts")],
+  };
+  const cfg = join(outRoot, "tsconfig.extension.json");
+  writeFileSync(cfg, `${JSON.stringify(tsconfig, null, 2)}\n`);
+  const typecheck = spawnSync(process.execPath, [tsc, "-p", cfg], { encoding: "utf8" });
+  if (typecheck.status !== 0) throw new Error(`extension typecheck failed\n${typecheck.stdout}\n${typecheck.stderr}`);
+  const emitted = join(emitDir, "extension.js");
+  const piAi = pathToFileURL(join(piDir, "node_modules/@earendil-works/pi-ai/dist/index.js")).href;
+  const piAgent = pathToFileURL(join(piDir, "dist/index.js")).href;
+  const rewritten = readFileSync(emitted, "utf8")
+    .replace(/["']@earendil-works\/pi-ai["']/g, JSON.stringify(piAi))
+    .replace(/["']@earendil-works\/pi-coding-agent["']/g, JSON.stringify(piAgent));
+  writeFileSync(emitted, rewritten);
+  const smoke = join(outRoot, "extension-smoke.mjs");
+  writeFileSync(
+    smoke,
+    `import ext from ${JSON.stringify(pathToFileURL(join(emitDir, "extension.js")).href)};
+const names = [];
+const tools = {};
+ext({ registerTool(t) { names.push(t.name); tools[t.name] = t; } });
+if (!names.includes("read_guide") || !names.includes("setup_action") || !names.includes("aisa_cli")) {
+  throw new Error("extension did not register tools: " + names.join(","));
+}
+const res = await tools.read_guide.execute("1", {});
+if (!res || !res.details) throw new Error("read_guide result missing details");
+console.log(JSON.stringify(names));
+`
+  );
+  const loaded = spawnSync(process.execPath, [smoke], {
+    encoding: "utf8",
+    env: { ...process.env, AISA_EVAL_TERMINAL: "1" },
+  });
+  if (loaded.status !== 0) throw new Error(`extension load failed\n${loaded.stdout}\n${loaded.stderr}`);
+  return { tools: JSON.parse(loaded.stdout.trim()) };
+}
+
+async function selfCheck(inputs, outRoot) {
+  const gradeChecks = spawnSync(process.execPath, ["--test", join(HERE, "grade-checks.mjs")], { encoding: "utf8" });
+  if (gradeChecks.status !== 0) throw new Error(`grade-checks failed\n${gradeChecks.stderr || gradeChecks.stdout}`);
+  const extension = smokeExtension(outRoot);
+  const stub = await startStub({ caseId: "self-check" });
+  const home = join(outRoot, "self-check-home");
+  rmSync(home, { recursive: true, force: true });
+  ensureDir(home);
+  try {
+    prepareCliHome(home, inputs.cliBin, stub.url);
+    ensureDir(join(home, ".aisa"));
+    writeFileSync(join(home, ".aisa", "key"), `${SYNTH_KEY}\n`, { mode: 0o600 });
+    const env = cliEnv(home);
+    if (env.AISA_API_KEY || env.AISA_ROUTER_BASE_URL) throw new Error("self-check env must not inject key/router");
+    const version = spawnSync(process.execPath, [inputs.cliBin, "--version"], { env, encoding: "utf8" });
+    const search = await runProcess(process.execPath, [inputs.cliBin, "search", "company profile", "--json"], { env }, 20000);
+    const ext = join(HERE, "extension.ts");
+    const argvFor = (terminal, skillTiming) =>
+      buildPiArgs({ terminal, skillPath: inputs.skill, systemPrompt: "x", extensionPath: ext, skillTiming });
+    assertNoSkillLeak("no-skill", argvFor(false, "none"), inputs.skill, inputs.skillBody);
+    if (!argvFor(true, "initial").includes("--append-system-prompt")) throw new Error("initial skill timing must append the skill file");
+    if (argvFor(true, "after_install").includes("--append-system-prompt")) throw new Error("cold skill arm must not append the skill before install");
+    const ok = version.status === 0 && search.code === 0 && search.stdout.includes(PROFILE);
+    const report = {
+      ok,
+      docs_sha: inputs.docsSha,
+      skill_sha: inputs.skillSha,
+      cli_sha: inputs.cliSha,
+      tarball_sha256: inputs.tarballSha,
+      install_bin: inputs.cliBin,
+      eval_commit: inputs.eval_commit,
+      eval_tree: inputs.eval_tree,
+      version: version.stdout.trim(),
+      search_status: search.code,
+      stored_config_search: !env.AISA_ROUTER_BASE_URL && !env.AISA_API_KEY,
+      extension_tools: extension.tools,
+    };
+    writeFileSync(join(outRoot, "self-check.json"), `${JSON.stringify(report, null, 2)}\n`);
+    if (!ok) throw new Error("self-check failed; see self-check.json");
+    return report;
+  } finally {
+    await stub.close();
+  }
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    console.log(`Quickstart Skill ablation (default-off). Not eval/cli-guidance.
+
+  node eval/agent-quickstart/run.mjs --self-check --docs FILE --docs-sha SHA --skill FILE --skill-sha SHA --install-meta FILE --out DIR
+  AISA_EVAL_SCORE_CLEARED=1 node eval/agent-quickstart/run.mjs --docs FILE --docs-sha SHA --skill FILE --skill-sha SHA --install-meta FILE --out DIR
+`);
+    return;
+  }
+  const inputs = requireInputs(args);
+  const outRoot = resolve(args.out || join(tmpdir(), "aisa-agent-quickstart-eval"));
+  ensureDir(outRoot);
+  if (args.selfCheck) {
+    console.log(JSON.stringify(await selfCheck(inputs, outRoot), null, 2));
+    return;
+  }
+  if (process.env.AISA_EVAL_SCORE_CLEARED !== "1") {
+    throw new Error("Pi runs are blocked until review clearance. Use --self-check, or set AISA_EVAL_SCORE_CLEARED=1 after review. Not user authentication.");
+  }
+  findPi();
+  const pack = JSON.parse(readFileSync(join(HERE, "cases.json"), "utf8"));
+  const conditions = args.condition ? [args.condition] : CONDITIONS;
+  if (conditions.some((c) => !CONDITIONS.includes(c))) throw new Error("--condition must be skill or no-skill");
+  const cases = pack.cases.filter((c) => !args.caseId || c.id === args.caseId);
+  if (!cases.length) throw new Error(`no cases matched ${args.caseId}`);
+  const rows = [];
+  for (const condition of conditions) {
+    for (const spec of cases) {
+      rows.push(await runOne({ spec, condition, inputs, outRoot, facts: pack.facts }));
+    }
+  }
+  const summary = {
+    requested: REQUESTED,
+    docs_sha: inputs.docsSha,
+    skill_sha: inputs.skillSha,
+    cli_sha: inputs.cliSha,
+    tarball_sha256: inputs.tarballSha,
+    install_bin: inputs.cliBin,
+    eval_commit: inputs.eval_commit,
+    eval_tree: inputs.eval_tree,
+    mock_e2e: true,
+    runs: rows.map((r) => ({
+      condition: r.condition,
+      case_id: r.case_id,
+      skill_timing: r.skill_timing,
+      task_pass: r.grade.task_pass,
+      safety_pass: r.grade.safety_pass,
+      resolved: r.resolved,
+      failed: [...r.grade.checks, ...r.grade.safety].filter((c) => !c.ok).map((c) => c.id),
+    })),
+  };
+  writeFileSync(join(outRoot, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
+  console.log(
+    summary.runs
+      .map((r) => `${r.condition}/${r.case_id} task=${r.task_pass} safety=${r.safety_pass}${r.failed.length ? ` ${r.failed.join(",")}` : ""}`)
+      .join("\n")
+  );
+  process.exitCode = suiteExitCode(rows);
+}
+
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+if (isMain) {
+  main().catch((err) => {
+    console.error(err instanceof Error ? err.stack || err.message : err);
+    process.exit(1);
+  });
+}

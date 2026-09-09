@@ -14,8 +14,8 @@ npm install -g @aisa-one/cli
 ## Quick Start
 
 ```bash
-# Authenticate (or set AISA_API_KEY)
-aisa login --key sk-your-api-key
+# Sign in (browser; stores a CLI key — no key to copy)
+aisa login
 
 # Discover published tools (Router; search/schema may be anonymous)
 aisa search "company facts" --json
@@ -25,17 +25,19 @@ aisa schema get_financial_company_facts --json
 aisa api list
 aisa api show financial
 
-# Chat with any model
-aisa chat "Explain quantum computing" --model claude-opus-4-6
-
-# Quote then execute a published Router tool (same request JSON)
+# Quote a published Router tool (does not execute)
 aisa quote --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
-aisa call --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
 ```
 
-Get your API key at
-[console.aisa.one/api-keys](https://console.aisa.one/api-keys). New accounts
-receive $5 in free credits.
+`aisa login` opens a browser, signs you in, and stores a CLI key. You do not
+need to create or paste a key from the console. For CI or scripts, set
+`AISA_API_KEY` or run `aisa login --key <key>`. New accounts receive $5 in
+free credits.
+
+This first block does not run `aisa chat` or `aisa call`. Quote is a price
+observation, not authorization to execute. See
+[Published tools](#published-tools-tool-router) for the quote/approval
+contract before a billable call.
 
 Root help lists 21 explicit commands plus implicit `help`. Removed domain
 shortcuts and raw execution names are unknown commands — not aliases and
@@ -102,8 +104,10 @@ HTTP error; `3` means the Router returned a batch with at least one failed
 item.
 
 `search` and `schema` may be anonymous. `quote` and `call` require a
-configured AIsa API key: `AISA_API_KEY`, then `~/.aisa/key`, then legacy
-login. `aisa login` and `AISA_API_KEY` are alternatives. The default Router
+configured AIsa API key. Sign in with `aisa login` first; it mints and stores
+a CLI key. Resolution order is unchanged: `AISA_API_KEY`, then `~/.aisa/key`,
+then legacy login. `AISA_API_KEY` still takes precedence over the stored key.
+For CI, set `AISA_API_KEY` or use `aisa login --key <key>`. The default Router
 origin is `https://tools.aisa.one` (independent of `baseUrl` /
 `https://api.aisa.one`). Point a test Router at `AISA_ROUTER_BASE_URL` (origin
 or prefix before `/v1/tool-router/...`), or `aisa config set routerUrl`. There
@@ -319,7 +323,8 @@ Settings:
   independent of `baseUrl`); overridden by `AISA_ROUTER_BASE_URL`
 - `outputFormat` — `text` or `json`
 
-Environment variables: `AISA_API_KEY` takes precedence over the stored key.
+`aisa login` stores a CLI key in `~/.aisa/key`. Environment variables:
+`AISA_API_KEY` takes precedence over the stored key.
 `AISA_ROUTER_BASE_URL` is the Router origin/prefix before
 `/v1/tool-router/...` and overrides the default `https://tools.aisa.one`.
 `AISA_CACHE_DIR` relocates the cache. `GITHUB_TOKEN`

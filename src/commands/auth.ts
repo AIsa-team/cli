@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { setApiKey, clearApiKey, getApiKey, getKeySource, maskKey } from "../config.js";
+import { setApiKey, clearApiKey, getApiKey, getKeySource, maskKey, AUTH_SETUP_GUIDANCE } from "../config.js";
 import { success, error, info } from "../utils/display.js";
 import { CONSOLE_URL, ENV_VAR_NAME } from "../constants.js";
 
@@ -59,7 +59,7 @@ export function whoamiAction(): void {
 
   if (!key) {
     info("Not authenticated.");
-    console.log(chalk.gray(`  Run "aisa login --key <key>" or set ${ENV_VAR_NAME}`));
+    console.log(chalk.gray(`  ${AUTH_SETUP_GUIDANCE}`));
     return;
   }
 
