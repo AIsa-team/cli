@@ -200,7 +200,10 @@ function prepareCliHome(home, bin, stubUrl) {
 
 export function skillTimingFor(spec, condition) {
   if (condition !== "skill") return "none";
-  return spec.start?.cli_installed && spec.start?.authenticated ? "initial" : "after_install";
+  // Delayed body only for terminal cold install. No-terminal cannot npx, so treatment is preinstalled/readable.
+  if (spec.terminal === false) return "initial";
+  const installed = spec.start?.cli_installed && spec.start?.authenticated;
+  return installed ? "initial" : "after_install";
 }
 
 export function buildPiArgs({ condition, terminal, skillPath, systemPrompt, extensionPath, skillTiming }) {
@@ -531,8 +534,17 @@ async function selfCheck(inputs, outRoot) {
       skillTiming: "none",
     });
     assertNoSkillLeak("no-skill", noSkillArgs, inputs.skill, inputs.skillBody);
+    const noTermSkillArgs = buildPiArgs({
+      condition: "skill",
+      terminal: false,
+      skillPath: inputs.skill,
+      systemPrompt: "x",
+      extensionPath: join(HERE, "extension.ts"),
+      skillTiming: skillTimingFor({ terminal: false, start: { cli_installed: false, authenticated: false } }, "skill"),
+    });
     if (!reuseArgs.includes("--append-system-prompt")) throw new Error("reuse skill arm must append the skill file initially");
     if (coldArgs.includes("--append-system-prompt")) throw new Error("cold skill arm must not append the skill before install");
+    if (!noTermSkillArgs.includes("--append-system-prompt")) throw new Error("no-terminal skill arm must load the skill initially");
     const ok = version.status === 0 && search.code === 0 && search.stdout.includes(PROFILE);
     const report = {
       ok,

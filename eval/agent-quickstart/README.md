@@ -9,8 +9,8 @@ Required flags: `--docs` `--docs-sha` `--skill` `--skill-sha` `--install-meta` `
 `--install-meta` is the `install-meta.json` written by `eval/cli-guidance/run.mjs` archive/pack (sha, tarball SHA-256, installed bin). Do not pass a free `--cli-bin`.
 
 Both conditions get the same setup guide and CLI help. Skill **timing**:
-- reuse/already-installed skill arm: append `SKILL.md` at process start
-- cold-start skill arm: expose the Skill body only after the canonical mock `npx_skills_add`
+- reuse / no-terminal skill arm: append `SKILL.md` at process start (no-terminal cannot npx)
+- cold-start skill arm only: expose the Skill body after the canonical mock `npx_skills_add`
 - no-skill arm: never expose the body (install may still be recorded)
 
 Pinned: Pi **0.84.4**, `openai-codex` / `gpt-5.6-luna`, thinking `low`. No fallback.

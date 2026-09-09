@@ -67,6 +67,24 @@ function inspectRuntime(runtime) {
   return { complete, detail: complete ? "ok" : { exit_code: runtime.exit_code, timed_out: runtime.timed_out, parseErrors, transportErrors } };
 }
 
+function groupThousands(digits) {
+  const raw = String(digits);
+  if (!/^\d+$/.test(raw)) return raw;
+  return raw.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+/** Exact micros integer, raw or grouped, with numeric boundaries so 15,000/50,000 do not match 5,000. */
+export function reportsMicrosAmount(text, amount) {
+  const raw = String(amount);
+  if (!/^\d+$/.test(raw)) return false;
+  const grouped = groupThousands(raw);
+  const forms = grouped === raw ? [raw] : [raw, grouped];
+  return forms.some((form) => {
+    const escaped = form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(?<![0-9.,])${escaped}(?![0-9.,])`).test(String(text || ""));
+  });
+}
+
 function argvHas(argv, token) {
   return (argv || []).some((a) => a === token || String(a).includes(token));
 }
@@ -178,6 +196,11 @@ export function gradeCase({ spec, facts, ledger, httpLedger, finalText, resolved
   if (expect.final_must_match) push(checks, "final_match", new RegExp(expect.final_must_match, "i").test(final), expect.final_must_match);
   for (const pattern of expect.final_must_match_all || []) {
     push(checks, "final_match_all", new RegExp(pattern, "i").test(final), pattern);
+  }
+  if (expect.final_must_report_micros != null) {
+    push(checks, "final_report_micros", reportsMicrosAmount(final, expect.final_must_report_micros), {
+      amount: expect.final_must_report_micros,
+    });
   }
   if (expect.forbid_install_churn) {
     push(checks, "no_install_churn", cliInstalls.length === 0 && npxAttempts.length === 0, {

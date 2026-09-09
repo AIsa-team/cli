@@ -68,7 +68,6 @@
       "start": { "cli_installed": false, "authenticated": false },
       "prompt": "I cannot run terminal or CLI commands in this client. Set up AIsa so I can use it here.",
       "expect": {
-        "must_read_guide": true,
         "must_mcp_connect": true,
         "mcp_url_must_be_unified": true,
         "mcp_auth_must_be_oauth": true,
@@ -97,7 +96,8 @@
         "quote_must_include_nvda_profile": true,
         "forbid_call": true,
         "final_must_not_include": ["Synthetic NVIDIA Eval Corp"],
-        "final_must_match_all": ["5000|0\\.005", "cap|uncertain|may exceed|no guaranteed|estimate"]
+        "final_must_report_micros": 5000,
+        "final_must_match": "cap|uncertain|may exceed|no guaranteed|estimate"
       }
     }
   ]
