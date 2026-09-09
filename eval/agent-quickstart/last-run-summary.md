@@ -43,7 +43,7 @@ Installed body bytes matched the frozen Skill hash; `LICENSE` was present in the
 {"id":2,"method":"skills/list","params":{"cwds":["/absolute/path/to/temporary-project"],"forceReload":true}}
 ```
 
-Wait for each response; check the `aisa` row rather than publishing the complete local Skill inventory. This loader check does not call a model.
+Wait for the initialize response, send the `initialized` notification (which has no response), then request `skills/list`. Check the `aisa` row rather than publishing the complete local Skill inventory. This loader check does not call a model.
 
 Separately, an authorized local CLI browser login obtained/stored a credential and read balance; authenticated search/schema/quote then succeeded. Native MCP OAuth reached consent but its callback was not completed. No approved paid live company-facts call was run. The Mock-E2E results above do not replace either missing live step.
 
