@@ -113,7 +113,7 @@ A false success (exit 0 on a partial batch) is RED.
 - CLI must satisfy **all** of:
   - exit exactly **1**
   - empty stdout
-  - stderr contains the missing-key diagnostic (`No API key found`, `aisa login --key`, and `AISA_API_KEY`)
+  - stderr contains the missing-key diagnostic (`No API key found`, `aisa login`, and `AISA_API_KEY`)
   - zero dispatch (no quote/execute POST)
 
 Any other failure (unknown command, unknown option, network error, 401 JSON on stdout, wrong exit, or a dispatch) is RED. An arbitrary nonzero error is not success.

@@ -128,7 +128,7 @@ describe("tool router commands", () => {
     await expect(quoteAction({ input: req, json: true })).rejects.toMatchObject({
       exitCode: 1,
       message: expect.stringMatching(
-        /No API key found[\s\S]*aisa login --key[\s\S]*AISA_API_KEY[\s\S]*Do not invent a business result/
+        /No API key found[\s\S]*Run "aisa login"[\s\S]*AISA_API_KEY[\s\S]*Do not invent a business result/
       ),
     });
     await expect(callAction({ input: req, json: true })).rejects.toMatchObject({ exitCode: 1 });
