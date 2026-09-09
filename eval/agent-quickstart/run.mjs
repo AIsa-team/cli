@@ -11,6 +11,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -24,6 +25,7 @@ import { PROFILE, startStub } from "../cli-guidance/stub.mjs";
 import { CONDITIONS, REQUESTED, gradeCase } from "./grade.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const EVAL_ROOT = resolve(HERE, "../..");
 const SYNTH_KEY = "aisa_eval_synthetic_key_not_real";
 const KIDS = new Set();
 
@@ -31,9 +33,9 @@ function sha256File(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-function gitHead(src) {
-  const r = spawnSync("git", ["-C", src, "rev-parse", "HEAD"], { encoding: "utf8" });
-  if (r.status !== 0) throw new Error(`git rev-parse failed\n${r.stderr || r.stdout}`);
+function git(src, args) {
+  const r = spawnSync("git", ["-C", src, ...args], { encoding: "utf8" });
+  if (r.status !== 0) throw new Error(`git ${args.join(" ")} failed\n${r.stderr || r.stdout}`);
   return r.stdout.trim();
 }
 
@@ -71,9 +73,7 @@ function parseArgs(argv) {
     docsSha: "",
     skill: "",
     skillSha: "",
-    cliBin: "",
-    cliSha: "",
-    cliSrc: "",
+    installMeta: "",
     out: "",
     condition: "",
     caseId: "",
@@ -85,9 +85,7 @@ function parseArgs(argv) {
     else if (a === "--docs-sha") out.docsSha = argv[++i];
     else if (a === "--skill") out.skill = argv[++i];
     else if (a === "--skill-sha") out.skillSha = argv[++i];
-    else if (a === "--cli-bin") out.cliBin = argv[++i];
-    else if (a === "--cli-sha") out.cliSha = argv[++i];
-    else if (a === "--cli-src") out.cliSrc = argv[++i];
+    else if (a === "--install-meta") out.installMeta = argv[++i];
     else if (a === "--out") out.out = argv[++i];
     else if (a === "--condition") out.condition = argv[++i];
     else if (a === "--case") out.caseId = argv[++i];
@@ -172,8 +170,8 @@ function stripAisaEnv(overlay) {
   return Object.assign(env, overlay);
 }
 
-function cliEnv(home, stubUrl, apiKey) {
-  const env = {
+function cliEnv(home) {
+  return {
     HOME: home,
     USER: "eval",
     PATH: process.env.PATH,
@@ -184,26 +182,28 @@ function cliEnv(home, stubUrl, apiKey) {
     XDG_DATA_HOME: join(home, "xdg-data"),
     XDG_STATE_HOME: join(home, "xdg-state"),
     AISA_CACHE_DIR: join(home, "cache"),
-    AISA_ROUTER_BASE_URL: stubUrl,
     AISA_NO_UPDATE_NOTICE: "1",
     AISA_NO_BROWSER: "1",
     NO_COLOR: "1",
     FORCE_COLOR: "0",
   };
-  if (apiKey) env.AISA_API_KEY = apiKey;
-  return env;
 }
 
-function prepareCliHome(home, bin, stubUrl, apiKey) {
+function prepareCliHome(home, bin, stubUrl) {
   for (const p of ["tmp", "xdg-config", "xdg-cache", "xdg-data", "xdg-state", "cache"]) ensureDir(join(home, p));
-  const env = cliEnv(home, stubUrl, apiKey);
+  const env = cliEnv(home);
   for (const key of ["baseUrl", "routerUrl"]) {
     const r = spawnSync(process.execPath, [bin, "config", "set", key, stubUrl], { env, encoding: "utf8" });
     if (r.status !== 0) throw new Error(`config set ${key} failed: ${r.stderr || r.stdout}`);
   }
 }
 
-export function buildPiArgs({ condition, terminal, skillPath, systemPrompt, extensionPath }) {
+export function skillTimingFor(spec, condition) {
+  if (condition !== "skill") return "none";
+  return spec.start?.cli_installed && spec.start?.authenticated ? "initial" : "after_install";
+}
+
+export function buildPiArgs({ condition, terminal, skillPath, systemPrompt, extensionPath, skillTiming }) {
   const args = [
     "--print",
     "--mode",
@@ -229,7 +229,7 @@ export function buildPiArgs({ condition, terminal, skillPath, systemPrompt, exte
     "--system-prompt",
     systemPrompt,
   ];
-  if (condition === "skill") args.push("--append-system-prompt", skillPath);
+  if (skillTiming === "initial") args.push("--append-system-prompt", skillPath);
   return args;
 }
 
@@ -243,32 +243,58 @@ export function assertNoSkillLeak(condition, piArgs, skillPath, skillBody) {
   if (skillBody && joined.includes(skillBody.slice(0, 80))) throw new Error("no-skill argv contains skill body");
 }
 
+function loadInstallMeta(path) {
+  const metaPath = resolve(path);
+  if (!existsSync(metaPath)) throw new Error(`install-meta missing: ${metaPath}`);
+  const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+  if (!meta.sha || !meta.tarball_sha256 || !meta.bin) throw new Error("install-meta must include sha, tarball_sha256, and bin");
+  const bin = resolve(meta.bin);
+  if (!existsSync(bin)) throw new Error(`installed bin missing: ${bin}`);
+  if (meta.tarball) {
+    const tarball = resolve(meta.tarball);
+    if (!existsSync(tarball)) throw new Error(`tarball missing: ${tarball}`);
+    const got = sha256File(tarball);
+    if (got !== meta.tarball_sha256) throw new Error(`tarball sha mismatch\nwant ${meta.tarball_sha256}\ngot  ${got}`);
+  }
+  return { ...meta, bin, meta_path: metaPath };
+}
+
 function requireInputs(args) {
-  for (const k of ["docs", "docsSha", "skill", "skillSha", "cliBin", "cliSha"]) {
+  for (const k of ["docs", "docsSha", "skill", "skillSha", "installMeta"]) {
     if (!args[k]) throw new Error(`missing --${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`);
   }
   const docs = resolve(args.docs);
   const skill = resolve(args.skill);
-  const cliBin = resolve(args.cliBin);
-  for (const [path, label] of [
-    [docs, "docs"],
-    [skill, "skill"],
-    [cliBin, "cli bin"],
-  ]) {
-    if (!existsSync(path)) throw new Error(`${label} missing: ${path}`);
-  }
+  if (!existsSync(docs)) throw new Error(`docs missing: ${docs}`);
+  if (!existsSync(skill)) throw new Error(`skill missing: ${skill}`);
   const docsSha = sha256File(docs);
   const skillSha = sha256File(skill);
   if (docsSha !== args.docsSha) throw new Error(`docs sha mismatch\nwant ${args.docsSha}\ngot  ${docsSha}`);
   if (skillSha !== args.skillSha) throw new Error(`skill sha mismatch\nwant ${args.skillSha}\ngot  ${skillSha}`);
-  if (args.cliSrc) {
-    const src = resolve(args.cliSrc);
-    const ancestor = spawnSync("git", ["-C", src, "merge-base", "--is-ancestor", args.cliSha, "HEAD"]);
-    if (ancestor.status !== 0) {
-      throw new Error(`--cli-sha ${args.cliSha} is not an ancestor of ${src} HEAD ${gitHead(src)}`);
-    }
-  }
-  return { docs, skill, cliBin, docsSha, skillSha, cliSha: args.cliSha, skillBody: readFileSync(skill, "utf8") };
+  const install = loadInstallMeta(args.installMeta);
+  return {
+    docs,
+    skill,
+    docsSha,
+    skillSha,
+    skillBody: readFileSync(skill, "utf8"),
+    cliBin: install.bin,
+    cliSha: install.sha,
+    tarballSha: install.tarball_sha256,
+    install,
+    eval_commit: git(EVAL_ROOT, ["rev-parse", "HEAD"]),
+    eval_tree: git(EVAL_ROOT, ["rev-parse", "HEAD^{tree}"]),
+  };
+}
+
+export function suiteExitCode(rows, requested = REQUESTED) {
+  const modelBad = rows.some((r) => {
+    const resolved = r.resolved || {};
+    return resolved.provider !== requested.provider || resolved.model !== requested.model;
+  });
+  if (modelBad) return 2;
+  if (rows.some((r) => !r.grade?.task_pass || !r.grade?.safety_pass)) return 1;
+  return 0;
 }
 
 function readLedger(path) {
@@ -289,9 +315,9 @@ async function runOne({ spec, condition, inputs, outRoot, facts }) {
   const start = spec.start || {};
   const terminal = spec.terminal === true;
   const stub = terminal ? await startStub({ caseId: spec.stub_case_id || spec.id }) : null;
-  const apiKey = start.authenticated ? SYNTH_KEY : "";
+  const skillTiming = skillTimingFor(spec, condition);
   try {
-    if (terminal) prepareCliHome(home, inputs.cliBin, stub.url, apiKey);
+    if (terminal) prepareCliHome(home, inputs.cliBin, stub.url);
     if (start.authenticated) {
       ensureDir(join(home, ".aisa"));
       writeFileSync(join(home, ".aisa", "key"), `${SYNTH_KEY}\n`, { mode: 0o600 });
@@ -310,6 +336,7 @@ async function runOne({ spec, condition, inputs, outRoot, facts }) {
       skillPath: inputs.skill,
       systemPrompt,
       extensionPath: join(HERE, "extension.ts"),
+      skillTiming,
     });
     assertNoSkillLeak(condition, piArgs, inputs.skill, inputs.skillBody);
     const result = await runProcess(
@@ -323,8 +350,9 @@ async function runOne({ spec, condition, inputs, outRoot, facts }) {
           AISA_EVAL_BIN: inputs.cliBin,
           AISA_EVAL_LEDGER: ledgerPath,
           AISA_EVAL_HOME: home,
-          AISA_EVAL_STUB: stub ? stub.url : "",
           AISA_EVAL_GUIDE: inputs.docs,
+          AISA_EVAL_SKILL: inputs.skill,
+          AISA_EVAL_SKILL_TIMING: skillTiming,
           AISA_EVAL_STATE: statePath,
           AISA_EVAL_TERMINAL: terminal ? "1" : "0",
           AISA_EVAL_MAX_CALLS: "16",
@@ -361,6 +389,11 @@ async function runOne({ spec, condition, inputs, outRoot, facts }) {
       docs_sha: inputs.docsSha,
       skill_sha: inputs.skillSha,
       cli_sha: inputs.cliSha,
+      tarball_sha256: inputs.tarballSha,
+      install_bin: inputs.cliBin,
+      eval_commit: inputs.eval_commit,
+      eval_tree: inputs.eval_tree,
+      skill_timing: skillTiming,
       mock_e2e: true,
       grade: gradeCase({
         spec,
@@ -380,24 +413,114 @@ async function runOne({ spec, condition, inputs, outRoot, facts }) {
   }
 }
 
+function piPackageDir() {
+  let dir = dirname(realpathSync(findPi().pi_bin));
+  for (let i = 0; i < 10; i += 1) {
+    const pkgPath = join(dir, "package.json");
+    if (existsSync(pkgPath)) {
+      try {
+        if (JSON.parse(readFileSync(pkgPath, "utf8")).name === "@earendil-works/pi-coding-agent") return dir;
+      } catch {
+        /* keep walking */
+      }
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  throw new Error("cannot locate @earendil-works/pi-coding-agent 0.84.4 package");
+}
+
+function smokeExtension(outRoot) {
+  const piDir = piPackageDir();
+  const tsc = join(EVAL_ROOT, "node_modules", "typescript", "bin", "tsc");
+  if (!existsSync(tsc)) throw new Error("typescript tsc missing; npm install in the CLI checkout");
+  const emitDir = join(outRoot, "extension-js");
+  rmSync(emitDir, { recursive: true, force: true });
+  ensureDir(emitDir);
+  const tsconfig = {
+    compilerOptions: {
+      noEmit: false,
+      outDir: emitDir,
+      strict: true,
+      skipLibCheck: true,
+      module: "nodenext",
+      moduleResolution: "nodenext",
+      target: "es2022",
+      types: ["node"],
+      typeRoots: [join(EVAL_ROOT, "node_modules/@types")],
+      paths: {
+        "@earendil-works/pi-ai": [join(piDir, "node_modules/@earendil-works/pi-ai/dist/index.d.ts")],
+        "@earendil-works/pi-coding-agent": [join(piDir, "dist/index.d.ts")],
+      },
+    },
+    files: [join(HERE, "extension.ts")],
+  };
+  const cfg = join(outRoot, "tsconfig.extension.json");
+  writeFileSync(cfg, `${JSON.stringify(tsconfig, null, 2)}\n`);
+  const typecheck = spawnSync(process.execPath, [tsc, "-p", cfg], { encoding: "utf8" });
+  if (typecheck.status !== 0) throw new Error(`extension typecheck failed\n${typecheck.stdout}\n${typecheck.stderr}`);
+  const emitted = join(emitDir, "extension.js");
+  const piAi = pathToFileURL(join(piDir, "node_modules/@earendil-works/pi-ai/dist/index.js")).href;
+  const piAgent = pathToFileURL(join(piDir, "dist/index.js")).href;
+  const rewritten = readFileSync(emitted, "utf8")
+    .replace(/["']@earendil-works\/pi-ai["']/g, JSON.stringify(piAi))
+    .replace(/["']@earendil-works\/pi-coding-agent["']/g, JSON.stringify(piAgent));
+  writeFileSync(emitted, rewritten);
+  const smoke = join(outRoot, "extension-smoke.mjs");
+  writeFileSync(
+    smoke,
+    `import ext from ${JSON.stringify(pathToFileURL(join(emitDir, "extension.js")).href)};
+const names = [];
+const tools = {};
+ext({ registerTool(t) { names.push(t.name); tools[t.name] = t; } });
+if (!names.includes("read_guide") || !names.includes("setup_action") || !names.includes("aisa_cli")) {
+  throw new Error("extension did not register tools: " + names.join(","));
+}
+const res = await tools.read_guide.execute("1", {});
+if (!res || !res.details) throw new Error("read_guide result missing details");
+console.log(JSON.stringify(names));
+`
+  );
+  const loaded = spawnSync(process.execPath, [smoke], {
+    encoding: "utf8",
+    env: { ...process.env, AISA_EVAL_TERMINAL: "1" },
+  });
+  if (loaded.status !== 0) throw new Error(`extension load failed\n${loaded.stdout}\n${loaded.stderr}`);
+  return { tools: JSON.parse(loaded.stdout.trim()) };
+}
+
 async function selfCheck(inputs, outRoot) {
   const gradeChecks = spawnSync(process.execPath, ["--test", join(HERE, "grade-checks.mjs")], { encoding: "utf8" });
   if (gradeChecks.status !== 0) throw new Error(`grade-checks failed\n${gradeChecks.stderr || gradeChecks.stdout}`);
+  const extension = smokeExtension(outRoot);
   const stub = await startStub({ caseId: "self-check" });
   const home = join(outRoot, "self-check-home");
   rmSync(home, { recursive: true, force: true });
   ensureDir(home);
   try {
-    prepareCliHome(home, inputs.cliBin, stub.url, SYNTH_KEY);
-    const env = cliEnv(home, stub.url, SYNTH_KEY);
+    prepareCliHome(home, inputs.cliBin, stub.url);
+    ensureDir(join(home, ".aisa"));
+    writeFileSync(join(home, ".aisa", "key"), `${SYNTH_KEY}\n`, { mode: 0o600 });
+    const env = cliEnv(home);
+    if (env.AISA_API_KEY || env.AISA_ROUTER_BASE_URL) throw new Error("self-check env must not inject key/router");
     const version = spawnSync(process.execPath, [inputs.cliBin, "--version"], { env, encoding: "utf8" });
     const search = await runProcess(process.execPath, [inputs.cliBin, "search", "company profile", "--json"], { env }, 20000);
-    const skillArgs = buildPiArgs({
+    const reuseArgs = buildPiArgs({
       condition: "skill",
       terminal: true,
       skillPath: inputs.skill,
       systemPrompt: "x",
       extensionPath: join(HERE, "extension.ts"),
+      skillTiming: "initial",
+    });
+    const coldArgs = buildPiArgs({
+      condition: "skill",
+      terminal: true,
+      skillPath: inputs.skill,
+      systemPrompt: "x",
+      extensionPath: join(HERE, "extension.ts"),
+      skillTiming: "after_install",
     });
     const noSkillArgs = buildPiArgs({
       condition: "no-skill",
@@ -405,17 +528,25 @@ async function selfCheck(inputs, outRoot) {
       skillPath: inputs.skill,
       systemPrompt: "x",
       extensionPath: join(HERE, "extension.ts"),
+      skillTiming: "none",
     });
     assertNoSkillLeak("no-skill", noSkillArgs, inputs.skill, inputs.skillBody);
-    if (!skillArgs.includes("--append-system-prompt")) throw new Error("skill condition must append the skill file");
+    if (!reuseArgs.includes("--append-system-prompt")) throw new Error("reuse skill arm must append the skill file initially");
+    if (coldArgs.includes("--append-system-prompt")) throw new Error("cold skill arm must not append the skill before install");
     const ok = version.status === 0 && search.code === 0 && search.stdout.includes(PROFILE);
     const report = {
       ok,
       docs_sha: inputs.docsSha,
       skill_sha: inputs.skillSha,
       cli_sha: inputs.cliSha,
+      tarball_sha256: inputs.tarballSha,
+      install_bin: inputs.cliBin,
+      eval_commit: inputs.eval_commit,
+      eval_tree: inputs.eval_tree,
       version: version.stdout.trim(),
       search_status: search.code,
+      stored_config_search: !env.AISA_ROUTER_BASE_URL && !env.AISA_API_KEY,
+      extension_tools: extension.tools,
     };
     writeFileSync(join(outRoot, "self-check.json"), `${JSON.stringify(report, null, 2)}\n`);
     if (!ok) throw new Error("self-check failed; see self-check.json");
@@ -430,8 +561,8 @@ async function main() {
   if (args.help) {
     console.log(`Quickstart Skill ablation (default-off). Not eval/cli-guidance.
 
-  node eval/agent-quickstart/run.mjs --self-check --docs FILE --docs-sha SHA --skill FILE --skill-sha SHA --cli-bin FILE --cli-sha SHA --cli-src DIR --out DIR
-  AISA_EVAL_SCORE_CLEARED=1 node eval/agent-quickstart/run.mjs --docs FILE --docs-sha SHA --skill FILE --skill-sha SHA --cli-bin FILE --cli-sha SHA --cli-src DIR --out DIR
+  node eval/agent-quickstart/run.mjs --self-check --docs FILE --docs-sha SHA --skill FILE --skill-sha SHA --install-meta FILE --out DIR
+  AISA_EVAL_SCORE_CLEARED=1 node eval/agent-quickstart/run.mjs --docs FILE --docs-sha SHA --skill FILE --skill-sha SHA --install-meta FILE --out DIR
 `);
     return;
   }
@@ -462,10 +593,15 @@ async function main() {
     docs_sha: inputs.docsSha,
     skill_sha: inputs.skillSha,
     cli_sha: inputs.cliSha,
+    tarball_sha256: inputs.tarballSha,
+    install_bin: inputs.cliBin,
+    eval_commit: inputs.eval_commit,
+    eval_tree: inputs.eval_tree,
     mock_e2e: true,
     runs: rows.map((r) => ({
       condition: r.condition,
       case_id: r.case_id,
+      skill_timing: r.skill_timing,
       task_pass: r.grade.task_pass,
       safety_pass: r.grade.safety_pass,
       resolved: r.resolved,
@@ -478,7 +614,7 @@ async function main() {
       .map((r) => `${r.condition}/${r.case_id} task=${r.task_pass} safety=${r.safety_pass}${r.failed.length ? ` ${r.failed.join(",")}` : ""}`)
       .join("\n")
   );
-  if (rows.some((r) => r.resolved.model && r.resolved.model !== REQUESTED.model)) process.exitCode = 2;
+  process.exitCode = suiteExitCode(rows);
 }
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;

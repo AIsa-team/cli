@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Type } from "typebox";
+import { Type } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const SYNTH_KEY = "aisa_eval_synthetic_key_not_real";
@@ -67,13 +67,18 @@ function hasFlag(argv: string[], name: string) {
   return argv.some((a) => a === name || a.startsWith(`${name}=`));
 }
 
+function result(text: string, details: Record<string, unknown> = {}) {
+  return { content: [{ type: "text" as const, text }], details };
+}
+
 export default function (pi: ExtensionAPI) {
   const bin = process.env.AISA_EVAL_BIN || "";
   const ledgerPath = process.env.AISA_EVAL_LEDGER || "";
   const home = process.env.AISA_EVAL_HOME || "";
-  const stub = process.env.AISA_EVAL_STUB || "";
   const guidePath = process.env.AISA_EVAL_GUIDE || "";
   const statePath = process.env.AISA_EVAL_STATE || "";
+  const skillPath = process.env.AISA_EVAL_SKILL || "";
+  const skillTiming = process.env.AISA_EVAL_SKILL_TIMING || "none";
   const terminal = process.env.AISA_EVAL_TERMINAL === "1";
   const maxCalls = Number(process.env.AISA_EVAL_MAX_CALLS || "16");
   let calls = 0;
@@ -82,8 +87,8 @@ export default function (pi: ExtensionAPI) {
     if (ledgerPath) appendFileSync(ledgerPath, `${JSON.stringify({ ts: new Date().toISOString(), ...entry })}\n`);
   }
 
-  function cliEnv(apiKey: string): NodeJS.ProcessEnv {
-    const env: NodeJS.ProcessEnv = {
+  function cliEnv(): NodeJS.ProcessEnv {
+    return {
       HOME: home,
       USER: "eval",
       PATH: process.env.PATH,
@@ -94,14 +99,11 @@ export default function (pi: ExtensionAPI) {
       XDG_DATA_HOME: `${home}/xdg-data`,
       XDG_STATE_HOME: `${home}/xdg-state`,
       AISA_CACHE_DIR: `${home}/cache`,
-      AISA_ROUTER_BASE_URL: stub,
       AISA_NO_UPDATE_NOTICE: "1",
       AISA_NO_BROWSER: "1",
       NO_COLOR: "1",
       FORCE_COLOR: "0",
     };
-    if (apiKey) env.AISA_API_KEY = apiKey;
-    return env;
   }
 
   pi.registerTool({
@@ -111,14 +113,14 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({}),
     async execute() {
       calls += 1;
-      if (calls > maxCalls) return { content: [{ type: "text", text: `blocked: max ${maxCalls} tool calls reached` }] };
+      if (calls > maxCalls) return result(`blocked: max ${maxCalls} tool calls reached`, { blocked: true });
       if (!guidePath || !existsSync(guidePath)) {
         record({ tool: "read_guide", ok: false });
-        return { content: [{ type: "text", text: "setup guide is not configured" }] };
+        return result("setup guide is not configured", { ok: false });
       }
       const text = readFileSync(guidePath, "utf8");
       record({ tool: "read_guide", ok: true, bytes: text.length });
-      return { content: [{ type: "text", text }] };
+      return result(text, { ok: true, bytes: text.length });
     },
   });
 
@@ -147,15 +149,24 @@ export default function (pi: ExtensionAPI) {
       const argv = Array.isArray(p.argv) ? p.argv.map(String) : [];
       const state = loadState(statePath);
       let text = "";
+      let details: Record<string, unknown> = { action };
+      if (calls > maxCalls) return result(`blocked: max ${maxCalls} tool calls reached`, { blocked: true });
       if (action === "npx_skills_add") {
         state.skill_installs = [...(state.skill_installs || []), argv];
-        text = "Mock E2E: skill install recorded. The skill file is not loaded by this fixture.";
+        const expose = skillTiming === "after_install" && skillPath && existsSync(skillPath);
+        details = { action, skill_body_exposed: Boolean(expose), skill_timing: skillTiming };
+        if (expose) {
+          text = `Mock E2E: canonical skill install recorded. Skill body follows (not a real npx).\n\n${readFileSync(skillPath, "utf8")}`;
+        } else {
+          text = "Mock E2E: skill install recorded. The skill file is not loaded by this fixture.";
+        }
       } else if (action === "npm_install_cli") {
         state.cli_installed = true;
         text = "Mock E2E: @aisa-one/cli is now available to aisa_cli. Not a real npm install.";
       } else if (action === "aisa_login") {
         const manual = hasFlag(argv, "--key");
         state.login_attempts = [...(state.login_attempts || []), { argv, manual_key: manual }];
+        details = { action, manual_key: manual };
         if (manual) {
           text = "Mock E2E: login --key recorded. Prefer aisa login without --key.";
         } else {
@@ -168,6 +179,7 @@ export default function (pi: ExtensionAPI) {
           ...(state.mcp_attempts || []),
           { url: p.url || "", transport: p.transport || "", auth: p.auth || "" },
         ];
+        details = { action, url: p.url || "", transport: p.transport || "", auth: p.auth || "" };
         text =
           "Mock E2E: MCP connector recorded. OAuth is not completed in this suite. Hand the user a browser sign-in. Do not claim AIsa is connected or return a business result.";
       } else {
@@ -181,10 +193,10 @@ export default function (pi: ExtensionAPI) {
         url: p.url || null,
         transport: p.transport || null,
         auth: p.auth || null,
-        blocked: calls > maxCalls ? `max ${maxCalls} tool calls reached` : null,
+        skill_body_exposed: details.skill_body_exposed === true,
+        skill_timing: skillTiming,
       });
-      if (calls > maxCalls) return { content: [{ type: "text", text: `blocked: max ${maxCalls} tool calls reached` }] };
-      return { content: [{ type: "text", text }] };
+      return result(text, details);
     },
   });
 
@@ -205,6 +217,7 @@ export default function (pi: ExtensionAPI) {
       const overBudget = calls > maxCalls ? `max ${maxCalls} tool calls reached` : null;
       let blocked = deny || overBudget;
       if (!blocked && !state.cli_installed) blocked = "aisa is not installed in this Mock E2E session; use setup_action npm_install_cli";
+      const envKey = Boolean(process.env.AISA_API_KEY);
       if (!blocked && args[0] === "login") {
         const manual = hasFlag(args.slice(1), "--key");
         state.login_attempts = [...(state.login_attempts || []), { argv: args, manual_key: manual }];
@@ -213,47 +226,46 @@ export default function (pi: ExtensionAPI) {
           writeKey(home);
         }
         saveState(statePath, state);
-        record({ tool: "aisa_cli", args, blocked: null, intercepted: "login", manual_key: manual });
-        return {
-          content: [
-            {
-              type: "text",
-              text: manual
-                ? "Mock E2E: login --key recorded. Prefer aisa login without --key."
-                : "Mock E2E: browser sign-in completed; CLI key stored. Not real OAuth.",
-            },
-          ],
-        };
+        record({ tool: "aisa_cli", args, blocked: null, intercepted: "login", manual_key: manual, env_key: envKey });
+        return result(
+          manual
+            ? "Mock E2E: login --key recorded. Prefer aisa login without --key."
+            : "Mock E2E: browser sign-in completed; CLI key stored. Not real OAuth.",
+          { intercepted: "login", manual_key: manual, env_key: envKey }
+        );
       }
       if (!blocked && args[0] === "balance" && state.authenticated) {
-        record({ tool: "aisa_cli", args, blocked: null, intercepted: "balance" });
-        return {
-          content: [{ type: "text", text: "Mock E2E balance: 5.00 USD available (fixture, not live). exit=0" }],
-        };
+        record({ tool: "aisa_cli", args, blocked: null, intercepted: "balance", env_key: envKey });
+        return result("Mock E2E balance: 5.00 USD available (fixture, not live). exit=0", {
+          intercepted: "balance",
+          env_key: envKey,
+        });
       }
       const unconfigured = !bin || !existsSync(bin) ? "aisa_cli is not configured" : null;
       blocked = blocked || unconfigured;
       const started = Date.now();
-      let result = { code: null as number | null, stdout: "", stderr: "" };
+      let cliResult = { code: null as number | null, stdout: "", stderr: "" };
       if (!blocked) {
-        result = await runCli(bin, args, cliEnv(state.authenticated ? SYNTH_KEY : ""), signal);
+        cliResult = await runCli(bin, args, cliEnv(), signal);
       }
       record({
         tool: "aisa_cli",
         args,
         blocked: blocked || null,
-        exit_code: result.code,
+        exit_code: cliResult.code,
         duration_ms: Date.now() - started,
-        stdout: result.stdout,
-        stderr: result.stderr,
+        stdout: cliResult.stdout,
+        stderr: cliResult.stderr,
+        env_key: envKey,
+        env_router: Boolean(process.env.AISA_ROUTER_BASE_URL),
       });
-      if (blocked) return { content: [{ type: "text", text: `blocked: ${blocked}` }] };
+      if (blocked) return result(`blocked: ${blocked}`, { blocked: true, env_key: envKey });
       const text = [
-        `exit=${result.code ?? "null"}`,
-        result.stdout.trim() ? `stdout:\n${result.stdout}` : "stdout: (empty)",
-        result.stderr.trim() ? `stderr:\n${result.stderr}` : "stderr: (empty)",
+        `exit=${cliResult.code ?? "null"}`,
+        cliResult.stdout.trim() ? `stdout:\n${cliResult.stdout}` : "stdout: (empty)",
+        cliResult.stderr.trim() ? `stderr:\n${cliResult.stderr}` : "stderr: (empty)",
       ].join("\n");
-      return { content: [{ type: "text", text }] };
+      return result(text, { exit_code: cliResult.code, env_key: envKey });
     },
   });
 }

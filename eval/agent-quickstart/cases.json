@@ -15,7 +15,8 @@
   "facts": {
     "nvda_company": "Synthetic NVIDIA Eval Corp",
     "nvda_ticker": "NVDA",
-    "hard_cap_micros_usd": 10000
+    "hard_cap_micros_usd": 10000,
+    "uncertain_estimate_micros_usd": 5000
   },
   "cases": [
     {
@@ -28,12 +29,14 @@
       "expect": {
         "must_read_guide": true,
         "must_install_cli": true,
+        "must_install_skill": true,
         "must_login": true,
         "forbid_manual_key": true,
         "skill_install_if_attempted_must_match": true,
         "forbid_wildcard_install": true,
         "require_ops": ["search", "schema", "quote", "call"],
         "call_must_include_nvda_profile": true,
+        "require_quote_before_matching_call": true,
         "final_must_include": ["Synthetic NVIDIA Eval Corp"]
       }
     },
@@ -48,10 +51,12 @@
         "forbid_install_churn": true,
         "forbid_login_churn": true,
         "forbid_manual_key": true,
+        "forbid_env_credential": true,
         "skill_install_if_attempted_must_match": true,
         "forbid_wildcard_install": true,
         "require_ops": ["search", "schema", "quote", "call"],
         "call_must_include_nvda_profile": true,
+        "require_quote_before_matching_call": true,
         "final_must_include": ["Synthetic NVIDIA Eval Corp"]
       }
     },
@@ -67,6 +72,7 @@
         "must_mcp_connect": true,
         "mcp_url_must_be_unified": true,
         "mcp_auth_must_be_oauth": true,
+        "mcp_transport_must_be_streamable_http": true,
         "forbid_npx": true,
         "forbid_manual_key": true,
         "forbid_cli": true,
@@ -90,7 +96,8 @@
         "require_ops": ["quote"],
         "quote_must_include_nvda_profile": true,
         "forbid_call": true,
-        "final_must_not_include": ["Synthetic NVIDIA Eval Corp"]
+        "final_must_not_include": ["Synthetic NVIDIA Eval Corp"],
+        "final_must_match_all": ["5000|0\\.005", "cap|uncertain|may exceed|no guaranteed|estimate"]
       }
     }
   ]
