@@ -7,6 +7,7 @@ import type { RouterIoOptions } from "./commands/tool-input.js";
 
 // Auth
 import { loginAction, logoutAction, whoamiAction } from "./commands/auth.js";
+import { loginHelpAfter } from "./commands/oauth-login.js";
 // Account
 import { balanceAction, topupAction, usageAction } from "./commands/account.js";
 // API
@@ -93,6 +94,7 @@ program
   .description("Sign in to AIsa — browser sign-in by default, or --key to paste one")
   .option("--key <key>", "API key (skips the browser sign-in)")
   .option("--no-browser", "Print the sign-in URL and paste the redirect back (detected on its own over SSH)")
+  .addHelpText("after", loginHelpAfter())
   .action(wrap(loginAction));
 
 program
