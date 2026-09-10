@@ -424,7 +424,8 @@ supports today; nothing here depends on a backend change.
 - Config commands (`aisa config get|set|list|reset`) and auth
   (`aisa login|logout|whoami`).
 
-[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/AIsa-team/cli/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/AIsa-team/cli/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/AIsa-team/cli/compare/v0.3.0...v0.5.0
 [0.4.0]: https://github.com/AIsa-team/cli/compare/v0.3.0...b5c0b04b2a7a2cb9efcb568be5ee5440d7f7d94d
