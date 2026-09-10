@@ -374,6 +374,21 @@ export async function mintCliKey(
   return minted.key;
 }
 
+/** Commander after-help for `aisa login`. Mechanics only; runtime is unchanged. */
+export function loginHelpAfter(): string {
+  return `
+Default: open a browser this person can actually use (SSH/CI/no display skip the local open). The live authorize URL is printed at the same time — relay that exact URL immediately. Do not invent, shorten, or delay it.
+
+--no-browser needs a persistent interactive TTY. Agents request only the one-time redirect URL or code — never an API key, access token, or refresh token. Paste that result into this same living process once. Reuse a running login; do not start another. "Done" is not that input. If they cannot type here, relay the paste through chat into this PTY. An empty line cancels.
+
+If this process already timed out, or the URL/code is from an older run, start a fresh aisa login and use the new URL and its result. Do not reuse a stale paste.
+
+No browser and no TTY: this CLI cannot complete OAuth here. Normal setup is native MCP OAuth at https://tools.aisa.one/mcp.
+
+Do not report connected unless login stored a key and the following balance check succeeded. aisa whoami and a stored local key are not proof. Scripts/CI: AISA_API_KEY or --key.
+`;
+}
+
 export async function oauthLogin(options: { open?: boolean; lang?: Lang } = {}): Promise<void> {
   if (options.open === false && !process.stdin.isTTY) {
     error("--no-browser needs an interactive terminal to paste the redirect URL into.");
