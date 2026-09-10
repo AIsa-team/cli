@@ -14,7 +14,7 @@ npm install -g @aisa-one/cli
 ## Quick Start
 
 ```bash
-# Sign in (browser; stores a CLI key — no key to copy)
+# Sign in (browser; stores OAuth tokens — no key to copy)
 aisa login
 
 # Discover published tools (Router; search/schema may be anonymous)
@@ -29,7 +29,7 @@ aisa api show financial
 aisa quote --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
 ```
 
-`aisa login` opens a browser, signs you in, and stores a CLI key. You do not
+`aisa login` opens a browser, signs you in, and stores OAuth tokens. You do not
 need to create or paste a key from the console. For CI or scripts, set
 `AISA_API_KEY` or run `aisa login --key <key>`. New accounts receive $5 in
 free credits.
@@ -64,7 +64,7 @@ and `aisa manifest search` / `schema` / `quote` / `call` expose `mcp`, `auth`,
 Recommended sequence: discover a tool → `aisa schema` when
 `has_full_schema=false` → `aisa quote` → `aisa call`. Quote and call share
 one request shape. **Enforced:** invalid local input exits 2 and is not sent;
-quote and call refuse to run without a configured AIsa API key. **Not
+quote and call refuse to run without an OAuth session or static AIsa API key. **Not
 enforced:** the CLI does not record quotes, approvals, or budget caps and
 does not reject an unquoted call. **Instruction:** do not execute unquoted
 calls; the caller must ensure a matching quote and approval. Quote is a
@@ -74,7 +74,7 @@ not spending approval. Do not invent tool names or guess required values.
 cost is not a limit. If a hard monetary cap is required, do not execute
 calls with no guaranteed maximum. A partial quote is not a full-batch total;
 call only an independently approved successful subset, and do not silently
-retry. Without a configured AIsa API key, do not invent a business result.
+retry. Without an OAuth session or static AIsa API key, do not invent a business result.
 
 `--input` is inline JSON (no file required). Documented shell examples use
 POSIX single quotes so apostrophes, Unicode, `$()`, and backticks stay
@@ -104,9 +104,12 @@ HTTP error; `3` means the Router returned a batch with at least one failed
 item.
 
 `search` and `schema` may be anonymous. `quote` and `call` require a
-configured AIsa API key. Sign in with `aisa login` first; it mints and stores
-a CLI key. Resolution order is unchanged: `AISA_API_KEY`, then `~/.aisa/key`,
-then legacy login. `AISA_API_KEY` still takes precedence over the stored key.
+stored OAuth session or static API key. `aisa login` stores access and refresh
+tokens in `~/.aisa/tokens.json` (0600), along with the OAuth client ID and
+`expiresAt` (Unix milliseconds). Access tokens refresh within 60 seconds of
+expiry; a 401 triggers one refresh and retry. `AISA_API_KEY` takes precedence
+and never refreshes. Legacy `~/.aisa/key` files migrate on first read; conf
+`apiKey` is a write-only compatibility mirror.
 For CI, set `AISA_API_KEY` or use `aisa login --key <key>`. The default Router
 origin is `https://tools.aisa.one` (independent of `baseUrl` /
 `https://api.aisa.one`). Point a test Router at `AISA_ROUTER_BASE_URL` (origin
@@ -323,7 +326,12 @@ Settings:
   independent of `baseUrl`); overridden by `AISA_ROUTER_BASE_URL`
 - `outputFormat` — `text` or `json`
 
-`aisa login` stores a CLI key in `~/.aisa/key`. Environment variables:
+`aisa login` stores OAuth credentials in `~/.aisa/tokens.json`.
+`aisa login --key <key>` stores a static credential without refresh metadata.
+Legacy mirrors contain the current access token; older CLIs cannot refresh it.
+Third-party client configurations written by `aisa connect` also contain a
+snapshot of the credential, not a refresh-capable OAuth session.
+Environment variables:
 `AISA_API_KEY` takes precedence over the stored key.
 `AISA_ROUTER_BASE_URL` is the Router origin/prefix before
 `/v1/tool-router/...` and overrides the default `https://tools.aisa.one`.
@@ -367,3 +375,20 @@ catalog metadata, not an execution recipe.
 ## License
 
 MIT. See [LICENSE](LICENSE). Copyright (c) 2026 AIsa Team.
+
+`aisa logout` revokes the stored OAuth refresh token at Clerk before deleting
+local credentials and compatibility mirrors. If revocation fails, it exits
+with an error and retains the credentials so you can retry. Already-issued
+JWT access tokens remain valid until expiry. Static API keys are only removed
+locally; an `AISA_API_KEY` environment variable must be unset separately.
+
+Credential reads and changes use a cross-process file lock with heartbeat and
+stale-lock recovery. Re-running `aisa login` or switching to `--key` revokes
+the previous stored OAuth grant before replacing it. Failed replacements
+retain pending credentials in a private `.pending-tokens.json` recovery file;
+the next login or logout cleans up those grants before completing.
+
+If a login cannot acquire the credential lock, the newly issued grant is kept
+in a private `.pending-login-*.json` file for the next login/logout to clean up.
+Refresh persists the new credentials before optional rotation hints and legacy
+mirrors; failure to save the primary token file is reported explicitly.

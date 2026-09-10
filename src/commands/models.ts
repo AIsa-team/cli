@@ -1,6 +1,6 @@
 import ora from "ora";
 import chalk from "chalk";
-import { requireApiKey } from "../config.js";
+import { requireAccessToken } from "../config.js";
 import { apiRequest } from "../api.js";
 import { error, badge } from "../utils/display.js";
 import type { Model } from "../types.js";
@@ -11,7 +11,7 @@ const modelsCacheKey = () => `models/${cacheScope()}.json`;
 const MODELS_TTL_MS = 24 * 60 * 60 * 1000;
 
 export async function modelsListAction(options: { provider?: string }): Promise<void> {
-  const key = requireApiKey();
+  const key = await requireAccessToken();
   const spinner = ora("Fetching models...").start();
 
   const res = await apiRequest<{ data: Model[] }>(key, "models");
@@ -59,7 +59,7 @@ export async function modelsListAction(options: { provider?: string }): Promise<
 }
 
 export async function modelsShowAction(modelId: string): Promise<void> {
-  const key = requireApiKey();
+  const key = await requireAccessToken();
   const spinner = ora(`Loading ${modelId}...`).start();
 
   const res = await apiRequest<Model>(key, `models/${modelId}`);

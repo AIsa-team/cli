@@ -23,7 +23,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
 const FAKE_KEY = "local-smoke-key";
-const MISSING_KEY = /No API key found[\s\S]*Run "aisa login"[\s\S]*AISA_API_KEY/;
+const MISSING_KEY = /Not authenticated\.[\s\S]*Run "aisa login"[\s\S]*AISA_API_KEY/;
 const BIG = "9007199254740993";
 
 const SEARCH_REQ = '{"query":"company facts","limit":3}';

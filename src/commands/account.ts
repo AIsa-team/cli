@@ -1,6 +1,6 @@
 import { run } from "../utils/exec.js";
 import chalk from "chalk";
-import { requireApiKey } from "../config.js";
+import { requireAccessToken } from "../config.js";
 import { apiRequest } from "../api.js";
 import { formatJson, hint, info, error } from "../utils/display.js";
 import { CONSOLE_BILLING_URL } from "../constants.js";
@@ -20,7 +20,7 @@ export function formatMicrosUSD(micros: number | string | bigint): string {
 }
 
 export async function balanceAction(options: { json?: boolean } = {}): Promise<void> {
-  const key = requireApiKey();
+  const key = await requireAccessToken();
   const res = await apiRequest<BalanceResponse>(key, "credits/balance");
 
   if (!res.success || !res.data) {
@@ -86,7 +86,7 @@ export function topupAction(amount: string | undefined, options: { open?: boolea
 }
 
 export async function usageAction(_options: { limit?: string; days?: string }): Promise<void> {
-  requireApiKey();
+  await requireAccessToken();
   // The gateway does not serve /v1/credits/usage yet — it 404s in production
   // even though /v1/credits/balance on the same route group works.
   console.log(chalk.yellow("  Usage API is not yet available on the gateway."));

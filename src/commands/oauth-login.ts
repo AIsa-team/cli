@@ -4,7 +4,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { createInterface } from "node:readline/promises";
 import { error, hint, info, success } from "../utils/display.js";
-import { setApiKey } from "../config.js";
+import { replaceTokens, tokenExpiresAt } from "../config.js";
 import { maskKey } from "../config.js";
 import { httpFetch } from "../utils/http.js";
 import { canOpenBrowser } from "../utils/browser.js";
@@ -14,16 +14,14 @@ import { handOverSignInPage, SIGNIN_PAGE_TTL_MS } from "./serve-signin.js";
 
 /**
  * `aisa login` without a key: sign in once in a browser, come back with the
- * CLI's long-lived key.
+ * CLI's access and refresh tokens.
  *
  * The flow is the standard one every CLI converges on (gh, flyctl, claude):
  *
  *   1. register a public OAuth client (Clerk supports dynamic registration)
  *   2. authorization-code + PKCE, redirecting to a loopback port
  *   3. exchange the code for an access token
- *   4. trade that token for the durable "aisa cli" key at /v1/keys/mint,
- *      and store the key — the token itself is then dropped. One secret on
- *      disk, and it is the one that does not expire in a day.
+ *   4. store access/refresh tokens and the registered client ID for silent refresh.
  *
  * A machine with no browser of its own takes the paste-back variant, and it
  * is chosen for the user rather than asked for: the URL is printed, the user
@@ -34,7 +32,7 @@ import { handOverSignInPage, SIGNIN_PAGE_TTL_MS } from "./serve-signin.js";
  * is a one-time code, not a key.
  */
 
-const AUTH_SERVER = "https://clerk.aisa.one";
+import { AUTH_SERVER } from "../constants.js";
 /**
  * Where the sign-in lands when the browser is on a different machine.
  *
@@ -48,13 +46,15 @@ const AUTH_SERVER = "https://clerk.aisa.one";
  * have to be added alongside.
  */
 const HOSTED_REDIRECT = "https://aisa.one/cli/auth";
-const MINT_URL = "https://api.aisa.one/v1/keys/mint";
+
 
 const b64url = (buf: Buffer): string =>
   buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
 interface TokenResponse {
   access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
   error?: string;
   error_description?: string;
 }
@@ -66,10 +66,10 @@ async function registerClient(redirectUri: string): Promise<string> {
     body: JSON.stringify({
       client_name: "AIsa CLI",
       redirect_uris: [redirectUri],
-      grant_types: ["authorization_code"],
+      grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       token_endpoint_auth_method: "none",
-      scope: "openid profile email",
+      scope: "openid profile email offline_access",
     }),
     signal: AbortSignal.timeout(15_000),
   });
@@ -248,7 +248,7 @@ function openBrowser(url: string): void {
 
 /**
  * The whole sign-in, as a function other commands can embed: browser (or
- * paste-back) OAuth, then the mint. Stores the key and returns it; throws on
+ * paste-back) OAuth. Stores tokens and returns the access token; throws on
  * any failure. `aisa login` wraps this with CLI messaging; `aisa connect`
  * runs it as its "Sign in to AIsa" step.
  */
@@ -270,7 +270,7 @@ export interface OAuthCatcher {
   wait(expectedState: string): Promise<string>;
 }
 
-export async function mintCliKey(
+export async function signInAndStoreTokens(
   options: { open?: boolean; lang?: Lang; catcher?: OAuthCatcher } = {}
 ): Promise<string> {
   const lang: Lang = options.lang ?? "en";
@@ -301,7 +301,7 @@ export async function mintCliKey(
     response_type: "code",
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope: "openid profile email",
+    scope: "openid profile email offline_access",
     state,
     code_challenge: challenge,
     code_challenge_method: "S256",
@@ -347,31 +347,15 @@ export async function mintCliKey(
     signal: AbortSignal.timeout(20_000),
   });
   const tokens = (await tokenRes.json()) as TokenResponse;
-  if (!tokens.access_token) {
+  if (!tokenRes.ok || !tokens.access_token) {
     throw new Error(`token exchange failed: ${tokens.error_description ?? tokens.error ?? tokenRes.status}`);
   }
-
-  // The token is a day-long credential; the key is the durable one. Trade up
-  // and keep only the key.
-  const mintRes = await httpFetch(MINT_URL, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${tokens.access_token}` },
-    signal: AbortSignal.timeout(20_000),
-  });
-  if (mintRes.status === 404) {
-    // A deployment without the mint endpoint. The sign-in still proved the
-    // account works; the key just has to travel by hand once.
-    throw new Error(
-      "this deployment cannot issue CLI keys — copy one from https://console.aisa.one/api-keys and run: aisa login --key <key>"
-    );
-  }
-  const minted = (await mintRes.json()) as { key?: string; error?: string };
-  if (!mintRes.ok || !minted.key) {
-    throw new Error(`could not issue a key: ${minted.error ?? `HTTP ${mintRes.status}`}`);
+  if (typeof tokens.refresh_token !== "string" || !tokens.refresh_token.trim()) {
+    throw new Error("token exchange did not return a refresh token. Existing credentials were kept; retry sign-in with offline access enabled.");
   }
 
-  setApiKey(minted.key);
-  return minted.key;
+  await replaceTokens(tokens.access_token, tokens.refresh_token, tokenExpiresAt(tokens.expires_in), clientId);
+  return tokens.access_token;
 }
 
 /** Commander after-help for `aisa login`. Mechanics only; runtime is unchanged. */
@@ -385,7 +369,7 @@ If this process already timed out, or the URL/code is from an older run, start a
 
 No browser and no TTY: this CLI cannot complete OAuth here. Normal setup is native MCP OAuth at https://tools.aisa.one/mcp.
 
-Do not report connected unless login stored a key and the following balance check succeeded. aisa whoami and a stored local key are not proof. Scripts/CI: AISA_API_KEY or --key.
+Do not report connected unless login stored credentials and the following balance check succeeded. aisa whoami and stored local credentials are not proof. Scripts/CI: AISA_API_KEY or --key.
 `;
 }
 
@@ -396,8 +380,8 @@ export async function oauthLogin(options: { open?: boolean; lang?: Lang } = {}):
     process.exitCode = 1;
     return;
   }
-  const key = await mintCliKey(options);
+  const key = await signInAndStoreTokens(options);
   // The balance follows from the caller, so no "try aisa balance" here: being
   // told to go and check is worse than being shown.
-  success(`Signed in — CLI key ${maskKey(key)} stored`);
+  success(`Signed in — access token ${maskKey(key)} stored`);
 }

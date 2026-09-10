@@ -1,12 +1,12 @@
 import chalk from "chalk";
-import { setApiKey, clearApiKey, getApiKey, getKeySource, maskKey, AUTH_SETUP_GUIDANCE } from "../config.js";
+import { replaceTokens, revokeAndClearTokens, getAccessToken, getKeySource, maskKey, AUTH_SETUP_GUIDANCE } from "../config.js";
 import { success, error, info } from "../utils/display.js";
 import { CONSOLE_URL, ENV_VAR_NAME } from "../constants.js";
 
 export async function loginAction(options: { key?: string; browser?: boolean }): Promise<void> {
   const key = options.key || process.env[ENV_VAR_NAME];
   if (key) {
-    setApiKey(key);
+    await replaceTokens(key);
     success(`Authenticated: ${maskKey(key)}`);
     await proveItWorks();
     return;
@@ -22,18 +22,7 @@ export async function loginAction(options: { key?: string; browser?: boolean }):
   await proveItWorks();
 }
 
-/**
- * Use the key we just stored, and show what came back.
- *
- * "Signed in — key stored" says a file was written. It does not say the key
- * works, and those are different claims: a pasted key can be the wrong one, a
- * minted one can belong to an account with no credit. Ending on a balance
- * turns the question "did that work?" into something already answered on
- * screen, which is what someone finishing a sign-in actually wants to know.
- *
- * Failure here is not a failed sign-in — the key is stored either way — so it
- * says what it could not do and points at the command to retry with.
- */
+/** Show the balance after storing credentials; a balance failure does not undo login. */
 async function proveItWorks(): Promise<void> {
   try {
     const { balanceAction } = await import("./account.js");
@@ -48,13 +37,15 @@ async function proveItWorks(): Promise<void> {
   console.log(chalk.gray(`  Account, usage and top-ups — ${chalk.cyan(CONSOLE_URL)}`));
 }
 
-export function logoutAction(): void {
-  clearApiKey();
-  success("Logged out. API key removed.");
+export async function logoutAction(): Promise<void> {
+  const revoked = await revokeAndClearTokens();
+  success(revoked ? "Logged out. OAuth refresh token revoked and stored tokens removed." : "Logged out. Stored tokens removed.");
+  if (revoked) info("Already-issued access tokens remain valid until they expire.");
+  if (process.env[ENV_VAR_NAME]) info(`${ENV_VAR_NAME} is still set. Unset it to stop using that API key.`);
 }
 
-export function whoamiAction(): void {
-  const key = getApiKey();
+export async function whoamiAction(): Promise<void> {
+  const key = await getAccessToken();
   const source = getKeySource();
 
   if (!key) {
@@ -63,6 +54,6 @@ export function whoamiAction(): void {
     return;
   }
 
-  console.log(`  Key:    ${maskKey(key)}`);
-  console.log(`  Source: ${source === "env" ? `${ENV_VAR_NAME} env var` : "stored config"}`);
+  console.log(`  Token:  ${maskKey(key)}`);
+  console.log(`  Source: ${source === "env" ? `${ENV_VAR_NAME} env var` : "~/.aisa/tokens.json"}`);
 }

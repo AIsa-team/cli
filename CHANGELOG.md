@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-09-10
+
+### Changed
+
+- Browser login stores OAuth access/refresh tokens and the client ID instead
+  of minting a permanent API key. Refresh near expiry and retry once after 401.
+- Serialize credential refresh, replacement, and logout across CLI processes.
+  Logout and replacement revoke the previous refresh token; preserve pending
+  grants for cleanup when login or persistence fails.
+- Keep `AISA_API_KEY` and `login --key` static; migrate `~/.aisa/key` and retain
+  legacy credential mirrors. Credentials are stored atomically with mode 0600.
+- Handle async credential errors consistently in logout, whoami, and MCP setup;
+  reject incomplete OAuth login responses before replacing existing credentials.
+
+### Known limitations
+
+- Already-issued access tokens remain valid until expiry after logout.
+- Third-party client configurations receive a fixed access-token snapshot;
+  CLI refresh does not update those configurations.
+
 ## [0.5.2] — 2026-09-10
 
 Compatible patch on published `0.5.1`. Expanded `aisa login --help` for Agent
@@ -424,7 +444,8 @@ supports today; nothing here depends on a backend change.
 - Config commands (`aisa config get|set|list|reset`) and auth
   (`aisa login|logout|whoami`).
 
-[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/AIsa-team/cli/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/AIsa-team/cli/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/AIsa-team/cli/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/AIsa-team/cli/compare/v0.3.0...v0.5.0

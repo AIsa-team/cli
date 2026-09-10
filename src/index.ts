@@ -99,13 +99,13 @@ program
 
 program
   .command("logout")
-  .description("Remove stored API key")
-  .action(logoutAction);
+  .description("Revoke OAuth refresh token and remove stored credentials")
+  .action(wrap(logoutAction));
 
 program
   .command("whoami")
   .description("Show authentication status")
-  .action(whoamiAction);
+  .action(wrap(whoamiAction));
 
 // ── Account ──
 
@@ -301,7 +301,7 @@ mcp
   .option("--agent <agent>", "Target agent: cursor, claude-desktop, all")
   .option("--all", "Configure every live server, not just the default set")
   .option("--yes", "Write the files. Without it, print what would change and stop")
-  .action(mcpSetupAction);
+  .action(wrap(mcpSetupAction));
 
 mcp
   .command("status")

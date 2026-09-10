@@ -4,7 +4,7 @@ import { success, error, info, hint } from "../utils/display.js";
 import { expandHome, ensureDir } from "../utils/file.js";
 import { MCP_CONFIGS, MCP_MANIFEST_URL, MCP_CATALOG_URL, DOCS_MCP_URL, MCP_DEFAULT_SLUGS } from "../constants.js";
 import { httpFetch, MAX_ATTEMPTS } from "../utils/http.js";
-import { getApiKey } from "../config.js";
+import { getAccessToken } from "../config.js";
 import { detectClients } from "./connect.js";
 import { join } from "node:path";
 
@@ -219,7 +219,7 @@ export async function mcpSetupAction(
     : servers.filter((s) => MCP_DEFAULT_SLUGS.includes(s.slug));
   const skipped = servers.length - chosen.length;
 
-  const key = getApiKey();
+  const key = await getAccessToken();
   if (key) {
     info("Using your configured API key (Bearer). It will be written into each client's config file.");
   } else {

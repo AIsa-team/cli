@@ -1,6 +1,6 @@
 {
   "name": "@aisa-one/cli",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "CLI for the AIsa unified AI infrastructure platform - one API key for 80+ LLMs and 900+ endpoints across finance, search, social, and video APIs",
   "type": "module",
   "main": "dist/index.js",
@@ -36,10 +36,12 @@
     "commander": "^12.0.0",
     "conf": "^12.0.0",
     "ora": "^8.0.1",
+    "proper-lockfile": "^4.1.2",
     "smol-toml": "^1.8.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/proper-lockfile": "^4.1.4",
     "typescript": "^5.0.0",
     "vitest": "^3.2.4"
   },

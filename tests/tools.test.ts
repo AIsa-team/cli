@@ -6,10 +6,10 @@ vi.mock("../src/config.js", async (orig) => {
   const actual = await orig<typeof import("../src/config.js")>();
   return {
     ...actual,
-    getApiKey: () => process.env.AISA_API_KEY,
-    requireApiKey: () => {
+    getAccessToken: async () => process.env.AISA_API_KEY,
+    requireAccessToken: async () => {
       const key = process.env.AISA_API_KEY;
-      if (!key) throw new CliError("No API key found", 1);
+      if (!key) throw new CliError("Not authenticated.", 1);
       return key;
     },
   };
@@ -128,7 +128,7 @@ describe("tool router commands", () => {
     await expect(quoteAction({ input: req, json: true })).rejects.toMatchObject({
       exitCode: 1,
       message: expect.stringMatching(
-        /No API key found[\s\S]*Run "aisa login"[\s\S]*AISA_API_KEY[\s\S]*Do not invent a business result/
+        /Not authenticated.[\s\S]*Run "aisa login"[\s\S]*AISA_API_KEY[\s\S]*Do not invent a business result/
       ),
     });
     await expect(callAction({ input: req, json: true })).rejects.toMatchObject({ exitCode: 1 });

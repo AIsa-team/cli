@@ -524,7 +524,7 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
 <div class="plan" id="plan"></div>
 <div class="barwrap" id="barwrap" style="display:none"><div class="barfill" id="barfill"></div></div>
 <div class="barnote" id="barnote"></div>
-<div class="authnote"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12l2 2l4-4"/></g></svg><div>Your configured AIsa API key is written into each entry — <b>no sign-in needed</b>.</div></div>
+<div class="authnote"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12l2 2l4-4"/></g></svg><div>Your current AIsa credential is written into each entry — <b>no sign-in needed</b>.</div></div>
 <div id="inResult" class="fine"></div></div>
   <div class="pane" data-pane="6"><div id="doneBody"><div class="eyebrow">Step 6 of 6</div>
 <h1>Almost there…</h1><p class="lede">The results appear here as soon as the run finishes.</p></div></div>
@@ -2005,7 +2005,7 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
 <div class="plan" id="plan"></div>
 <div class="barwrap" id="barwrap" style="display:none"><div class="barfill" id="barfill"></div></div>
 <div class="barnote" id="barnote"></div>
-<div class="authnote"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12l2 2l4-4"/></g></svg><div>Your configured AIsa API key is written into each entry — <b>no sign-in needed</b>.</div></div>
+<div class="authnote"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12l2 2l4-4"/></g></svg><div>Your current AIsa credential is written into each entry — <b>no sign-in needed</b>.</div></div>
 <div id="inResult" class="fine"></div></div>
   <div class="pane" data-pane="6"><div id="doneBody"><div class="eyebrow">Step 6 of 6</div>
 <h1>Almost there…</h1><p class="lede">The results appear here as soon as the run finishes.</p></div></div>
@@ -3486,7 +3486,7 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
 <div class="plan" id="plan"></div>
 <div class="barwrap" id="barwrap" style="display:none"><div class="barfill" id="barfill"></div></div>
 <div class="barnote" id="barnote"></div>
-<div class="authnote"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12l2 2l4-4"/></g></svg><div>Your configured AIsa API key is written into each entry — <b>no sign-in needed</b>.</div></div>
+<div class="authnote"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12l2 2l4-4"/></g></svg><div>Your current AIsa credential is written into each entry — <b>no sign-in needed</b>.</div></div>
 <div id="inResult" class="fine"></div></div>
   <div class="pane" data-pane="6"><div id="doneBody"><div class="eyebrow">Step 6 of 6</div>
 <h1>Almost there…</h1><p class="lede">The results appear here as soon as the run finishes.</p></div></div>
@@ -4979,7 +4979,7 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
 <div class="plan" id="plan"></div>
 <div class="barwrap" id="barwrap" style="display:none"><div class="barfill" id="barfill"></div></div>
 <div class="barnote" id="barnote"></div>
-<div class="authnote"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12l2 2l4-4"/></g></svg><div>Your configured AIsa API key is written into each entry — <b>no sign-in needed</b>.</div></div>
+<div class="authnote"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12l2 2l4-4"/></g></svg><div>Your current AIsa credential is written into each entry — <b>no sign-in needed</b>.</div></div>
 <div id="inResult" class="fine"></div></div>
   <div class="pane" data-pane="6"><div id="doneBody"><div class="eyebrow">Step 6 of 6</div>
 <h1>Almost there…</h1><p class="lede">The results appear here as soon as the run finishes.</p></div></div>
@@ -6472,7 +6472,7 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
 <div class="plan" id="plan"></div>
 <div class="barwrap" id="barwrap" style="display:none"><div class="barfill" id="barfill"></div></div>
 <div class="barnote" id="barnote"></div>
-<div class="authnote"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12l2 2l4-4"/></g></svg><div><b>One sign-in, nothing to paste.</b> Your browser opens the AIsa approval once; it issues a long-lived key for this machine, and every server and model is configured with it.</div></div>
+<div class="authnote"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12l2 2l4-4"/></g></svg><div><b>One sign-in, nothing to paste.</b> Your browser opens the AIsa approval once; every server and model is configured with the current access token. Reconnect when that token expires.</div></div>
 <div id="inResult" class="fine"></div></div>
   <div class="pane" data-pane="6"><div id="doneBody"><div class="eyebrow">Step 6 of 6</div>
 <h1>Almost there…</h1><p class="lede">The results appear here as soon as the run finishes.</p></div></div>

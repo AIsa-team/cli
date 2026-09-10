@@ -1,4 +1,4 @@
-export const VERSION = "0.5.2";
+export const VERSION = "0.6.0";
 /** Root of the platform. Per-surface bases are derived in api.ts#resolveBases. */
 export const BASE_URL = "https://api.aisa.one";
 export const ENV_VAR_NAME = "AISA_API_KEY";
@@ -162,3 +162,8 @@ export const MODEL_PROVIDERS = [
 ] as const;
 
 export type ModelProvider = (typeof MODEL_PROVIDERS)[number];
+
+export const AUTH_SERVER = "https://clerk.aisa.one";
+export const AUTH_SETUP_GUIDANCE =
+  `Run "aisa login" to sign in with OAuth. For CI, set ${ENV_VAR_NAME} or use "aisa login --key <key>".`;
+export const MISSING_API_KEY_GUIDANCE = `Not authenticated. ${AUTH_SETUP_GUIDANCE}`;

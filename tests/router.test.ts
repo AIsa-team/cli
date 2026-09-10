@@ -96,7 +96,7 @@ describe("routerPost", () => {
     const body = '{"calls":[{"call_id":"c1","tool":"t","arguments":{"n":9007199254740993}}]}';
     stubFetch([new Response(body, { status: 200 })]);
 
-    const res = await routerPost({ operation: "quote", body, apiKey: "sk-test" });
+    const res = await routerPost({ operation: "quote", body, accessToken: "sk-test" });
     expect(calls[0].init.body).toBe(body);
     expect((calls[0].init.headers as Record<string, string>).Authorization).toBe("Bearer sk-test");
     expect(res.raw).toBe(body);

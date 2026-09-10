@@ -1,5 +1,5 @@
 import { getConfig } from "./config.js";
-import { httpFetch } from "./utils/http.js";
+import { authenticatedFetch } from "./utils/auth-http.js";
 
 /**
  * Deployed Tool Router origin (nginx / tools.aisa.one). Paths already include
@@ -47,7 +47,7 @@ export interface RouterRequest {
   /** Raw application JSON. Sent unchanged so numeric tokens survive. */
   body: string;
   /** Bearer credential without the "Bearer " prefix, if any. */
-  apiKey?: string;
+  accessToken?: string;
 }
 
 export interface RouterHttpResult {
@@ -56,8 +56,8 @@ export interface RouterHttpResult {
 }
 
 /**
- * POST one Router operation. Never retries: quote and use are not safe to
- * replay, and search/schema must not hide a failed attempt.
+ * POST one Router operation. Only a 401 permits one authentication retry; quote and use are not safe to
+ * replay after a transport or server failure.
  */
 export async function routerPost(request: RouterRequest): Promise<RouterHttpResult> {
   const url = `${resolveRouterBase()}${ROUTER_PATHS[request.operation]}`;
@@ -65,11 +65,11 @@ export async function routerPost(request: RouterRequest): Promise<RouterHttpResu
     "Content-Type": "application/json",
     "x-aisa-source": "cli",
   };
-  if (request.apiKey) {
-    headers.Authorization = `Bearer ${request.apiKey}`;
+  if (request.accessToken) {
+    headers.Authorization = `Bearer ${request.accessToken}`;
   }
 
-  const res = await httpFetch(url, {
+  const res = await authenticatedFetch(url, {
     method: "POST",
     headers,
     body: request.body,
