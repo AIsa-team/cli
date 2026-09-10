@@ -379,7 +379,7 @@ export function loginHelpAfter(): string {
   return `
 Default: open a browser this person can actually use (SSH/CI/no display skip the local open). The live authorize URL is printed at the same time — relay that exact URL immediately. Do not invent, shorten, or delay it.
 
---no-browser needs a persistent interactive TTY. Agents request only the one-time redirect URL or code — never an API key, access token, or refresh token. Paste that result into this same living process once. "Done" is not that input. If they cannot type here, relay the paste through chat into this PTY. An empty line cancels.
+--no-browser needs a persistent interactive TTY. Agents request only the one-time redirect URL or code — never an API key, access token, or refresh token. Paste that result into this same living process once. Reuse a running login; do not start another. "Done" is not that input. If they cannot type here, relay the paste through chat into this PTY. An empty line cancels.
 
 If this process already timed out, or the URL/code is from an older run, start a fresh aisa login and use the new URL and its result. Do not reuse a stale paste.
 
