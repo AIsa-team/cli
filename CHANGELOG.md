@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] — 2026-09-10
+
+Compatible patch on published `0.5.1`. Expanded `aisa login --help` for Agent
+sign-in handoff, plus a default-off login-help evaluation. No auth runtime,
+credential-precedence, or command-surface changes.
+
+### Changed
+
+- `aisa login --help` owns accessible-browser vs persistent headless TTY, live
+  URL relay, one-time paste into the same living process, reuse of a running
+  login, stale-session recovery, no-TTY native MCP OAuth, and connected-only
+  after a successful balance check.
+
+### Added
+
+- Default-off `eval/agent-quickstart/login-handoff/`. Excluded from the npm
+  package; does not run in default CI or against production AIsa credentials.
+
 ## [0.5.1] — 2026-09-10
 
 Compatible patch on published `0.5.0`. Browser-login-first onboarding

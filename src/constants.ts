@@ -1,4 +1,4 @@
-export const VERSION = "0.5.1";
+export const VERSION = "0.5.2";
 /** Root of the platform. Per-surface bases are derived in api.ts#resolveBases. */
 export const BASE_URL = "https://api.aisa.one";
 export const ENV_VAR_NAME = "AISA_API_KEY";
