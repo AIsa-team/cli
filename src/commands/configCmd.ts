@@ -44,6 +44,7 @@ export function configGetAction(key: string): void {
 export function configListAction(): void {
   const all = listConfig();
   const display = { ...all };
+  if (display.tokens) display.tokens = "****";
   if (display.apiKey) {
     display.apiKey = "****";
   }

@@ -42,7 +42,7 @@ let home: string;
 let apiKey: string | undefined;
 
 vi.mock("../src/config.js", () => ({
-  getApiKey: () => apiKey,
+  getAccessToken: async () => apiKey,
 }));
 
 function stubManifest(status = 200): ReturnType<typeof vi.fn> {

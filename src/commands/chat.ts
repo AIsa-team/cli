@@ -1,6 +1,6 @@
 import ora from "ora";
 import chalk from "chalk";
-import { requireApiKey, getConfig } from "../config.js";
+import { requireAccessToken, getConfig } from "../config.js";
 import { apiRequest, apiRequestRaw } from "../api.js";
 import { error } from "../utils/display.js";
 import { handleSSEStream } from "../utils/streaming.js";
@@ -17,7 +17,7 @@ export async function chatAction(
     temperature?: string;
   }
 ): Promise<void> {
-  const key = requireApiKey();
+  const key = await requireAccessToken();
 
   // Read from stdin if no message provided
   let text = message;

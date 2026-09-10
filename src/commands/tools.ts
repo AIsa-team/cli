@@ -1,6 +1,6 @@
 import ora from "ora";
 import chalk from "chalk";
-import { getApiKey, MISSING_API_KEY_GUIDANCE } from "../config.js";
+import { getAccessToken, MISSING_API_KEY_GUIDANCE } from "../config.js";
 import { CliError, EXIT_PARTIAL, EXIT_TRANSPORT, transportError } from "../cli-error.js";
 import { routerPost, type RouterOperation } from "../router.js";
 import { error as printError } from "../utils/display.js";
@@ -36,7 +36,7 @@ async function runToolCommand(
   auth: { auth: "optional" | "required" }
 ): Promise<void> {
   const prepared = await prepareRouterRequest(kind, operands, options);
-  const apiKey = auth.auth === "required" ? requireRouterKey(kind) : getApiKey();
+  const accessToken = auth.auth === "required" ? await requireRouterKey(kind) : await getAccessToken();
 
   const spinner = options.json ? undefined : ora(spinnerText(kind)).start();
 
@@ -45,7 +45,7 @@ async function runToolCommand(
     result = await routerPost({
       operation: kind as RouterOperation,
       body: prepared.body,
-      apiKey,
+      accessToken,
     });
   } catch (err) {
     spinner?.fail("Request failed");
@@ -75,12 +75,12 @@ async function runToolCommand(
   }
 }
 
-function requireRouterKey(kind: RouterKind): string {
-  const key = getApiKey();
+async function requireRouterKey(kind: RouterKind): Promise<string> {
+  const key = await getAccessToken();
   if (!key) {
     throw new CliError(
       `${MISSING_API_KEY_GUIDANCE} ` +
-        `search and schema may be anonymous; ${kind} will not run without a key. ` +
+        `search and schema may be anonymous; ${kind} will not run without authentication. ` +
         `Do not invent a business result.`,
       EXIT_TRANSPORT
     );

@@ -55,14 +55,14 @@ const ENDING_MARKUP = [
   "  function tick() {",
   "    var left = Math.ceil((until - Date.now()) / 1000);",
   "    if (left <= 0) {",
-  '      show("This page has closed", "Nothing here is needed any more \u2014 your key was saved on the machine you signed in from.");',
+  '      show("This page has closed", "Nothing here is needed any more \u2014 return to your terminal to check the sign-in result.");',
   "      return;",
   "    }",
   // Silent until the last minute, as before: a countdown running for five
   // minutes is furniture. What changed is that it ends in a dialog rather
   // than in a line nobody was looking at.
   "    if (left > 60) { setTimeout(tick, 1000); return; }",
-  '    show("This page closes in " + left + " seconds", "You can close it now \u2014 your key is already saved.");',
+  '    show("This page closes in " + left + " seconds", "You can close it now \u2014 check your terminal for the sign-in result.");',
   "    setTimeout(tick, 1000);",
   "  }",
   "  tick();",
@@ -75,15 +75,14 @@ export type SignInOutcome = "ok" | "failed" | "expired";
 interface Outcome {
   kicker: string;
   title: string;
-  body: string;
+  body?: string;
   cta?: { href: string; domain: string; before: string; after: string };
 }
 
 const COPY: Record<SignInOutcome, Outcome> = {
   ok: {
-    kicker: "SIGNED IN",
-    title: "You're all set",
-    body: "Your key was created on the machine you started from — it never travelled through this browser. You can close this tab.",
+    kicker: "AUTHORIZED",
+    title: "Return to your terminal",
     /**
      * The one moment a mention of the console is welcome rather than in the
      * way — and a sentence, not a button.
@@ -184,7 +183,7 @@ export function renderSignInPage(outcome: SignInOutcome, closesAt?: number): str
   <div class="wrap">
     <div class="tick"><span>${good ? "✓" : "!"}</span><b>${c.kicker}</b></div>
     <h1>${c.title}</h1>
-    <p>${c.body}</p>
+    ${c.body ? `<p>${c.body}</p>` : ""}
     ${c.cta
       ? `<p class="cta">${c.cta.before}<a href="${c.cta.href}" rel="noopener">${c.cta.domain}</a>${c.cta.after}</p>`
       : ""}

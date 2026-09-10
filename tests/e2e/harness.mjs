@@ -26,7 +26,7 @@ const fixturesDir = join(here, "fixtures");
 const args = parseArgs(process.argv.slice(2));
 const snapshot = process.env.AISA_ROUTER_SNAPSHOT || "";
 const routerRepo = process.env.AISA_ROUTER_REPO || "";
-const MISSING_KEY_DIAGNOSTIC = /No API key found[\s\S]*Run "aisa login"[\s\S]*AISA_API_KEY/;
+const MISSING_KEY_DIAGNOSTIC = /Not authenticated\.[\s\S]*Run "aisa login"[\s\S]*AISA_API_KEY/;
 
 function parseArgs(argv) {
   const out = { cli: process.env.AISA_CLI || "", skipBuild: false };

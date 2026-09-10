@@ -99,7 +99,7 @@ program
 
 program
   .command("logout")
-  .description("Remove stored API key")
+  .description("Revoke OAuth refresh token and remove stored credentials")
   .action(logoutAction);
 
 program

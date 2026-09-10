@@ -162,3 +162,8 @@ export const MODEL_PROVIDERS = [
 ] as const;
 
 export type ModelProvider = (typeof MODEL_PROVIDERS)[number];
+
+export const AUTH_SERVER = "https://clerk.aisa.one";
+export const AUTH_SETUP_GUIDANCE =
+  `Run "aisa login" to sign in with OAuth. For CI, set ${ENV_VAR_NAME} or use "aisa login --key <key>".`;
+export const MISSING_API_KEY_GUIDANCE = `Not authenticated. ${AUTH_SETUP_GUIDANCE}`;

@@ -1,3 +1,4 @@
+import { authenticatedFetch } from "./utils/auth-http.js";
 import { BASE_URL } from "./constants.js";
 import { httpFetch, INFO_TIMEOUT_MS } from "./utils/http.js";
 import { getConfig } from "./config.js";
@@ -77,7 +78,7 @@ export interface RequestOptions {
 }
 
 export async function apiRequest<T = unknown>(
-  apiKey: string,
+  accessToken: string,
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<ApiResponse<T>> {
@@ -92,13 +93,13 @@ export async function apiRequest<T = unknown>(
   }
 
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${apiKey}`,
+    Authorization: `Bearer ${accessToken}`,
     "Content-Type": "application/json",
     "x-aisa-source": "cli",
     ...extraHeaders,
   };
 
-  const res = await httpFetch(url, {
+  const res = await authenticatedFetch(url, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
@@ -123,7 +124,7 @@ export async function apiRequest<T = unknown>(
 }
 
 export async function apiRequestRaw(
-  apiKey: string,
+  accessToken: string,
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<Response> {
@@ -138,13 +139,13 @@ export async function apiRequestRaw(
   }
 
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${apiKey}`,
+    Authorization: `Bearer ${accessToken}`,
     "Content-Type": "application/json",
     "x-aisa-source": "cli",
     ...extraHeaders,
   };
 
-  return httpFetch(url, {
+  return authenticatedFetch(url, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,

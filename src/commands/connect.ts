@@ -9,7 +9,7 @@ import chalk from "chalk";
 import { success, error, info, hint } from "../utils/display.js";
 import { expandHome } from "../utils/file.js";
 import { MCP_CONFIGS, MCP_DEFAULT_SLUGS, AISA_PROVIDER_ID } from "../constants.js";
-import { getApiKey, getConfig, setConfig } from "../config.js";
+import { getAccessToken, getConfig, setConfig } from "../config.js";
 import { fetchLiveServers, writeClientConfig, buildEntry, stripped, type LiveServer } from "./mcp.js";
 import { INSTALLERS, installAgent, isInstalled, supported } from "./install.js";
 import {
@@ -23,7 +23,7 @@ import {
   DEFAULT_MODELS,
 } from "./llm-config.js";
 import { writeClaudeAisaSettings, installWrappers } from "./wrappers.js";
-import { mintCliKey, type OAuthCatcher } from "./oauth-login.js";
+import { signInAndStoreTokens, type OAuthCatcher } from "./oauth-login.js";
 import { canOpenBrowser } from "../utils/browser.js";
 import { vscodeDetected, vscodeUserDir, writeVSCodeLLM, writeVSCodeMCP, installVSCodeExtension, launchVSCode, VSCODE_MODELS } from "./vscode.js";
 import { formatMicrosUSD } from "./account.js";
@@ -84,9 +84,9 @@ export function resolveTemplate(flag: string | undefined): ConnectTemplate {
  *   sign in, exit. No daemon, no terminal takeover, no prompt or skill
  *   injection into the user's agent. The user stays in their own Claude Code.
  * - Sign-in is one OAuth round for everything: with no key stored, the run
- *   starts with the same browser approval `aisa login` uses, which mints the
- *   durable "aisa cli" key (POST /v1/keys/mint). Every MCP entry is then
- *   written as a bearer and the model provider gets the same key — zero
+ *   starts with the same browser approval `aisa login` uses. Every MCP entry
+ *   is written with the current access token and the model provider gets
+ *   the same token — zero
  *   per-server authorization popups. Only if that sign-in fails do we fall
  *   back to each client's own OAuth machinery (`claude mcp login <name>` per
  *   server; `codex mcp add` runs its own flow), which still works but costs
@@ -456,7 +456,7 @@ const CODEX_KEY_ENV_VAR = "AISA_API_KEY";
 /** Below this the balance step lingers and nudges towards a top-up. */
 const LOW_BALANCE_MICROS = 5_000_000;
 
-/** The manual fallback when the inline sign-in cannot mint a key. */
+/** The manual fallback when the inline sign-in cannot obtain an access token. */
 const CONSOLE_KEYS_URL = "https://console.aisa.one/api-keys";
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -513,7 +513,7 @@ function buildPlan(input: PlanInput): Step[] {
       : "npm install -g @aisa-one/cli — the aisa command for balance, top-up and key rotation",
   });
   // One sign-in, before anything that wants a credential: the browser
-  // approval mints the durable CLI key, and with it every MCP entry is a
+  // approval obtains the access token, and with it every MCP entry is a
   // bearer and the model provider can be written — no per-server popups.
   // If it fails at run time the per-server OAuth rounds come back as a
   // fallback (added to the plan then, not promised now).
@@ -529,7 +529,7 @@ function buildPlan(input: PlanInput): Step[] {
       // they had signed in before.
       detail: input.keyRejected
         ? "your stored key is no longer accepted — one browser approval replaces it"
-        : "one browser approval — it mints your CLI key",
+        : "one browser approval — it stores your OAuth session",
     });
   }
   const web = input.clients[0] === "claude-ai";
@@ -752,7 +752,7 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
       if (input.dryRun) {
         ok("signin", "dry run — the browser approval would open here");
       } else {
-        key = await mintCliKey({ lang: input.lang, catcher: input.catcher });
+        key = await signInAndStoreTokens({ lang: input.lang, catcher: input.catcher });
         // Two facts, in the order they matter to the person who just left
         // the page to go and do this: it worked, and here is what it got
         // them. The old line led with the artifact — "your CLI key is
@@ -879,7 +879,7 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
       ok("llm", "dry run — nothing written");
     } else if (!key) {
       // Only reachable when the sign-in above failed (or was declined): the
-      // normal path mints a key before this step runs. A provider entry has
+      // normal path obtains an access token before this step runs. A provider entry has
       // nowhere to put an OAuth token, so without a key the fallback is the
       // console page that hands them out, with exact instructions.
       setStep(state, "llm", {
@@ -1233,10 +1233,10 @@ function renderPage(
     clients.map((c) => [c.id, defaultModelsFor(c.id).model])
   );
   const authCopy = keyed
-    ? `Your configured AIsa API key is written into each entry — <b>no sign-in needed</b>.`
+    ? `Your current AIsa credential is written into each entry — <b>no sign-in needed</b>.`
     : `<b>One sign-in, nothing to paste.</b> Your browser opens the AIsa approval
-       <b>once</b>; it issues a long-lived key for this machine, and every server
-       and model below is configured with it — no further popups.`;
+       <b>once</b>; every server and model below is configured with the current
+       access token. Reconnect when that token expires.`;
 
   const body = `
 <div class="eyebrow">Connect</div>
@@ -2469,7 +2469,7 @@ export async function connectAction(options: {
     process.exitCode = 1;
     return;
   }
-  const key = getApiKey();
+  const key = await getAccessToken();
   // A key that exists is not a key that works. One revoked from the console,
   // or belonging to a deleted account, sits in ~/.aisa/key looking exactly
   // like a good one — and the run then skipped the sign-in, wrote the dead

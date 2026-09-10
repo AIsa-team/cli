@@ -465,12 +465,12 @@ export const STEP_INSTALL = {
     zh: "下面是将要发生的全部事情,按顺序列出。它会自动开始;每一步完成后都会汇报,结果会在最后一步打开。",
   },
   authKeyed: {
-    en: "Your configured AIsa API key is written into each entry — <b>no sign-in needed</b>.",
-    zh: "你已配置的 AIsa API key 会写进每一条配置 —— <b>无需登录</b>。",
+    en: "Your current AIsa credential is written into each entry — <b>no sign-in needed</b>.",
+    zh: "你当前的 AIsa 凭证会写进每一条配置 —— <b>无需登录</b>。",
   },
   authFresh: {
-    en: "<b>One sign-in, nothing to paste.</b> Your browser opens the AIsa approval once; it issues a long-lived key for this machine, and every server and model is configured with it.",
-    zh: "<b>登录一次,不用粘贴任何东西。</b>浏览器会打开一次 AIsa 授权页;它会为这台机器签发一把长期有效的 key,所有 server 和模型都用它来配置。",
+    en: "<b>One sign-in, nothing to paste.</b> Your browser opens the AIsa approval once; every server and model is configured with the current access token. Reconnect when that token expires.",
+    zh: "<b>登录一次,不用粘贴任何东西。</b>浏览器会打开一次 AIsa 授权页;所有 server 和模型都使用当前 access token 配置。token 过期后请重新连接。",
   },
 };
 
