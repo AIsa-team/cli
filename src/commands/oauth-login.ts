@@ -350,6 +350,9 @@ export async function signInAndStoreTokens(
   if (!tokenRes.ok || !tokens.access_token) {
     throw new Error(`token exchange failed: ${tokens.error_description ?? tokens.error ?? tokenRes.status}`);
   }
+  if (typeof tokens.refresh_token !== "string" || !tokens.refresh_token.trim()) {
+    throw new Error("token exchange did not return a refresh token. Existing credentials were kept; retry sign-in with offline access enabled.");
+  }
 
   await replaceTokens(tokens.access_token, tokens.refresh_token, tokenExpiresAt(tokens.expires_in), clientId);
   return tokens.access_token;
