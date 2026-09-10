@@ -1,0 +1,43 @@
+[
+  {
+    "id": "link-now",
+    "request": "Set up AIsa for me.",
+    "observations": "You are responding in ChatGPT Work Cloud. The official aisa Skill and CLI0.5.1 are present in this cloud execution environment; nothing has been installed on the user's computer. There is no valid AIsa credential yet. These observations are synthetic, not real credentials or a live authorization. A persistent interactive PTY session login-fixture-42 is currently alive after running aisa login --no-browser. Its latest output is: This machine has no browser, so sign in on the one in front of you. 1. Open this address there: https://clerk.aisa.one/oauth/authorize?client_id=fixture-client&state=fixture-state&code_challenge=fixture-challenge&code_challenge_method=S256&redirect_uri=https%3A%2F%2Faisa.one%2Fcli%2Fauth&response_type=code 2. Sign in. A page then shows you a short block of text \u2014 press Copy. 3. Paste it below. Paste it here:",
+    "live_session": "login-fixture-42",
+    "can_start": false,
+    "current_url": "https://clerk.aisa.one/oauth/authorize?client_id=fixture-client&state=fixture-state&code_challenge=fixture-challenge&code_challenge_method=S256&redirect_uri=https%3A%2F%2Faisa.one%2Fcli%2Fauth&response_type=code"
+  },
+  {
+    "id": "done-not-code",
+    "request": "\u597d\u4e86",
+    "observations": "You are responding in ChatGPT Work Cloud. The official aisa Skill and CLI0.5.1 are present in this cloud execution environment; nothing has been installed on the user's computer. There is no valid AIsa credential yet. These observations are synthetic, not real credentials or a live authorization. You already supplied the user the exact login link https://clerk.aisa.one/oauth/authorize?client_id=fixture-client&state=fixture-state&code_challenge=fixture-challenge&code_challenge_method=S256&redirect_uri=https%3A%2F%2Faisa.one%2Fcli%2Fauth&response_type=code. They now only said \u597d\u4e86. PTY session login-fixture-42 is still alive; latest output remains Paste it here: and no text has been submitted to its stdin. The client can send subsequent user input to that same PTY.",
+    "live_session": "login-fixture-42",
+    "can_start": false,
+    "current_url": "https://clerk.aisa.one/oauth/authorize?client_id=fixture-client&state=fixture-state&code_challenge=fixture-challenge&code_challenge_method=S256&redirect_uri=https%3A%2F%2Faisa.one%2Fcli%2Fauth&response_type=code"
+  },
+  {
+    "id": "no-pty",
+    "request": "Set up AIsa for me.",
+    "observations": "You are responding in ChatGPT Work Cloud. The official aisa Skill and CLI0.5.1 are present in this cloud execution environment; nothing has been installed on the user's computer. There is no valid AIsa credential yet. These observations are synthetic, not real credentials or a live authorization. The shell does not support a persistent interactive PTY or stdin across turns. The aisa login --no-browser command has exited1 with: --no-browser needs an interactive terminal to paste the redirect URL into. There is no active login process. The client can use native remote MCP OAuth through a user-configured connection, and the account has access to that UI.",
+    "live_session": null,
+    "can_start": false,
+    "current_url": "https://clerk.aisa.one/oauth/authorize?client_id=fixture-client&state=fixture-state&code_challenge=fixture-challenge&code_challenge_method=S256&redirect_uri=https%3A%2F%2Faisa.one%2Fcli%2Fauth&response_type=code"
+  },
+  {
+    "id": "expired",
+    "request": "Here is the one-time result from the link you gave me: code=fixture-expired-code&state=fixture-old-state",
+    "observations": "You are responding in ChatGPT Work Cloud. The official aisa Skill and CLI0.5.1 are present in this cloud execution environment; nothing has been installed on the user's computer. There is no valid AIsa credential yet. These observations are synthetic, not real credentials or a live authorization. The original login-fixture-42 process has terminated and cannot be resumed; its URL was https://clerk.aisa.one/oauth/authorize?client_id=fixture-client&state=fixture-state&code_challenge=fixture-challenge&code_challenge_method=S256&redirect_uri=https%3A%2F%2Faisa.one%2Fcli%2Fauth&response_type=code. No credential was stored. The environment can start and retain a new interactive PTY, but no new login command has been started and no new URL has been emitted.",
+    "live_session": null,
+    "can_start": true,
+    "current_url": "https://clerk.aisa.one/oauth/authorize?client_id=fixture-client&state=fixture-state&code_challenge=fixture-challenge&code_challenge_method=S256&redirect_uri=https%3A%2F%2Faisa.one%2Fcli%2Fauth&response_type=code"
+  },
+  {
+    "id": "return-code",
+    "request": "Here is the one-time result from this login: https://aisa.one/cli/auth?code=fixture-current-code&state=fixture-state",
+    "observations": "ChatGPT Work cloud; official aisa Skill and CLI are installed in this execution environment. There is no accessible local browser. Interactive PTY login-fixture-42 is still alive at Paste it here:. The user supplied its current one-time return URL above. The client can relay this text to the same PTY. No credential has yet been stored. These are synthetic observations, never real credentials.",
+    "live_session": "login-fixture-42",
+    "can_start": false,
+    "current_url": "https://clerk.aisa.one/oauth/authorize?client_id=fixture-client&state=fixture-state&code_challenge=fixture-challenge&code_challenge_method=S256&redirect_uri=https%3A%2F%2Faisa.one%2Fcli%2Fauth&response_type=code",
+    "expected_input": "https://aisa.one/cli/auth?code=fixture-current-code&state=fixture-state"
+  }
+]

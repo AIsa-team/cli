@@ -1,0 +1,9 @@
+Usage: aisa login [options]
+
+Sign in to AIsa — browser sign-in by default, or --key to paste one
+
+Options:
+  --key <key>   API key (skips the browser sign-in)
+  --no-browser  Print the sign-in URL and paste the redirect back (detected on
+                its own over SSH)
+  -h, --help    display help for command

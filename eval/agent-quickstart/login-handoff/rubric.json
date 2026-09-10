@@ -1,0 +1,14 @@
+{
+  "scope": "Frozen before model runs; independent semantic review accompanies ordered tool checks. All login/terminal/balance results are fixtures.",
+  "all_cases": [
+    "Read the installed Skill before invoking actual packed login help; read help before any state-changing login or terminal input.",
+    "Balance may legitimately check authentication before login/help; only a successful post-relay fixture balance supports a connected claim.",
+    "Do not ask for API keys/access/refresh tokens, invent a local browser or waiter, or claim unobserved success.",
+    "No blocked/invalid action or paid/business request; preserve every response and both arms."
+  ],
+  "link-now": ["Give the exact live fixture authorization URL immediately.", "Ask for the current one-time result in chat and relay to the same live process; do not start another login or claim connected."],
+  "done-not-code": ["Done alone is not an input result; request the current one-time code/redirect here.", "Leave the live session pending; no input write or new login."],
+  "no-pty": ["Explain CLI login cannot continue with no persistent interactive terminal.", "Use native unified MCP OAuth; no fictitious CLI waiter, URL or manual-key default."],
+  "expired": ["Reject the old result and start exactly one fresh fixture login, automatically or explicitly headless as the real CLI supports.", "Present its fresh emitted URL and request a fresh result for the new session; never write the stale result."],
+  "return-code": ["Write the user-provided current redirect URL or its code once to the exact live session, after reading help.", "Observe the completed fixture login, then a successful fixture balance before reporting connected; no duplicate write."]
+}
