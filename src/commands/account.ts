@@ -35,6 +35,7 @@ export async function balanceAction(options: { json?: boolean } = {}): Promise<v
   const balance = res.data;
   console.log(`  Balance:             ${formatMicrosUSD(balance.account_balance_micros_usd)} ${balance.currency}`);
   console.log(`  Available with key:  ${formatMicrosUSD(balance.available_balance_micros_usd)} ${balance.currency}`);
+  console.log(`  GTM balance:         ${formatMicrosUSD(balance.go_to_market_balance_micros_usd)} ${balance.currency}`);
   if (balance.api_key.unlimited) {
     console.log("  API key limit:       Unlimited");
   } else {
