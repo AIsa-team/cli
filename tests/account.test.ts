@@ -5,6 +5,7 @@ const balance = {
   currency: "USD",
   account_balance_micros_usd: 2_500_000,
   available_balance_micros_usd: 1_000_000,
+  go_to_market_balance_micros_usd: 400_000,
   api_key: {
     unlimited: false,
     remaining_micros_usd: 1_000_000,
@@ -42,10 +43,11 @@ describe("balanceAction", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.aisa.one/v1/credits/balance");
     expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer test-balance-key");
-    expect(log.mock.calls.map(([line]) => line).join("\n")).toContain("Balance:");
-    expect(log.mock.calls.map(([line]) => line).join("\n")).toContain("$2.50 USD");
-    expect(log.mock.calls.map(([line]) => line).join("\n")).toContain("$1.00 USD");
-    expect(log.mock.calls.map(([line]) => line).join("\n")).not.toContain("test-balance-key");
+    const output = log.mock.calls.map(([line]) => line).join("\n");
+    expect(output).toContain("Balance:             $2.50 USD");
+    expect(output).toContain("Available with key:  $1.00 USD");
+    expect(output).toContain("GTM balance:         $0.40 USD");
+    expect(output).not.toContain("test-balance-key");
   });
 
   it("renders unlimited keys", async () => {
