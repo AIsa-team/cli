@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-09-11
+
+### Changed
+
+- Show the GTM balance separately in `aisa balance`. The account and
+  key-available totals now reflect the API's combined PAYG and GTM balances.
+
 ## [0.6.0] — 2026-09-10
 
 ### Changed
