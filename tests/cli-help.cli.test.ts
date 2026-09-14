@@ -84,6 +84,8 @@ describe("compiled --help and manifest", () => {
         expect(text, name).not.toContain("~/.aisa/key");
         expect(text, name).not.toMatch(/stores a CLI key/);
         expect(text, name).not.toMatch(/legacy login/);
+        expect(text, name).toMatch(/Users and agents must not manually/);
+        expect(text, name).toMatch(/bundled integrations manage compatibility mirrors/);
         expect(text, name).toMatch(/Enforced:/);
         expect(text, name).toMatch(/Exits: 0 success/);
       }

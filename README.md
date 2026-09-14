@@ -33,8 +33,9 @@ aisa quote --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_fact
 need to create or paste a key from the console. For CI or scripts, set
 `AISA_API_KEY` or run `aisa login --key <key>`. `AISA_API_KEY` overrides stored
 credentials and never refreshes. Prove protected auth with `aisa balance`.
-`aisa whoami` may refresh stored tokens and is not auth proof. Do not read or
-refresh token or compatibility key files. New accounts receive $5 in
+`aisa whoami` may refresh stored tokens and is not auth proof. Users and
+agents must not manually read, copy, or refresh credential files; the CLI
+and bundled integrations manage compatibility mirrors. New accounts receive $5 in
 free credits.
 
 This first block does not run `aisa chat` or `aisa call`. Quote is a price
@@ -332,7 +333,9 @@ Settings:
 `aisa login` stores OAuth credentials in the CLI credential store
 (`~/.aisa/tokens.json` is authoritative). `aisa login --key <key>` stores a
 static credential without refresh metadata. Compatibility key files and conf
-mirrors are not authority; do not read or refresh them yourself.
+mirrors are not authority. Users and agents must not manually read, copy, or
+refresh them; the CLI and bundled integrations (including the VS Code
+extension shipped with `aisa connect`) manage those mirrors.
 Third-party client configurations written by `aisa connect` also contain a
 snapshot of the credential, not a refresh-capable OAuth session.
 Environment variables:

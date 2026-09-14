@@ -9,7 +9,7 @@ import chalk from "chalk";
 import { success, error, info, hint } from "../utils/display.js";
 import { expandHome } from "../utils/file.js";
 import { MCP_CONFIGS, MCP_DEFAULT_SLUGS, AISA_PROVIDER_ID } from "../constants.js";
-import { getAccessToken, getConfig, setConfig } from "../config.js";
+import { getAccessToken, getConfig, getKeySource, setConfig } from "../config.js";
 import { fetchLiveServers, writeClientConfig, buildEntry, stripped, type LiveServer } from "./mcp.js";
 import { INSTALLERS, installAgent, isInstalled, supported } from "./install.js";
 import {
@@ -2265,8 +2265,7 @@ async function offerLaunch(
  * The closing block of a run: what changed on this machine, which commands
  * the user now has, and what to run next. It is the part someone reads
  * after the browser tab is gone — and the part that teaches them to do this
- * by hand next time, so it names files and commands rather than describing
- * them.
+ * by hand next time. Credential source is semantic only: no file path or value.
  */
 function summarise(
   log: Journal,
@@ -2303,7 +2302,14 @@ function summarise(
     log.line("write", "AIsa added beside your setup", r.steps.find((s) => s.id === "llm-backup")?.detail);
   }
   if (done("install:aisa-cli")) log.line("write", "AIsa CLI available as `aisa`");
-  log.record(`credential: ~/.aisa/key (0600)`);
+  const credentialSource = getKeySource();
+  log.record(
+    credentialSource === "env"
+      ? "credential: AISA_API_KEY"
+      : credentialSource === "config"
+        ? "credential: CLI credential store"
+        : "credential: none"
+  );
 
   log.section("Commands you now have");
   for (const c of launchChoices(r.clientId, r.llmMode)) log.command(c.cmd, c.desc);

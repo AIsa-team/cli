@@ -61,7 +61,7 @@ const JSON_CONTRACT =
   "--json writes the unmodified application body, including MCP identifiers and numeric tokens. Human output maps only AISA_SEARCH_TOOL, AISA_BATCH_GET_SCHEMA, AISA_BATCH_QUOTE, and AISA_BATCH_USE to aisa search / schema / quote / call.";
 
 const KEY_RESOLUTION =
-  "Prefer aisa login (stores OAuth or a static key in the CLI credential store). AISA_API_KEY overrides stored credentials and never refreshes. Compatibility key files are mirrors, not authority — do not read or refresh them. Prove protected auth with aisa balance; aisa whoami may refresh stored tokens and is not proof. CI: AISA_API_KEY or aisa login --key.";
+  "Prefer aisa login (stores OAuth or a static key in the CLI credential store). AISA_API_KEY overrides stored credentials and never refreshes. Users and agents must not manually read, copy, or refresh credential files; the CLI and bundled integrations manage compatibility mirrors. Prove protected auth with aisa balance; aisa whoami may refresh stored tokens and is not proof. CI: AISA_API_KEY or aisa login --key.";
 
 const ENFORCED_OPTIONAL = `Enforced: invalid local input exits 2 and is not sent. A configured OAuth session or static AIsa API key is optional (${KEY_RESOLUTION}).`;
 

@@ -47,7 +47,7 @@ export async function logoutAction(): Promise<void> {
 /** Commander after-help for `aisa whoami`. Mechanics only; runtime is unchanged. */
 export function whoamiHelpAfter(): string {
   return `
-Shows the current credential source (AISA_API_KEY or the CLI credential store). May refresh stored OAuth tokens. This is not protected auth proof — use aisa balance. Do not read or refresh token or compatibility key files.
+Shows the current credential source (AISA_API_KEY or the CLI credential store). May refresh stored OAuth tokens. This is not protected auth proof — use aisa balance. Users and agents must not manually read, copy, or refresh credential files; the CLI and bundled integrations manage compatibility mirrors.
 `;
 }
 

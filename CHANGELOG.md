@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   overrides stored credentials, compatibility key files are mirrors, and
   `aisa whoami` is not protected auth proof. Root help starts at `aisa login`
   or `https://tools.aisa.one/mcp`; `aisa connect` is scoped to domain MCP.
+  The connect journal reports `AISA_API_KEY` or the CLI credential store,
+  not a key file. Manual file-read warnings apply to users and agents; the
+  bundled VS Code extension may still read the compatibility mirror.
 
 ## [0.6.1] — 2026-09-11
 
