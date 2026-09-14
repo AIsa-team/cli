@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Align Router help, manifest, root examples, and login/whoami guidance with
+  the current credential store: `tokens.json` is authoritative, `AISA_API_KEY`
+  overrides stored credentials, compatibility key files are mirrors, and
+  `aisa whoami` is not protected auth proof. Root help starts at `aisa login`
+  or `https://tools.aisa.one/mcp`; `aisa connect` is scoped to domain MCP.
+
 ## [0.6.1] — 2026-09-11
 
 ### Changed

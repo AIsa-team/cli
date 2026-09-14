@@ -79,7 +79,11 @@ describe("compiled --help and manifest", () => {
       expect(text, name).not.toMatch(/Unquoted calls cannot be executed/);
       if (name !== "root") {
         expect(text, name).toContain("AISA_API_KEY");
-        expect(text, name).toContain("~/.aisa/key");
+        expect(text, name).toMatch(/overrides stored credentials/);
+        expect(text, name).toContain("aisa balance");
+        expect(text, name).not.toContain("~/.aisa/key");
+        expect(text, name).not.toMatch(/stores a CLI key/);
+        expect(text, name).not.toMatch(/legacy login/);
         expect(text, name).toMatch(/Enforced:/);
         expect(text, name).toMatch(/Exits: 0 success/);
       }
@@ -87,6 +91,9 @@ describe("compiled --help and manifest", () => {
     }
 
     expect(pages.root).toContain("aisa <command> --help or aisa manifest <command>");
+    expect(pages.root).toContain("aisa login");
+    expect(pages.root).toContain("tools.aisa.one/mcp");
+    expect(pages.root).not.toMatch(/start here/i);
     expect(pages.root).toContain(EXAMPLE_BATCH_JSON);
     expect(pages.root).toContain(EXAMPLE_PUBLISHED_TOOL);
     expect(pages.root).toContain("aisa api list");

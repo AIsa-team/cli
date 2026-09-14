@@ -61,11 +61,11 @@ const JSON_CONTRACT =
   "--json writes the unmodified application body, including MCP identifiers and numeric tokens. Human output maps only AISA_SEARCH_TOOL, AISA_BATCH_GET_SCHEMA, AISA_BATCH_QUOTE, and AISA_BATCH_USE to aisa search / schema / quote / call.";
 
 const KEY_RESOLUTION =
-  "Prefer aisa login (stores a CLI key). Resolution: AISA_API_KEY, then ~/.aisa/key, then legacy login. CI: AISA_API_KEY or aisa login --key.";
+  "Prefer aisa login (stores OAuth or a static key in the CLI credential store). AISA_API_KEY overrides stored credentials and never refreshes. Compatibility key files are mirrors, not authority — do not read or refresh them. Prove protected auth with aisa balance; aisa whoami may refresh stored tokens and is not proof. CI: AISA_API_KEY or aisa login --key.";
 
-const ENFORCED_OPTIONAL = `Enforced: invalid local input exits 2 and is not sent. A configured AIsa API key is optional (${KEY_RESOLUTION}).`;
+const ENFORCED_OPTIONAL = `Enforced: invalid local input exits 2 and is not sent. A configured OAuth session or static AIsa API key is optional (${KEY_RESOLUTION}).`;
 
-const ENFORCED_REQUIRED = `Enforced: quote and call refuse to run without a configured AIsa API key (${KEY_RESOLUTION}). Invalid local input exits 2 and is not sent. search and schema may be anonymous.`;
+const ENFORCED_REQUIRED = `Enforced: quote and call refuse to run without an OAuth session or static AIsa API key (${KEY_RESOLUTION}). Invalid local input exits 2 and is not sent. search and schema may be anonymous.`;
 
 const NOT_ENFORCED =
   "Not enforced: the CLI does not record quotes, approvals, or budget caps and does not reject an unquoted aisa call.";
@@ -137,7 +137,7 @@ export function routerContract(kind: RouterOperation): RouterCommandContract {
           "Instruction: A missing or failed quote is never free.",
           "A data request or credentials alone is not spending approval.",
           "Instruction: Call only an independently approved successful subset. Do not silently retry or expand the set.",
-          "Instruction: Without a configured AIsa API key, do not invent a business result.",
+          "Instruction: Without an OAuth session or static AIsa API key, do not invent a business result.",
         ],
         examples: [example("call", EXAMPLE_BATCH)],
       };
@@ -223,18 +223,21 @@ export function callHelpAfter(): string {
 export function rootHelpAfter(): string {
   return `
 Examples (POSIX sh; single-quoted --input):
-  $ aisa connect                      wire your coding agent to AIsa (start here)
+  $ aisa login                        sign in (prove with aisa balance)
   $ aisa search "company facts" --json
   $ aisa schema ${EXAMPLE_PUBLISHED_TOOL} --json
   $ aisa quote ${shellInputFlag(EXAMPLE_BATCH_JSON)} --json
   $ aisa call ${shellInputFlag(EXAMPLE_BATCH_JSON)} --json
   $ aisa api list                     browse the provider catalog
   $ aisa api show coingecko           browse one provider's endpoints
+  $ aisa connect                      optional: domain MCP for local coding agents (not the four-tool Router)
 
+General setup: aisa login for CLI credentials, or native MCP at https://tools.aisa.one/mcp.
+aisa connect installs domain MCP servers into local agents; its default web-search server is not the four-tool Router.
 Router: ${MCP_CLI_MAP.search.identifier}→search, ${MCP_CLI_MAP.schema.identifier}→schema, ${MCP_CLI_MAP.quote.identifier}→quote, ${MCP_CLI_MAP.call.identifier}→call.
 --json keeps MCP identifiers. Human output maps those four names to CLI commands.
 ${FLOW}
-Use aisa <command> --help or aisa manifest <command> for complete JSON/file/stdin examples, shared API-key sources, exit codes, and cost constraints.
+Use aisa <command> --help or aisa manifest <command> for complete JSON/file/stdin examples, credential sources, exit codes, and cost constraints.
 Catalog list/show are browsing metadata, not a substitute for schema or quote.
 `;
 }

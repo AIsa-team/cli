@@ -38,7 +38,7 @@ Describe how an AI agent should use this skill.
 export AISA_API_KEY=sk-your-key
 \`\`\`
 
-Same key as \`aisa login\`: \`AISA_API_KEY\`, then \`~/.aisa/key\`, then legacy login.
+Prefer \`aisa login\`. \`AISA_API_KEY\` overrides stored credentials. Do not read token or compatibility key files. Prove auth with \`aisa balance\`.
 
 ## Published tools
 

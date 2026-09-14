@@ -527,8 +527,8 @@ export const RUNTIME_COPY = {
     zh: "想用 AIsa 的模型时就跑 <code>{bin}</code>;删掉那一个文件就等于移除。",
   },
   noKeyStored: {
-    en: "No key stored here — run <code>aisa login</code>, then copy it from <code>~/.aisa/key</code>.",
-    zh: "本机没有存 key —— 先跑 <code>aisa login</code>,再从 <code>~/.aisa/key</code> 复制。",
+    en: "No credential stored here — run <code>aisa login</code>, then <code>aisa balance</code>. Do not copy token files. For a static key use <code>AISA_API_KEY</code> or <code>aisa login --key</code>.",
+    zh: "本机没有存凭证 —— 先跑 <code>aisa login</code>，再用 <code>aisa balance</code> 验证。不要复制 token 文件。静态密钥用 <code>AISA_API_KEY</code> 或 <code>aisa login --key</code>。",
   },
   cannotStartApp: {
     en: "Could not start {name} — open it from your Applications folder.",
