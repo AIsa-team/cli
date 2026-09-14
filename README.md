@@ -31,7 +31,11 @@ aisa quote --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_fact
 
 `aisa login` opens a browser, signs you in, and stores OAuth tokens. You do not
 need to create or paste a key from the console. For CI or scripts, set
-`AISA_API_KEY` or run `aisa login --key <key>`. New accounts receive $5 in
+`AISA_API_KEY` or run `aisa login --key <key>`. `AISA_API_KEY` overrides stored
+credentials and never refreshes. Prove protected auth with `aisa balance`.
+`aisa whoami` may refresh stored tokens and is not auth proof. Users and
+agents must not manually read, copy, or refresh credential files; the CLI
+and bundled integrations manage compatibility mirrors. New accounts receive $5 in
 free credits.
 
 This first block does not run `aisa chat` or `aisa call`. Quote is a price
@@ -326,13 +330,16 @@ Settings:
   independent of `baseUrl`); overridden by `AISA_ROUTER_BASE_URL`
 - `outputFormat` — `text` or `json`
 
-`aisa login` stores OAuth credentials in `~/.aisa/tokens.json`.
-`aisa login --key <key>` stores a static credential without refresh metadata.
-Legacy mirrors contain the current access token; older CLIs cannot refresh it.
+`aisa login` stores OAuth credentials in the CLI credential store
+(`~/.aisa/tokens.json` is authoritative). `aisa login --key <key>` stores a
+static credential without refresh metadata. Compatibility key files and conf
+mirrors are not authority. Users and agents must not manually read, copy, or
+refresh them; the CLI and bundled integrations (including the VS Code
+extension shipped with `aisa connect`) manage those mirrors.
 Third-party client configurations written by `aisa connect` also contain a
 snapshot of the credential, not a refresh-capable OAuth session.
 Environment variables:
-`AISA_API_KEY` takes precedence over the stored key.
+`AISA_API_KEY` overrides stored credentials and never refreshes.
 `AISA_ROUTER_BASE_URL` is the Router origin/prefix before
 `/v1/tool-router/...` and overrides the default `https://tools.aisa.one`.
 `AISA_CACHE_DIR` relocates the cache. `GITHUB_TOKEN`

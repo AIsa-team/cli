@@ -6,7 +6,7 @@ import { CliError } from "./cli-error.js";
 import type { RouterIoOptions } from "./commands/tool-input.js";
 
 // Auth
-import { loginAction, logoutAction, whoamiAction } from "./commands/auth.js";
+import { loginAction, logoutAction, whoamiAction, whoamiHelpAfter } from "./commands/auth.js";
 import { loginHelpAfter } from "./commands/oauth-login.js";
 // Account
 import { balanceAction, topupAction, usageAction } from "./commands/account.js";
@@ -105,6 +105,7 @@ program
 program
   .command("whoami")
   .description("Show authentication status")
+  .addHelpText("after", whoamiHelpAfter())
   .action(wrap(whoamiAction));
 
 // ── Account ──
@@ -276,6 +277,13 @@ skills
 program
   .command("connect")
   .description("Connect AIsa MCP servers to your local coding agents via a one-shot local page")
+  .addHelpText(
+    "after",
+    `
+Optional local-agent domain MCP setup. Not general CLI sign-in and not the four-tool Router at https://tools.aisa.one/mcp.
+General setup: aisa login (prove with aisa balance) or native MCP at that Router URL. The default connect server is domain web-search.
+`
+  )
   .option("--no-open", "Print the URL instead of opening the browser")
   .option("--port <port>", "Bind a specific port (default: random)")
   .option("--dry-run", "Show what would be configured without writing anything")
