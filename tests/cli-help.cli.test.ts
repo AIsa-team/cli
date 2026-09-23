@@ -78,6 +78,8 @@ describe("compiled --help and manifest", () => {
       expect(text, name).not.toMatch(/--input '[^']*\.\.\.[^']*'/);
       expect(text, name).not.toMatch(/Unquoted calls cannot be executed/);
       if (name !== "root") {
+        expect(text, name).toContain("--session-id <id>");
+        expect(text, name).toContain("session_id");
         expect(text, name).toContain("AISA_API_KEY");
         expect(text, name).toContain("~/.aisa/key");
         expect(text, name).toMatch(/Enforced:/);

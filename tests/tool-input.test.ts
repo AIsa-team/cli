@@ -51,10 +51,42 @@ describe("prepareRouterRequest", () => {
     expect(JSON.parse(prepared.body)).toEqual({ tools: ["tool_a", "tool_b"] });
   });
 
+  it("adds --session-id to positional search and schema requests", async () => {
+    const search = await prepareRouterRequest("search", ["follow-up"], { sessionId: "ses_123" });
+    const schema = await prepareRouterRequest("schema", ["tool_a"], { sessionId: "ses_123" });
+    expect(JSON.parse(search.body)).toEqual({ query: "follow-up", session_id: "ses_123" });
+    expect(JSON.parse(schema.body)).toEqual({ tools: ["tool_a"], session_id: "ses_123" });
+  });
+
   it("sends the original --input text so numeric tokens are not rewritten", async () => {
     const raw = '{"calls":[{"call_id":"c1","tool":"t","arguments":{"n":9007199254740993}}]}';
     const prepared = await prepareRouterRequest("quote", [], { input: raw });
     expect(prepared.body).toBe(raw);
+  });
+
+  it("accepts session_id in all JSON envelopes and preserves raw numeric tokens with the flag", async () => {
+    const inputs = {
+      search: '{"query":"q","session_id":"ses_123"}',
+      schema: '{"tools":["t"],"session_id":"ses_123"}',
+      quote: '{"calls":[{"call_id":"c","tool":"t","arguments":{}}],"session_id":"ses_123"}',
+      call: '{"calls":[{"call_id":"c","tool":"t","arguments":{}}],"session_id":"ses_123"}',
+    } as const;
+    for (const [kind, input] of Object.entries(inputs) as Array<[keyof typeof inputs, string]>) {
+      expect((await prepareRouterRequest(kind, [], { input })).body).toBe(input);
+    }
+
+    const raw = '{"calls":[{"call_id":"c","tool":"t","arguments":{"n":9007199254740993}}]}';
+    for (const kind of ["quote", "call"] as const) {
+      const prepared = await prepareRouterRequest(kind, [], { input: raw, sessionId: "ses_123" });
+      expect(prepared.body).toBe('{"calls":[{"call_id":"c","tool":"t","arguments":{"n":9007199254740993}}],"session_id":"ses_123"}');
+    }
+  });
+
+  it("rejects invalid or conflicting session IDs before dispatch", async () => {
+    expect(await usageAsync(() => prepareRouterRequest("search", ["q"], { sessionId: "" }))).toMatch(/must not be empty/);
+    expect(await usageAsync(() => prepareRouterRequest("search", ["q"], { sessionId: "bad id" }))).toMatch(/session_id/);
+    expect(await usageAsync(() => prepareRouterRequest("search", [], { input: '{"query":"q","session_id":null}' }))).toMatch(/session_id/);
+    expect(await usageAsync(() => prepareRouterRequest("search", [], { input: '{"query":"q","session_id":"ses_1"}', sessionId: "ses_2" }))).toMatch(/already present/);
   });
 
   it("reads -f - from stdin", async () => {

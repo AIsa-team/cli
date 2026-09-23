@@ -153,6 +153,10 @@ function renderHuman(kind: RouterKind, raw: string): void {
     return;
   }
 
+  if (typeof value.session_id === "string") {
+    console.log(`\n  ${chalk.gray("session_id")} ${value.session_id}`);
+  }
+
   if (kind === "search") {
     renderSearch(value);
     return;

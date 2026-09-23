@@ -6,6 +6,7 @@ export type RouterKind = "search" | "schema" | "quote" | "call";
 export interface RouterIoOptions {
   input?: string;
   file?: string;
+  sessionId?: string;
   json?: boolean;
   limit?: string;
   provider?: string[];
@@ -33,6 +34,8 @@ export async function prepareRouterRequest(
   const hasFile = options.file !== undefined;
   const hasOperands = operands.length > 0;
 
+  if (options.sessionId === "") throw usageError("--session-id must not be empty");
+
   if (hasInput && hasFile) {
     throw usageError("Use either --input or -f/--file, not both");
   }
@@ -46,10 +49,10 @@ export async function prepareRouterRequest(
   }
 
   if (hasInput) {
-    return fromEnvelope(kind, options.input as string, " --input");
+    return withSessionId(kind, fromEnvelope(kind, options.input as string, " --input"), options.sessionId);
   }
   if (hasFile) {
-    return fromEnvelope(kind, await readRequestFile(options.file as string), ` -f ${options.file}`);
+    return withSessionId(kind, fromEnvelope(kind, await readRequestFile(options.file as string), ` -f ${options.file}`), options.sessionId);
   }
 
   if (kind === "search") {
@@ -103,6 +106,21 @@ function fromEnvelope(kind: RouterKind, raw: string, source: string): PreparedRe
   return { body: text, value };
 }
 
+/** Add the flag without parsing and rewriting numeric tokens in the raw JSON body. */
+function withSessionId(kind: RouterKind, prepared: PreparedRequest, sessionId: string | undefined): PreparedRequest {
+  if (sessionId === undefined) return prepared;
+  validateSessionId(sessionId);
+  if (prepared.value.session_id !== undefined) {
+    throw usageError("session_id is already present in the JSON request; use either it or --session-id");
+  }
+
+  const value = { ...prepared.value, session_id: sessionId };
+  validateEnvelope(kind, value);
+  const separator = Object.keys(prepared.value).length > 0 ? "," : "";
+  const body = `${prepared.body.slice(0, -1)}${separator}"session_id":${JSON.stringify(sessionId)}}`;
+  return { body, value };
+}
+
 function buildSearch(operands: string[], options: RouterIoOptions): PreparedRequest {
   if (operands.length !== 1 || !operands[0].trim()) {
     throw usageError("search requires a query, --input '<json>', or -f FILE");
@@ -116,6 +134,7 @@ function buildSearch(operands: string[], options: RouterIoOptions): PreparedRequ
   if (options.provider && options.provider.length > 0) {
     request.provider_filters = options.provider;
   }
+  if (options.sessionId !== undefined) request.session_id = options.sessionId;
 
   validateEnvelope("search", request);
   return { body: JSON.stringify(request), value: request };
@@ -138,6 +157,7 @@ function buildSchema(operands: string[], options: RouterIoOptions): PreparedRequ
   if (options.includeArgumentsSchema === false && options.includeResponseSchema !== true) {
     throw usageError("At least one of arguments or response schema must be requested");
   }
+  if (options.sessionId !== undefined) request.session_id = options.sessionId;
 
   validateEnvelope("schema", request);
   return { body: JSON.stringify(request), value: request };
@@ -154,12 +174,13 @@ function parseLimit(raw: string): number {
   return n;
 }
 
-const SEARCH_KEYS = ["query", "known_fields", "provider_filters", "limit"];
-const SCHEMA_KEYS = ["tools", "include_arguments_schema", "include_response_schema"];
-const BATCH_KEYS = ["search_id", "calls"];
+const SEARCH_KEYS = ["query", "known_fields", "provider_filters", "limit", "session_id"];
+const SCHEMA_KEYS = ["tools", "include_arguments_schema", "include_response_schema", "session_id"];
+const BATCH_KEYS = ["search_id", "calls", "session_id"];
 const CALL_KEYS = ["call_id", "tool", "arguments"];
 
 export function validateEnvelope(kind: RouterKind, value: Record<string, unknown>): void {
+  if (value.session_id !== undefined) validateSessionId(value.session_id);
   if (kind === "search") {
     rejectUnknownKeys(value, SEARCH_KEYS, "search request");
     if (typeof value.query !== "string" || value.query.trim().length === 0) {
@@ -241,6 +262,12 @@ export function validateEnvelope(kind: RouterKind, value: Record<string, unknown
   }
   if (new Set(callIds).size !== callIds.length) {
     throw usageError("call_id values must be unique within the batch");
+  }
+}
+
+function validateSessionId(value: unknown): void {
+  if (typeof value !== "string" || (value !== "" && !/^[A-Za-z0-9_-]{1,128}$/.test(value))) {
+    throw usageError("session_id must be a string of at most 128 letters, digits, underscores, or hyphens");
   }
 }
 
