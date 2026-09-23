@@ -37,6 +37,7 @@ export const MAX_ATTEMPTS = 3;
 export const INFO_TIMEOUT_MS = 10_000;
 /** A normal authenticated API call. */
 export const DEFAULT_TIMEOUT_MS = 30_000;
+export const USER_AGENT = "aisa-cli";
 
 const BASE_BACKOFF_MS = 300;
 /** Agents fan out many calls at once; identical backoff would resynchronise
@@ -91,11 +92,19 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export async function httpFetch(url: string, options: HttpOptions = {}): Promise<Response> {
   const { timeoutMs = DEFAULT_TIMEOUT_MS, idempotent = false, maxAttempts, ...init } = options;
   const attempts = idempotent ? (maxAttempts ?? MAX_ATTEMPTS) : 1;
+  const headers: Record<string, string> =
+    init.headers instanceof Headers || Array.isArray(init.headers)
+      ? Object.fromEntries(new Headers(init.headers))
+      : { ...(init.headers ?? {}) };
+  for (const name of Object.keys(headers)) {
+    if (name.toLowerCase() === "user-agent") delete headers[name];
+  }
+  headers["User-Agent"] = USER_AGENT;
 
   let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      const res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+      const res = await fetch(url, { ...init, headers, signal: AbortSignal.timeout(timeoutMs) });
       if (attempt === attempts || !RETRYABLE_STATUS.has(res.status)) return res;
       const after = retryAfterMs(res);
       if (after !== undefined && after > MAX_RETRY_AFTER_MS) return res;

@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { readFileSync, writeFileSync, unlinkSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { httpFetch } from "../utils/http.js";
 import { renderT2Page } from "./connect-t2.js";
 import { isInstalled } from "./install.js";
 import { renderDone } from "./connect.js";
@@ -59,8 +60,8 @@ export async function closeStaleResults(): Promise<void> {
   // crash may belong to something else entirely by now. Answering on that
   // port with that token is the only proof that counts.
   try {
-    const res = await fetch(`http://127.0.0.1:${rec.port}/status?token=${rec.token}`, {
-      signal: AbortSignal.timeout(1_500),
+    const res = await httpFetch(`http://127.0.0.1:${rec.port}/status?token=${rec.token}`, {
+      timeoutMs: 1_500,
     });
     if (!res.ok) return forget();
   } catch {

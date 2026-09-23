@@ -1,5 +1,6 @@
 import { accessSync, constants, existsSync } from "node:fs";
 import { runShell, runSync, QUICK_TIMEOUT_MS } from "../utils/exec.js";
+import { httpFetch } from "../utils/http.js";
 
 /**
  * Installing a coding agent on the user's behalf.
@@ -49,7 +50,7 @@ export const INSTALLERS: Record<string, Installer> = {
     // what makes the mirror path below work where claude.ai is unreachable.
     // Curl gets its own timeouts: a blackholed connection must fail in
     // seconds, not sit until the overall install deadline.
-    command: "curl -fsSL --connect-timeout 10 --max-time 180 https://claude.ai/install.sh | bash",
+    command: "curl -fsSL -A aisa-cli --connect-timeout 10 --max-time 180 https://claude.ai/install.sh | bash",
     installDir: "~/.local/bin",
     npmPackage: "@anthropic-ai/claude-code",
     probeUrl: "https://claude.ai/install.sh",
@@ -126,7 +127,7 @@ export async function pickNpmChannel(
 
 async function headOk(url: string): Promise<boolean> {
   try {
-    const res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(3_000) });
+    const res = await httpFetch(url, { method: "HEAD", timeoutMs: 3_000 });
     return res.ok;
   } catch {
     return false;

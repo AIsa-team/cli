@@ -327,7 +327,7 @@ export async function mcpStatusAction(): Promise<void> {
  */
 export async function pingEndpoint(endpoint: string): Promise<string> {
   try {
-    const res = await fetch(endpoint, {
+    const res = await httpFetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
       body: JSON.stringify({
@@ -340,7 +340,7 @@ export async function pingEndpoint(endpoint: string): Promise<string> {
           clientInfo: { name: "aisa-cli", version: "status" },
         },
       }),
-      signal: AbortSignal.timeout(8_000),
+      timeoutMs: 8_000,
     });
     if (res.status === 200) return `${chalk.green("✓")} reachable (open)`;
     if (res.status === 401) return `${chalk.green("✓")} reachable (auth required — normal)`;

@@ -1,6 +1,7 @@
 import { readCache, writeCache } from "../cache.js";
 import { VERSION } from "../constants.js";
 import { detectInstall } from "./install-method.js";
+import { httpFetch } from "./http.js";
 
 /**
  * Throttled, best-effort check for a newer published version.
@@ -45,9 +46,7 @@ export interface CheckForUpdateOptions {
 }
 
 async function defaultFetchLatest(): Promise<string | undefined> {
-  const res = await fetch(`https://registry.npmjs.org/${PACKAGE}/latest`, {
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
+  const res = await httpFetch(`https://registry.npmjs.org/${PACKAGE}/latest`, { timeoutMs: FETCH_TIMEOUT_MS });
   if (!res.ok) return undefined;
   const json = (await res.json()) as { version?: string };
   return json.version;
