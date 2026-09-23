@@ -52,7 +52,7 @@ export interface RouterCommandContract {
 }
 
 const FLOW =
-  "Recommended sequence: aisa search → aisa schema when has_full_schema=false → aisa quote → aisa call.";
+  "Recommended sequence: aisa search → aisa schema when has_full_schema=false → aisa quote → aisa call. First search may omit session_id; reuse the returned session_id for every later search, schema, quote, and call in the same task. Pass it as --session-id or as a top-level JSON field. The CLI does not save sessions between commands. Keep search_id from search on related quote and call requests.";
 
 const INLINE =
   "--input is inline JSON text (no file required). Shell examples are POSIX sh with single-quoted --input; apostrophes are written as '\\'' so $(), backticks, and other expansions stay literal. -f FILE and -f - remain available.";
@@ -99,7 +99,7 @@ export function routerContract(kind: RouterOperation): RouterCommandContract {
     case "schema":
       return {
         auth: "optional",
-        flow: `Use after search when has_full_schema=false. Pass exact tool names from search. ${EXAMPLE_PUBLISHED_TOOL} is a published tool whose schema includes ticker.`,
+        flow: `Use after search when has_full_schema=false. Pass exact tool names and reuse the returned session_id via --session-id or a top-level JSON field. The CLI does not save sessions between commands. ${EXAMPLE_PUBLISHED_TOOL} is a published tool whose schema includes ticker.`,
         enforced: [ENFORCED_OPTIONAL],
         safety: [
           "Instruction: Do not invent tool names. Do not guess arguments; read the returned schema.",

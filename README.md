@@ -63,7 +63,13 @@ and `aisa manifest search` / `schema` / `quote` / `call` expose `mcp`, `auth`,
 
 Recommended sequence: discover a tool → `aisa schema` when
 `has_full_schema=false` → `aisa quote` → `aisa call`. Quote and call share
-one request shape. **Enforced:** invalid local input exits 2 and is not sent;
+one request shape. The first search may omit `session_id`; the Router returns
+one. Reuse that ID for every later search, schema, quote, and call in the same
+task, using `--session-id <id>` or a top-level `session_id` in `--input`/`-f`
+JSON. The CLI does not save it between commands. For related quote/call
+requests, also carry the Search `search_id`; it identifies the search, while
+`session_id` groups the task. Standalone commands may omit either ID.
+**Enforced:** invalid local input exits 2 and is not sent;
 quote and call refuse to run without an OAuth session or static AIsa API key. **Not
 enforced:** the CLI does not record quotes, approvals, or budget caps and
 does not reject an unquoted call. **Instruction:** do not execute unquoted
@@ -97,6 +103,21 @@ aisa quote -f request.json --json
 aisa call --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --json
 aisa call -f - --json < request.json
 ```
+
+For a multi-step task, copy the actual `session_id` from the first search
+response (shown in normal output or `--json`) and pass it on later commands:
+
+```sh
+aisa search "company facts"
+aisa search "company revenue" --session-id "$SESSION_ID"
+aisa schema get_financial_company_facts --session-id "$SESSION_ID"
+aisa quote --input '{"search_id":"SEARCH_ID","calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --session-id "$SESSION_ID" --json
+aisa call --input '{"search_id":"SEARCH_ID","calls":[{"call_id":"c1","tool":"get_financial_company_facts","arguments":{"ticker":"AAPL"}}]}' --session-id "$SESSION_ID" --json
+```
+
+Set `SESSION_ID` and replace `SEARCH_ID` with values returned by your search;
+quote the same calls before an authorized call. If JSON already contains
+`session_id`, omit `--session-id` to avoid conflicting sources.
 
 `--json` keeps large integer tokens. Diagnostics go to stderr. Exit `2` means
 local input was invalid and nothing was sent; `1` is transport, auth, or an

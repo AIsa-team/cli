@@ -72,6 +72,7 @@ function routerIo(opts: Record<string, unknown>): RouterIoOptions {
   return {
     input: opts.input as string | undefined,
     file: opts.file as string | undefined,
+    sessionId: opts.sessionId as string | undefined,
     json: Boolean(opts.json),
     limit: opts.limit as string | undefined,
     provider: opts.provider as string[] | undefined,
@@ -137,6 +138,7 @@ program
   .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
   .option("--limit <n>", "Max additional discovery results (1-20)")
   .option("--provider <id>", "Exact catalog provider key (repeatable)", collectProvider, [] as string[])
+  .option("--session-id <id>", "Reuse a session_id returned by an earlier search in this task")
   .option("--json", "Write the unmodified application response to stdout (MCP identifiers unchanged)")
   .addHelpText("after", searchHelpAfter())
   .action((query: string | undefined, opts: Record<string, unknown>) =>
@@ -150,6 +152,7 @@ program
   .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
   .option("--no-arguments-schema", "Omit arguments_schema (at least one schema type is required)")
   .option("--include-response-schema", "Include response_schema")
+  .option("--session-id <id>", "Reuse the session_id returned by search for this task")
   .option("--json", "Write the unmodified application response to stdout (MCP identifiers unchanged)")
   .addHelpText("after", schemaHelpAfter())
   .action((tools: string[] | undefined, opts: Record<string, unknown>) =>
@@ -161,6 +164,7 @@ program
   .description("Quote published tools via the Tool Router without executing them (MCP AISA_BATCH_QUOTE)")
   .option("--input <json>", "Inline JSON request body, same shape as call (no file required)")
   .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
+  .option("--session-id <id>", "Reuse the session_id returned by search for this task")
   .option("--json", "Write the unmodified application response to stdout (MCP identifiers unchanged)")
   .addHelpText("after", quoteHelpAfter())
   .action((opts: Record<string, unknown>) => wrap(quoteAction)(routerIo(opts)));
@@ -170,6 +174,7 @@ program
   .description("Execute published tools via the Tool Router (MCP AISA_BATCH_USE)")
   .option("--input <json>", "Inline JSON request body, same shape as quote (no file required)")
   .option("-f, --file <path>", "Read JSON request from file, or - for stdin")
+  .option("--session-id <id>", "Reuse the session_id returned by search for this task")
   .option("--json", "Write the unmodified application response to stdout (MCP identifiers unchanged)")
   .addHelpText("after", callHelpAfter())
   .action((opts: Record<string, unknown>) => wrap(callAction)(routerIo(opts)));

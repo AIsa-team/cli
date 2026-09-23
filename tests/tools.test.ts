@@ -71,6 +71,26 @@ describe("tool router commands", () => {
     expect(process.exitCode ?? 0).toBe(0);
   });
 
+  it("shows the returned session_id in human output for reuse", async () => {
+    stubFetch(() => new Response('{"session_id":"ses_123","search_id":"srch_1","tools":[]}', { status: 200 }));
+    await searchAction("company facts", {});
+    expect(stdout.join("\n")).toContain("session_id ses_123");
+    expect(stdout.join("\n")).toContain("search_id srch_1");
+  });
+
+  it("passes one session_id through search, schema, quote, and call", async () => {
+    const fetchMock = stubFetch(() => new Response('{"session_id":"ses_123","tools":[],"results":[]}', { status: 200 }));
+    const batch = '{"calls":[{"call_id":"c","tool":"t","arguments":{}}]}';
+    await searchAction("follow-up", { sessionId: "ses_123", json: true });
+    await schemaAction(["t"], { sessionId: "ses_123", json: true });
+    await quoteAction({ input: batch, sessionId: "ses_123", json: true });
+    await callAction({ input: batch, sessionId: "ses_123", json: true });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(JSON.parse(String(init.body)).session_id).toBe("ses_123");
+    }
+  });
+
   it("search and schema stay anonymous when no key is set", async () => {
     delete process.env.AISA_API_KEY;
     const fetchMock = stubFetch(() => new Response('{"tools":[],"next_steps_guidance":[]}', { status: 200 }));
