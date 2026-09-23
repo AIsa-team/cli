@@ -50,7 +50,6 @@ export interface SkillInfo {
 function ghHeaders(etag?: string): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
-    "User-Agent": "aisa-cli",
   };
   // Raises the rate limit from 60/hr to 5000/hr when the user has one set.
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;

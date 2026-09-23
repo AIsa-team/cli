@@ -2103,7 +2103,7 @@ async function probeRun(url: string): Promise<RunProbe> {
     const u = new URL(url);
     const token = u.searchParams.get("token") ?? "";
     if (!token) return { ours: false };
-    const res = await fetch(`${u.origin}/status?token=${token}`, { signal: AbortSignal.timeout(2_000) });
+    const res = await httpFetch(`${u.origin}/status?token=${token}`, { timeoutMs: 2_000 });
     if (!res.ok) return { ours: false };
     const data = (await res.json()) as { phase?: string };
     return typeof data.phase === "string" ? { ours: true, phase: data.phase } : { ours: false };

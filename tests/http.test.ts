@@ -91,6 +91,19 @@ describe("idempotent requests", () => {
   });
 });
 
+describe("request headers", () => {
+  it("sets aisa-cli as User-Agent while preserving caller headers", async () => {
+    stubFetch([ok()]);
+    await httpFetch("https://api.aisa.one/v1/x", {
+      headers: { Authorization: "Bearer test", "user-agent": "other-client" },
+    });
+
+    const headers = new Headers(calls[0].init.headers);
+    expect(headers.get("User-Agent")).toBe("aisa-cli");
+    expect(headers.get("Authorization")).toBe("Bearer test");
+  });
+});
+
 describe("non-idempotent requests", () => {
   it("is sent exactly once on a network failure — never posts twice", async () => {
     stubFetch([netFail()]);
