@@ -31,7 +31,7 @@ aisa quote --input '{"calls":[{"call_id":"c1","tool":"get_financial_company_fact
 
 `aisa login` opens a browser, signs you in, and stores OAuth tokens. You do not
 need to create or paste a key from the console. For CI or scripts, set
-`AISA_API_KEY` or run `aisa login --key <key>`. New accounts receive $5 in
+`AISA_API_KEY` or run `aisa login --key <key>`. New accounts receive $1 in
 free credits.
 
 This first block does not run `aisa chat` or `aisa call`. Quote is a price
