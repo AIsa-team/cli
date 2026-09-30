@@ -158,6 +158,11 @@ describe("token storage and refresh", () => {
  * machines. Both halves of the fix are pinned here.
  */
 describe("legacy conf store permissions", () => {
+  it("defaults new configurations to deepseek-v4.1-flash", () => {
+    const schema = confOptions.schema as Record<string, { default: unknown }>;
+    expect(schema.defaultModel.default).toBe("deepseek-v4.1-flash");
+  });
+
   it("is constructed to write 0600, not conf's 0o666 default", () => {
     expect(confOptions.configFileMode).toBe(0o600);
   });

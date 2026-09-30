@@ -179,7 +179,7 @@ GPT, Claude, Gemini, DeepSeek, Kimi, GLM, Qwen and the rest behind one
 OpenAI-compatible endpoint.
 
 ```bash
-aisa chat "your message" --model gpt-4.1-mini
+aisa chat "your message" --model deepseek-v4.1-flash
 aisa chat "explain this" --model claude-opus-4-6
 aisa chat "respond in JSON" --model gemini-2.5-pro --json
 echo "summarize this" | aisa chat                  # pipe support
@@ -347,7 +347,7 @@ aisa config reset
 ```
 
 Settings:
-- `defaultModel` — default model for `aisa chat` (default: `gpt-4.1-mini`)
+- `defaultModel` — default model for `aisa chat` (default: `deepseek-v4.1-flash`). Existing saved model settings are preserved.
 - `baseUrl` — platform root; the LLM (`/v1`), integration (`/apis/v1`), and
   catalog bases are all derived from it
 - `routerUrl` — Tool Router origin (default `https://tools.aisa.one`,

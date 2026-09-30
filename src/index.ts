@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command, Option } from "commander";
-import { VERSION } from "./constants.js";
+import { VERSION, DEFAULT_CHAT_MODEL } from "./constants.js";
 import { CliError } from "./cli-error.js";
 import type { RouterIoOptions } from "./commands/tool-input.js";
 
@@ -207,7 +207,7 @@ api
 program
   .command("chat [message]")
   .description("Chat with AI models via the AIsa gateway")
-  .option("--model <model>", "Model ID (default: gpt-4.1-mini)")
+  .option("--model <model>", `Model ID (default: ${DEFAULT_CHAT_MODEL})`)
   .option("--system <prompt>", "System prompt")
   .option("--no-stream", "Disable streaming")
   .option("--json", "Output raw JSON response")

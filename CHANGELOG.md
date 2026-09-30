@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Default `aisa chat` to `deepseek-v4.1-flash` for new configurations and
+  when no model is configured. Preserve saved `defaultModel` and `--model` overrides.
+
 ### Fixed
 
 - Display metered provider and endpoint catalog pricing as `usage-based` in

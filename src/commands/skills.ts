@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { error, success, hint, truncate } from "../utils/display.js";
 import { expandHome, ensureDir, writeSkillFiles, removeDir, detectAgents } from "../utils/file.js";
-import { AGENT_DIRS } from "../constants.js";
+import { AGENT_DIRS, DEFAULT_CHAT_MODEL } from "../constants.js";
 import {
   SKILLS_REPO,
   getSkillIndex,
@@ -87,7 +87,7 @@ export AISA_API_KEY=sk-your-key
 ## Chat Completion
 
 \`\`\`bash
-aisa chat "Your question here" --model gpt-4.1-mini
+aisa chat "Your question here" --model ${DEFAULT_CHAT_MODEL}
 \`\`\`
 
 ## Streaming
