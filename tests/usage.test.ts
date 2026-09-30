@@ -53,8 +53,16 @@ describe("parseUsageOptions", () => {
   it("defaults to 7 days and scope=key", () => {
     expect(parseUsageOptions({}, NOW).query).toEqual({
       start_time: String(NOW - 7 * 86_400),
+      end_time: String(NOW),
       scope: "key",
     });
+  });
+
+  it("sends a coherent start/end pair so the window is exactly --days wide", () => {
+    // A server-filled end_time (its own now) could run ahead of the client
+    // clock and push a 31-day request past the gateway's own cap.
+    const parsed = parseUsageOptions({ days: "31" }, NOW);
+    expect(Number(parsed.query.end_time) - Number(parsed.query.start_time)).toBe(31 * 86_400);
   });
 
   it("accepts a 1-day window", () => {
@@ -65,6 +73,7 @@ describe("parseUsageOptions", () => {
     expect(parseUsageOptions({ days: "31", scope: "account" }, NOW)).toEqual({
       query: {
         start_time: String(NOW - 31 * 86_400),
+        end_time: String(NOW),
         scope: "account",
       },
     });
@@ -77,6 +86,20 @@ describe("parseUsageOptions", () => {
 
   it("rejects an unknown scope", () => {
     expect(() => parseUsageOptions({ scope: "user" }, NOW)).toThrow(/key/);
+  });
+});
+
+describe("formatUsageDate", () => {
+  it("labels buckets with their UTC calendar day, not the local one", () => {
+    // The gateway buckets at UTC day boundaries. In a UTC-negative timezone
+    // a local-time label would show the previous calendar day; the expected
+    // value below is derived from UTC regardless of the machine's TZ.
+    const utcMidnight = Date.UTC(2026, 8, 22) / 1000; // 2026-09-22T00:00:00Z
+    expect(formatUsageDate(utcMidnight)).toBe("2026-09-22");
+    expect(formatUsageDate(utcMidnight)).toBe(
+      new Date(utcMidnight * 1000).toISOString().slice(0, 10),
+    );
+    expect(formatUsageDate(Number.NaN)).toBe("");
   });
 });
 
@@ -175,7 +198,11 @@ describe("usageAction", () => {
     await usageAction({ json: true, days: "7", scope: "account", limit: "1" });
 
     expect(mocks.apiRequest).toHaveBeenCalledWith("test-token", "usage", {
-      query: { start_time: String(NOW - 7 * 86_400), scope: "account" },
+      query: {
+        start_time: String(NOW - 7 * 86_400),
+        end_time: String(NOW),
+        scope: "account",
+      },
     });
     expect(JSON.parse(logged.join("\n"))).toEqual(data);
   });

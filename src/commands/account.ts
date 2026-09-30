@@ -84,8 +84,8 @@ export function topupAction(amount: string | undefined, options: { open?: boolea
       return;
     }
     if (value < MIN_TOPUP_USD) {
-      error(`Minimum top-up is $10 (got ${amount}).`);
-      hint("The minimum top-up is $10, e.g. 'aisa topup 10'.");
+      error(`Minimum top-up is $${MIN_TOPUP_USD} (got ${amount}).`);
+      hint(`The minimum top-up is $${MIN_TOPUP_USD}, e.g. 'aisa topup ${MIN_TOPUP_USD}'.`);
       process.exitCode = 1;
       return;
     }
@@ -93,7 +93,7 @@ export function topupAction(amount: string | undefined, options: { open?: boolea
     info(`Opening the billing page to add ${formatMicrosUSD(BigInt(Math.round(value * 1_000_000)))}`);
   } else {
     info("Opening the billing page — choose an amount there");
-    hint("The minimum top-up is $10");
+    hint(`The minimum top-up is $${MIN_TOPUP_USD}`);
   }
   console.log(`  ${chalk.cyan(url)}`);
 
@@ -139,6 +139,10 @@ export interface UsageResponse {
 
 export interface UsageQuery {
   start_time: string;
+  /** Sent alongside start_time so the window is exactly --days wide even if
+   *  the gateway's clock runs ahead of ours; a server-filled end_time could
+   *  push a 31-day request past the gateway's own cap. */
+  end_time: string;
   scope: "key" | "account";
 }
 
@@ -158,8 +162,9 @@ export interface UsageActionOptions {
 /**
  * `aisa usage` reads GET /v1/usage.
  *
- * start_time is required and is a positive Unix time in seconds. end_time is
- * left off so the gateway fills in now. The window cannot exceed 31 days.
+ * start_time and end_time are both sent as a coherent pair so the window is
+ * exactly --days wide even when the gateway's clock runs ahead of ours. The
+ * window cannot exceed 31 days.
  * scope=key is this credential; scope=account sums the whole account, which
  * an OAuth token is allowed to request. --limit trims the table to the latest
  * N days. --json prints the gateway body unchanged.
@@ -174,13 +179,14 @@ export function parseUsageOptions(
   if (!Number.isFinite(nowSeconds)) {
     throw usageError("Usage start_time must be a positive Unix timestamp in seconds.");
   }
-  const start = Math.floor(nowSeconds) - days * USAGE_DAY_SECONDS;
+  const end = Math.floor(nowSeconds);
+  const start = end - days * USAGE_DAY_SECONDS;
   if (start <= 0) {
     throw usageError("Usage start_time must be a positive Unix timestamp in seconds.");
   }
   return limit === undefined
-    ? { query: { start_time: String(start), scope } }
-    : { query: { start_time: String(start), scope }, limit };
+    ? { query: { start_time: String(start), end_time: String(end), scope } }
+    : { query: { start_time: String(start), end_time: String(end), scope }, limit };
 }
 
 function parseUsageDays(raw: string | undefined): number {
@@ -211,15 +217,14 @@ function parseUsageLimit(raw: string | undefined): number | undefined {
   return limit;
 }
 
-/** Local calendar day (YYYY-MM-DD) for a bucket's start_time. */
+/** UTC calendar day (YYYY-MM-DD) for a bucket's start_time. The gateway
+ *  buckets at UTC day boundaries, so a local-timezone label would show the
+ *  previous calendar day for every UTC-midnight bucket in UTC-negative zones. */
 export function formatUsageDate(unixSeconds: number): string {
   if (!Number.isFinite(unixSeconds)) return "";
   const date = new Date(unixSeconds * 1000);
   if (Number.isNaN(date.getTime())) return "";
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return date.toISOString().slice(0, 10);
 }
 
 /** Chronological order, then the latest `limit` buckets. A missing limit keeps
@@ -283,7 +288,11 @@ export async function usageAction(options: UsageActionOptions = {}): Promise<voi
   const parsed = parseUsageOptions(options, Math.floor(Date.now() / 1000));
   const token = await requireAccessToken();
   const res = await apiRequest<UsageResponse>(token, "usage", {
-    query: { start_time: parsed.query.start_time, scope: parsed.query.scope },
+    query: {
+      start_time: parsed.query.start_time,
+      end_time: parsed.query.end_time,
+      scope: parsed.query.scope,
+    },
   });
   if (!res.success || !res.data) {
     throw new Error(res.error || "Failed to fetch usage");
