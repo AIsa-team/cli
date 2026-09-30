@@ -65,13 +65,17 @@ describe("cacheScope", () => {
 describe("formatPrice", () => {
   it("keeps sub-cent prices legible instead of rounding them to zero", () => {
     // Real catalog values: rounding to 2dp would print every one of these as $0.00.
-    expect(formatPrice(0.00044)).toBe("$0.00044");
-    expect(formatPrice(0.000001)).toBe("$0.000001");
-    expect(formatPrice(0.00001)).toBe("$0.00001");
-    expect(formatPrice(0.008)).toBe("$0.008");
-    expect(formatPrice(0.012)).toBe("$0.012");
-    expect(formatPrice(0.08)).toBe("$0.08");
-    expect(formatPrice(0)).toBe("free");
+    expect(formatPrice({ type: "per_request", normal: 0.00044 })).toBe("$0.00044");
+    expect(formatPrice({ type: "per_request", normal: 0.000001 })).toBe("$0.000001");
+    expect(formatPrice({ type: "per_request", normal: 0.00001 })).toBe("$0.00001");
+    expect(formatPrice({ type: "per_request", normal: 0.008 })).toBe("$0.008");
+    expect(formatPrice({ type: "per_request", normal: 0.012 })).toBe("$0.012");
+    expect(formatPrice({ type: "per_request", normal: 0.08 })).toBe("$0.08");
+    expect(formatPrice({ type: "per_request", normal: 0 })).toBe("free");
     expect(formatPrice(undefined)).toBe("—");
+  });
+
+  it.each([0, 0.012])("shows metered rather than a fixed price when normal is %s", (normal) => {
+    expect(formatPrice({ type: "metered", normal })).toBe("usage-based");
   });
 });

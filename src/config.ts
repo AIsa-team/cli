@@ -5,7 +5,7 @@ import { join } from "node:path";
 import lockfile from "proper-lockfile";
 import { createHash, randomUUID } from "node:crypto";
 import { httpFetch } from "./utils/http.js";
-import { AUTH_SERVER, MISSING_API_KEY_GUIDANCE, ENV_VAR_NAME } from "./constants.js";
+import { AUTH_SERVER, MISSING_API_KEY_GUIDANCE, ENV_VAR_NAME, DEFAULT_CHAT_MODEL } from "./constants.js";
 
 // tokens.json is authoritative; conf is a write-only compatibility mirror.
 const aisaDir = () => join(homedir(), ".aisa");
@@ -120,7 +120,7 @@ const config = new Conf({
   schema: {
     tokens: { type: "object", default: {} },
     apiKey: { type: "string", default: "" },
-    defaultModel: { type: "string", default: "gpt-4.1-mini" },
+    defaultModel: { type: "string", default: DEFAULT_CHAT_MODEL },
     baseUrl: { type: "string", default: "https://api.aisa.one/v1" },
     routerUrl: { type: "string", default: "" },
     outputFormat: { type: "string", default: "text" },

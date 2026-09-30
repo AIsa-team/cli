@@ -1,4 +1,6 @@
 export const VERSION = "0.6.2";
+/** Default for chat when no model is configured or supplied explicitly. */
+export const DEFAULT_CHAT_MODEL = "deepseek-v4.1-flash";
 /** Root of the platform. Per-surface bases are derived in api.ts#resolveBases. */
 export const BASE_URL = "https://api.aisa.one";
 export const ENV_VAR_NAME = "AISA_API_KEY";

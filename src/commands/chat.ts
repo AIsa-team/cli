@@ -5,6 +5,7 @@ import { apiRequest, apiRequestRaw } from "../api.js";
 import { error } from "../utils/display.js";
 import { handleSSEStream } from "../utils/streaming.js";
 import type { ChatResponse } from "../types.js";
+import { DEFAULT_CHAT_MODEL } from "../constants.js";
 
 export async function chatAction(
   message: string | undefined,
@@ -38,7 +39,7 @@ export async function chatAction(
     process.exit(1);
   }
 
-  const model = options.model || (getConfig("defaultModel") as string) || "gpt-4.1-mini";
+  const model = options.model || (getConfig("defaultModel") as string) || DEFAULT_CHAT_MODEL;
   const stream = options.stream !== false; // default true
 
   const messages: Array<{ role: string; content: string }> = [];

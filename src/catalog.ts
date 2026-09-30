@@ -15,7 +15,7 @@ import { readCache, writeCache, touchCache } from "./cache.js";
 
 export interface CatalogPricing {
   type: string;
-  /** Dollars per request, as a float — not micros. */
+  /** Dollars per request, as a float — not micros. Metered prices may use 0 as a placeholder. */
   normal: number;
 }
 
@@ -143,11 +143,15 @@ export function runSlugOf(detail: CatalogDetail): string | undefined {
 }
 
 /**
- * Format a per-request price. Real values span $0.000001 to $0.08, so a fixed
+ * Format catalog pricing, keeping metered billing distinct from a free request.
+ * Fixed prices span $0.000001 to $0.08, so a fixed
  * number of decimals either rounds the cheap endpoints to $0.00 or pads the
  * rest with noise — keep two significant digits instead.
  */
-export function formatPrice(usd?: number): string {
+export function formatPrice(pricing?: CatalogPricing): string {
+  if (pricing?.type === "metered") return "usage-based";
+
+  const usd = pricing?.normal;
   if (usd == null) return "—";
   if (usd === 0) return "free";
 

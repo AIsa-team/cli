@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Default `aisa chat` to `deepseek-v4.1-flash` for new configurations and
+  when no model is configured. Preserve saved `defaultModel` and `--model` overrides.
+
+### Fixed
+
+- Display metered provider and endpoint catalog pricing as `usage-based` in
+  `api list` and `api show`, rather than treating `normal: 0` as free.
+- Label the catalog price column `PRICING` and show usage-based details as
+  `Pricing: usage-based (cost varies)`, with guidance to request a quote.
+- Include `pricing_note` with quote guidance on metered providers and endpoints
+  in catalog JSON, preserving the original pricing metadata and list structure.
+
 ## [0.6.2] — 2026-09-23
 
 ### Added

@@ -12,9 +12,25 @@ import {
   formatPrice,
   type CatalogEndpoint,
   type CatalogDetail,
+  type CatalogPricing,
 } from "../catalog.js";
 
 const DEFAULT_ENDPOINT_LIMIT = 40;
+const CATALOG_HINT = "Catalog paths and prices are browsing metadata. Use aisa schema for parameters and aisa quote for a request-specific estimate.";
+const USAGE_BASED_PRICING_NOTE = "Usage-based billing. Use aisa quote for a request-specific estimate.";
+
+function withPricingNote<T extends { pricing?: CatalogPricing }>(item: T): T & { pricing_note?: string } {
+  return item.pricing?.type === "metered"
+    ? { ...item, pricing_note: USAGE_BASED_PRICING_NOTE }
+    : item;
+}
+
+function pricingDescription(pricing?: CatalogPricing, from = false): string {
+  const price = formatPrice(pricing);
+  if (pricing?.type === "metered") return `${price} (cost varies)`;
+  if (pricing?.normal == null) return price;
+  return `${from && pricing.normal > 0 ? "from " : ""}${price} per request`;
+}
 
 function statusBadge(status?: string): string {
   switch (status) {
@@ -65,7 +81,7 @@ export async function apiListAction(options: {
     console.log(
       formatJson(
         providers.map((p) => ({
-          ...p,
+          ...withPricingNote(p),
           category: categoryOf(p.id),
           ...(options.health ? { health: healthById.get(p.id)?.status } : {}),
         }))
@@ -74,7 +90,7 @@ export async function apiListAction(options: {
     return;
   }
 
-  const headers = ["API", "CATEGORY", "ENDPOINTS", "FROM", "UPDATED"];
+  const headers = ["API", "CATEGORY", "ENDPOINTS", "PRICING", "UPDATED"];
   if (options.health) headers.push("STATUS");
 
   const rows = providers.map((p) => {
@@ -82,7 +98,9 @@ export async function apiListAction(options: {
       p.id,
       categoryOf(p.id),
       String(p.endpoint_count),
-      formatPrice(p.pricing?.normal),
+      p.pricing?.type !== "metered" && p.pricing?.normal != null && p.pricing.normal > 0
+        ? `from ${formatPrice(p.pricing)}`
+        : formatPrice(p.pricing),
       shortDate(p.updated_at),
     ];
     if (options.health) row.push(statusBadge(healthById.get(p.id)?.status));
@@ -96,7 +114,7 @@ export async function apiListAction(options: {
   console.log();
   console.log(chalk.gray(`  ${providers.length} APIs · ${total} endpoints`));
   hint("Details: aisa api show <api>");
-  hint("Catalog paths and prices are browsing metadata, not a substitute for aisa schema or aisa quote.");
+  hint(CATALOG_HINT);
 }
 
 /** Resolve a provider by id, or by the URL slug its endpoints are served under. */
@@ -121,7 +139,7 @@ function printEndpointDetail(detail: CatalogDetail, endpoint: CatalogEndpoint): 
   if (endpoint.description) console.log(`  ${endpoint.description}`);
   console.log(`\n  Path:     ${endpoint.path}`);
   console.log(`  Provider: ${detail.id}`);
-  console.log(`  Price:    ${formatPrice(endpoint.pricing?.normal)} per request`);
+  console.log(`  Pricing:  ${pricingDescription(endpoint.pricing)}`);
 
   const params = [...runPath.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
   if (params.length > 0) {
@@ -129,7 +147,7 @@ function printEndpointDetail(detail: CatalogDetail, endpoint: CatalogEndpoint): 
   }
 
   console.log();
-  hint("Catalog paths and prices are browsing metadata, not a substitute for aisa schema or aisa quote.");
+  hint(CATALOG_HINT);
 }
 
 export async function apiShowAction(
@@ -179,7 +197,7 @@ export async function apiShowAction(
       return;
     }
     if (options.json) {
-      console.log(formatJson(matches[0]));
+      console.log(formatJson(withPricingNote(matches[0])));
       return;
     }
     printEndpointDetail(detail, matches[0]);
@@ -187,7 +205,15 @@ export async function apiShowAction(
   }
 
   if (options.json) {
-    console.log(formatJson(detail));
+    console.log(formatJson({
+      ...withPricingNote(detail),
+      ...(detail.endpoint_groups ? {
+        endpoint_groups: detail.endpoint_groups.map((group) => ({
+          ...group,
+          ...(group.endpoints ? { endpoints: group.endpoints.map(withPricingNote) } : {}),
+        })),
+      } : {}),
+    }));
     return;
   }
 
@@ -196,7 +222,8 @@ export async function apiShowAction(
     : undefined;
 
   console.log(`\n  ${chalk.cyan.bold(detail.id)} ${chalk.gray(`(${categoryOf(detail.id)})`)}`);
-  console.log(`  ${detail.endpoint_count} endpoints · from ${formatPrice(detail.pricing?.normal)} per request`);
+  console.log(`  ${detail.endpoint_count} endpoints`);
+  console.log(`  Pricing:  ${pricingDescription(detail.pricing, true)}`);
   console.log(`  Updated ${shortDate(detail.updated_at)}`);
   if (health) {
     // Health is tracked per provider, not per endpoint — the per-endpoint
@@ -232,6 +259,6 @@ export async function apiShowAction(
   if (runSlugOf(detail)) {
     console.log();
     hint(`Detail: aisa api show ${detail.id} <path>`);
-    hint("Catalog paths and prices are browsing metadata, not a substitute for aisa schema or aisa quote.");
+    hint(CATALOG_HINT);
   }
 }
