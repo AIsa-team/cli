@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Increase the default HTTP timeout from 30 to 600 seconds per attempt to match
+  the Router downstream default, allowing long-running tool calls to finish.
+  Preserve explicit timeout overrides and existing retry policies.
+
 ## [0.6.3] — 2026-09-30
 
 ### Changed
