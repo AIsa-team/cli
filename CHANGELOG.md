@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5] — 2026-09-30
+
+### Added
+
+- Implement `aisa usage` against the live `GET /v1/usage` endpoint: one row per
+  day with requests, failures, input and output tokens, and charged USD, plus a
+  total. `--days` (1–31, default 7), `--scope key|account`, `--limit N`, and
+  `--json`.
+
+### Fixed
+
+- Reject `aisa topup <amount>` below the console's $10 minimum before opening
+  the browser (exit 1, no URL), and mention the minimum in `topup` output.
+- Send `start_time` and `end_time` as a coherent pair so `--days 31` cannot race
+  the gateway clock past its 31-day cap.
+- Label usage buckets with UTC calendar days; the gateway buckets at UTC
+  boundaries, so local-timezone labels were off by one day in UTC-negative zones.
+
 ## [0.6.4] — 2026-09-30
 
 ### Fixed
