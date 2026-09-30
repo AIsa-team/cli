@@ -35,8 +35,8 @@ export const MAX_ATTEMPTS = 3;
 
 /** Catalog, health and other /info reads — small payloads from a CDN edge. */
 export const INFO_TIMEOUT_MS = 10_000;
-/** A normal authenticated API call. */
-export const DEFAULT_TIMEOUT_MS = 30_000;
+/** Per-attempt API budget, aligned with Router AISA_HTTP_TIMEOUT (600s). */
+export const DEFAULT_TIMEOUT_MS = 600_000;
 export const USER_AGENT = "aisa-cli";
 
 const BASE_BACKOFF_MS = 300;

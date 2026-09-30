@@ -73,7 +73,7 @@ export interface RequestOptions {
    * completion reads rather than writes.
    */
   idempotent?: boolean;
-  /** Overrides the default 30s budget for a slow endpoint. */
+  /** Overrides the default 600s per-attempt request budget. */
   timeoutMs?: number;
 }
 

@@ -141,6 +141,10 @@ is no origin fallback.
 307/308 cannot turn quote into call. There is no automatic quote-to-call sequence and no
 retry.
 
+HTTP requests default to a 600-second (10-minute) timeout per attempt, matching
+the Router's default downstream request budget. Explicit shorter timeouts,
+including 10 seconds for public catalog reads, still apply.
+
 ## API Catalog
 
 `api list` and `api show` are the supported read-only catalog. They browse
