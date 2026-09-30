@@ -200,18 +200,23 @@ Streaming is on by default; pass `--no-stream` to disable it.
 ```bash
 aisa balance                        # wallet and API key credit balance
 aisa balance --json
+aisa usage                          # last 7 days for this API key
+aisa usage --days 31 --scope account
+aisa usage --limit 3                # table shows only the latest 3 days
+aisa usage --json
 aisa topup                          # open the console billing page to add credit
-aisa topup 20                       # same, deep-linked to $20
+aisa topup 20                       # same, deep-linked to $20 (minimum $10)
 ```
+
+`aisa usage` calls `GET /v1/usage` and prints one row per day — requests,
+failed requests, input and output tokens, and charged USD — plus a total.
+`--days` accepts 1–31 and defaults to 7. `--scope key` (the default) is the
+current credential; `--scope account` sums the whole account. `--json` prints
+the gateway response. `--limit` shortens the table only.
 
 Payment always finishes in the browser: card details belong to Stripe's hosted
 page, not to us, and a bank's 3-D Secure step needs one. `topup` opens the
-right page; `--no-open` prints the URL instead.
-
-`aisa usage` is not available yet — the gateway does not serve
-`GET /v1/credits/usage` (it 404s, while `/v1/credits/balance` on the same route
-group works). Use the [console](https://console.aisa.one/logs) for usage history
-in the meantime.
+right page; `--no-open` prints the URL instead. The minimum top-up is $10.
 
 ## Skills
 

@@ -4,7 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * `topup` decides one thing — which URL the user lands on — and refuses bad
  * amounts before opening anything. Both matter: a wrong URL sends someone to
  * a page that cannot take their money, and a silently-accepted "20usd" would
- * deep-link an amount the billing page cannot read.
+ * deep-link an amount the billing page cannot read. Amounts under $10 are
+ * refused the same way: the console will not take them, so the CLI must not
+ * open or print a URL.
  */
 
 const opened: string[] = [];
@@ -47,6 +49,24 @@ describe("topup", () => {
   it("keeps a decimal amount intact", () => {
     topupAction("12.5");
     expect(opened).toEqual([`${CONSOLE_BILLING_URL}?amount=12.5`]);
+  });
+
+  it("accepts the $10 minimum", () => {
+    topupAction("10");
+    expect(opened).toEqual([`${CONSOLE_BILLING_URL}?amount=10`]);
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it.each(["5", "9.99"])("refuses %o under $10 without opening or printing a URL", (amount) => {
+    const errors: string[] = [];
+    vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+      errors.push(args.join(" "));
+    });
+    topupAction(amount);
+    expect(opened).toEqual([]);
+    expect(process.exitCode).toBe(1);
+    expect(logged.join("\n")).not.toContain(CONSOLE_BILLING_URL);
+    expect(`${errors.join("\n")}\n${logged.join("\n")}`).toContain("$10");
   });
 
   it.each(["0", "-5", "abc", "20usd", ""])("refuses %o without opening anything", (amount) => {

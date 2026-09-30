@@ -112,7 +112,7 @@ program
 
 program
   .command("topup [amount]")
-  .description("Add credit — opens the console billing page (amount in USD, optional)")
+  .description("Add credit — opens the console billing page (optional USD amount, minimum $10)")
   .option("--no-open", "Print the URL instead of opening the browser")
   .action(topupAction);
 
@@ -124,9 +124,11 @@ program
 
 program
   .command("usage")
-  .description("Show usage history (awaiting gateway support)")
-  .option("--limit <n>", "Max records")
-  .option("--days <n>", "Lookback days")
+  .description("Show daily API usage")
+  .option("--days <n>", "Lookback window in days (1-31)", "7")
+  .option("--scope <scope>", "key or account", "key")
+  .option("--limit <n>", "Show only the most recent N daily buckets")
+  .option("--json", "Output the raw JSON response")
   .action(wrap(usageAction));
 
 // ── Tool Router (same operations as MCP) ──
