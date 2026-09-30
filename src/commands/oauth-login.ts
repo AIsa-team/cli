@@ -1,5 +1,4 @@
 import chalk from "chalk";
-import { run } from "../utils/exec.js";
 import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { createInterface } from "node:readline/promises";
@@ -7,7 +6,7 @@ import { error, hint, info, success } from "../utils/display.js";
 import { replaceTokens, tokenExpiresAt } from "../config.js";
 import { maskKey } from "../config.js";
 import { httpFetch } from "../utils/http.js";
-import { canOpenBrowser } from "../utils/browser.js";
+import { canOpenBrowser, openBrowser } from "../utils/browser.js";
 import { SIGNIN, t, type Lang } from "./flow.js";
 import { renderSignInPage } from "./signin-page.js";
 import { handOverSignInPage, SIGNIN_PAGE_TTL_MS } from "./serve-signin.js";
@@ -238,12 +237,6 @@ async function waitForPaste(expectedState: string, lang: Lang): Promise<string> 
   }
   /* c8 ignore next */
   throw new Error(t(SIGNIN.badPaste, lang));
-}
-
-function openBrowser(url: string): void {
-  const cmd =
-    process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-  void run(cmd, [url], { timeout: 30_000 }).catch(() => {});
 }
 
 /**

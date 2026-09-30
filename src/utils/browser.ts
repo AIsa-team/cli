@@ -1,3 +1,5 @@
+import { run } from "./exec.js";
+
 /**
  * Can this machine put a page in front of the person using it?
  *
@@ -24,4 +26,41 @@ export function canOpenBrowser(): boolean {
   if (process.env.CI) return false;
   if (process.platform === "darwin" || process.platform === "win32") return true;
   return Boolean(process.env.DISPLAY || process.env.WAYLAND_DISPLAY);
+}
+
+/**
+ * The command that hands a URL to the default browser on this platform.
+ *
+ * Windows is the one that needs care. Its opener, `start`, is not a program
+ * but a command built into cmd.exe, so running it directly fails with
+ * ENOENT, and the failure used to be swallowed: the browser never opened,
+ * and `aisa login` sat waiting for an approval that could not arrive.
+ * Going through cmd.exe fixes that, with two details:
+ *
+ *   · `start` reads its first quoted argument as a window title, so an empty
+ *     title goes first; otherwise a quoted URL would become the title.
+ *   · cmd.exe reads `&` in a query string as "run the next command", which
+ *     would cut the URL at its second parameter. Its special characters are
+ *     escaped with `^` so the whole URL reaches the browser.
+ */
+export function browserCommand(
+  url: string,
+  platform: NodeJS.Platform = process.platform
+): { file: string; args: string[] } {
+  if (platform === "darwin") return { file: "open", args: [url] };
+  if (platform === "win32") {
+    return { file: "cmd", args: ["/c", "start", "", url.replace(/[\^&|<>()]/g, "^$&")] };
+  }
+  return { file: "xdg-open", args: [url] };
+}
+
+/**
+ * Open a URL in the default browser, without waiting and without failing.
+ *
+ * Every caller prints the URL as well, so a browser that does not open
+ * costs the user a click, not the command.
+ */
+export function openBrowser(url: string): void {
+  const { file, args } = browserCommand(url);
+  void run(file, args, { timeout: 30_000 }).catch(() => {});
 }
