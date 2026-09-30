@@ -50,6 +50,16 @@ export async function balanceAction(options: { json?: boolean } = {}): Promise<v
 }
 
 /**
+ * Minimum top-up in US dollars.
+ *
+ * Source of truth: the console constant BILLING_MIN_TOPUP_MICROS_USD
+ * (production is $10). `/api/billing/config` needs a console session, which
+ * this CLI's OAuth token cannot obtain, so the floor is fixed here instead
+ * of being read at runtime.
+ */
+export const MIN_TOPUP_USD = 10;
+
+/**
  * `aisa topup [amount]` — open the console's billing page to add credit.
  *
  * Payment ends in a browser no matter what: card details must reach Stripe's
@@ -73,10 +83,17 @@ export function topupAction(amount: string | undefined, options: { open?: boolea
       process.exitCode = 1;
       return;
     }
+    if (value < MIN_TOPUP_USD) {
+      error(`Minimum top-up is $10 (got ${amount}).`);
+      hint("The minimum top-up is $10, e.g. 'aisa topup 10'.");
+      process.exitCode = 1;
+      return;
+    }
     url = `${CONSOLE_BILLING_URL}?amount=${value}`;
     info(`Opening the billing page to add ${formatMicrosUSD(BigInt(Math.round(value * 1_000_000)))}`);
   } else {
     info("Opening the billing page — choose an amount there");
+    hint("The minimum top-up is $10");
   }
   console.log(`  ${chalk.cyan(url)}`);
 

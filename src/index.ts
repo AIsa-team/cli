@@ -112,7 +112,7 @@ program
 
 program
   .command("topup [amount]")
-  .description("Add credit — opens the console billing page (amount in USD, optional)")
+  .description("Add credit — opens the console billing page (optional USD amount, minimum $10)")
   .option("--no-open", "Print the URL instead of opening the browser")
   .action(topupAction);
 

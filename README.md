@@ -205,7 +205,7 @@ aisa usage --days 31 --scope account
 aisa usage --limit 3                # table shows only the latest 3 days
 aisa usage --json
 aisa topup                          # open the console billing page to add credit
-aisa topup 20                       # same, deep-linked to $20
+aisa topup 20                       # same, deep-linked to $20 (minimum $10)
 ```
 
 `aisa usage` calls `GET /v1/usage` and prints one row per day — requests,
@@ -216,7 +216,7 @@ the gateway response. `--limit` shortens the table only.
 
 Payment always finishes in the browser: card details belong to Stripe's hosted
 page, not to us, and a bank's 3-D Secure step needs one. `topup` opens the
-right page; `--no-open` prints the URL instead.
+right page; `--no-open` prints the URL instead. The minimum top-up is $10.
 
 ## Skills
 
