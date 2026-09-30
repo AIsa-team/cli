@@ -1,4 +1,4 @@
-export const VERSION = "0.6.3";
+export const VERSION = "0.6.4";
 /** Default for chat when no model is configured or supplied explicitly. */
 export const DEFAULT_CHAT_MODEL = "deepseek-v4.1-flash";
 /** Root of the platform. Per-surface bases are derived in api.ts#resolveBases. */

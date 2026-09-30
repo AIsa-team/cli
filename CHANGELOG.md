@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4] — 2026-09-30
+
 ### Fixed
 
 - Increase the default HTTP timeout from 30 to 600 seconds per attempt to match
@@ -483,7 +485,8 @@ supports today; nothing here depends on a backend change.
 - Config commands (`aisa config get|set|list|reset`) and auth
   (`aisa login|logout|whoami`).
 
-[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.6.3...HEAD
+[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.6.4...HEAD
+[0.6.4]: https://github.com/AIsa-team/cli/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/AIsa-team/cli/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/AIsa-team/cli/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/AIsa-team/cli/compare/v0.6.0...v0.6.1
