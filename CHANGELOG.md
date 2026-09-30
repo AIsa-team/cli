@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Open the browser on Windows. `start` is built into cmd.exe, so running it
+  directly failed with ENOENT and the error was swallowed: `aisa login`,
+  `aisa connect` and `aisa topup` never opened a page, and sign-in waited
+  for an approval that could not arrive. The browser now opens through
+  cmd.exe, with `&` and other special characters escaped so the whole URL
+  gets through.
+
 ## [0.6.5] — 2026-09-30
 
 ### Added

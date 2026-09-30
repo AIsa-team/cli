@@ -1,4 +1,4 @@
-import { run } from "../utils/exec.js";
+import { openBrowser } from "../utils/browser.js";
 import chalk from "chalk";
 import { requireAccessToken } from "../config.js";
 import { apiRequest } from "../api.js";
@@ -98,9 +98,7 @@ export function topupAction(amount: string | undefined, options: { open?: boolea
   console.log(`  ${chalk.cyan(url)}`);
 
   if (options.open === false) return;
-  const cmd =
-    process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-  void run(cmd, [url], { timeout: 30_000 }).catch(() => {});
+  openBrowser(url);
   hint("Credit lands in your account as soon as the payment completes");
 }
 

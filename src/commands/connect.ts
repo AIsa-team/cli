@@ -24,7 +24,7 @@ import {
 } from "./llm-config.js";
 import { writeClaudeAisaSettings, installWrappers } from "./wrappers.js";
 import { signInAndStoreTokens, type OAuthCatcher } from "./oauth-login.js";
-import { canOpenBrowser } from "../utils/browser.js";
+import { canOpenBrowser, openBrowser } from "../utils/browser.js";
 import { vscodeDetected, vscodeUserDir, writeVSCodeLLM, writeVSCodeMCP, installVSCodeExtension, launchVSCode, VSCODE_MODELS } from "./vscode.js";
 import { formatMicrosUSD } from "./account.js";
 import { apiRequest } from "../api.js";
@@ -1935,12 +1935,6 @@ function launchCursor(dir: string): boolean {
 /** The same question the run asks itself, for the places that ask early. */
 function withBrowserEarly(): boolean {
   return canOpenBrowser();
-}
-
-function openBrowser(url: string): void {
-  const cmd =
-    process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-  void run(cmd, [url], { timeout: 30_000 }).catch(() => {});
 }
 
 /**
