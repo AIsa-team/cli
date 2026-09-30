@@ -188,7 +188,7 @@ api
   .description("List available APIs")
   .option("--category <cat>", "Filter by category (client-side grouping): finance, search, social, productivity, other")
   .option("--health", "Include provider health status")
-  .option("--json", "Output raw JSON")
+  .option("--json", "Output catalog JSON with pricing guidance")
   .option("--refresh", "Bypass the cached catalog")
   .action(wrap(apiListAction));
 
@@ -198,7 +198,7 @@ api
   .option("--all", "Show every endpoint instead of the first 40")
   .option("--group", "Group by the provider's raw endpoint groups")
   .option("--health", "Include provider health status")
-  .option("--json", "Output raw JSON")
+  .option("--json", "Output catalog JSON with pricing guidance")
   .option("--refresh", "Bypass the cached catalog")
   .action(wrap(apiShowAction));
 

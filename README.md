@@ -163,6 +163,13 @@ A provider **id is not always its URL slug** — `brave-search` serves
 `/apis/v1/brave/...`, and `api show` prints the catalog path. The catalog
 reports every method as `GET`; treat that as advisory.
 
+Prices with `type: metered` display as `usage-based` (billing depends on usage),
+even when the catalog returns `normal: 0`. Details show `usage-based (cost varies)`.
+Use `aisa quote` for a request-specific estimate; JSON keeps the original pricing metadata.
+In `--json` output, metered providers and endpoints also include `pricing_note`
+with quote guidance, including endpoints nested in provider details. The list
+remains an array, and the original `pricing` fields are unchanged.
+
 The catalog is cached in `~/.aisa/cache` (override with `AISA_CACHE_DIR`). Pass
 `--refresh` to any command to bypass it, or `aisa cache clear`.
 
