@@ -2,7 +2,8 @@ import { run } from "../utils/exec.js";
 import chalk from "chalk";
 import { requireAccessToken } from "../config.js";
 import { apiRequest } from "../api.js";
-import { formatJson, hint, info, error } from "../utils/display.js";
+import { usageError } from "../cli-error.js";
+import { formatJson, hint, info, error, table } from "../utils/display.js";
 import { CONSOLE_BILLING_URL } from "../constants.js";
 import type { BalanceResponse } from "../types.js";
 
@@ -86,10 +87,194 @@ export function topupAction(amount: string | undefined, options: { open?: boolea
   hint("Credit lands in your account as soon as the payment completes");
 }
 
-export async function usageAction(_options: { limit?: string; days?: string }): Promise<void> {
-  await requireAccessToken();
-  // The gateway does not serve /v1/credits/usage yet — it 404s in production
-  // even though /v1/credits/balance on the same route group works.
-  console.log(chalk.yellow("  Usage API is not yet available on the gateway."));
-  hint("View usage history at https://console.aisa.one/logs");
+/** Gateway caps GET /v1/usage at 31 days; buckets are fixed at one day. */
+export const USAGE_MAX_WINDOW_DAYS = 31;
+export const USAGE_DEFAULT_DAYS = 7;
+const USAGE_DAY_SECONDS = 86_400;
+const USAGE_WINDOW_ERROR =
+  "The usage window is at most 31 days. Pass --days as an integer from 1 to 31.";
+
+export interface UsageMetrics {
+  requests: number;
+  failed_requests: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  usage_value_micros_usd: number;
+  charged_micros_usd: number;
+}
+
+export interface UsageBucket extends UsageMetrics {
+  start_time: number;
+  end_time: number;
+}
+
+export interface UsageResponse {
+  scope: string;
+  currency: string;
+  start_time: number;
+  end_time: number;
+  bucket_width: string;
+  totals: UsageMetrics;
+  buckets: UsageBucket[];
+}
+
+export interface UsageQuery {
+  start_time: string;
+  scope: "key" | "account";
+}
+
+export interface ParsedUsageOptions {
+  query: UsageQuery;
+  /** Omitted means the table shows every daily bucket in the window. */
+  limit?: number;
+}
+
+export interface UsageActionOptions {
+  days?: string;
+  scope?: string;
+  limit?: string;
+  json?: boolean;
+}
+
+/**
+ * `aisa usage` reads GET /v1/usage.
+ *
+ * start_time is required and is a positive Unix time in seconds. end_time is
+ * left off so the gateway fills in now. The window cannot exceed 31 days.
+ * scope=key is this credential; scope=account sums the whole account, which
+ * an OAuth token is allowed to request. --limit trims the table to the latest
+ * N days. --json prints the gateway body unchanged.
+ */
+export function parseUsageOptions(
+  options: { days?: string; scope?: string; limit?: string },
+  nowSeconds: number,
+): ParsedUsageOptions {
+  const days = parseUsageDays(options.days);
+  const scope = parseUsageScope(options.scope);
+  const limit = parseUsageLimit(options.limit);
+  if (!Number.isFinite(nowSeconds)) {
+    throw usageError("Usage start_time must be a positive Unix timestamp in seconds.");
+  }
+  const start = Math.floor(nowSeconds) - days * USAGE_DAY_SECONDS;
+  if (start <= 0) {
+    throw usageError("Usage start_time must be a positive Unix timestamp in seconds.");
+  }
+  return limit === undefined
+    ? { query: { start_time: String(start), scope } }
+    : { query: { start_time: String(start), scope }, limit };
+}
+
+function parseUsageDays(raw: string | undefined): number {
+  const text = raw === undefined || raw.trim() === "" ? String(USAGE_DEFAULT_DAYS) : raw.trim();
+  if (!/^\d+$/.test(text)) throw usageError(USAGE_WINDOW_ERROR);
+  const days = Number(text);
+  if (!Number.isSafeInteger(days) || days < 1 || days > USAGE_MAX_WINDOW_DAYS) {
+    throw usageError(USAGE_WINDOW_ERROR);
+  }
+  return days;
+}
+
+function parseUsageScope(raw: string | undefined): UsageQuery["scope"] {
+  const text = raw === undefined || raw.trim() === "" ? "key" : raw.trim();
+  if (text !== "key" && text !== "account") {
+    throw usageError('Pass --scope as "key" or "account".');
+  }
+  return text;
+}
+
+function parseUsageLimit(raw: string | undefined): number | undefined {
+  if (raw === undefined || raw.trim() === "") return undefined;
+  if (!/^\d+$/.test(raw.trim())) throw usageError("--limit must be a positive integer.");
+  const limit = Number(raw.trim());
+  if (!Number.isSafeInteger(limit) || limit < 1) {
+    throw usageError("--limit must be a positive integer.");
+  }
+  return limit;
+}
+
+/** Local calendar day (YYYY-MM-DD) for a bucket's start_time. */
+export function formatUsageDate(unixSeconds: number): string {
+  if (!Number.isFinite(unixSeconds)) return "";
+  const date = new Date(unixSeconds * 1000);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/** Chronological order, then the latest `limit` buckets. A missing limit keeps
+ *  the whole window. */
+export function selectRecentBuckets(buckets: readonly UsageBucket[], limit?: number): UsageBucket[] {
+  const sorted = [...buckets].sort((a, b) => Number(a.start_time) - Number(b.start_time));
+  if (limit === undefined) return sorted;
+  return sorted.slice(-limit);
+}
+
+export function renderUsageReport(buckets: readonly UsageBucket[]): string {
+  if (buckets.length === 0) return "  No usage in this window.";
+  const headers = ["Date", "Requests", "Failed", "Input tokens", "Output tokens", "Charged"];
+  const rows = buckets.map((bucket) => [
+    formatUsageDate(Number(bucket.start_time)),
+    formatCount(bucket.requests),
+    formatCount(bucket.failed_requests),
+    formatCount(bucket.input_tokens),
+    formatCount(bucket.output_tokens),
+    formatMicrosUSD(asMicros(bucket.charged_micros_usd)),
+  ]);
+  rows.push([
+    "Total",
+    formatCount(sumCount(buckets, "requests")),
+    formatCount(sumCount(buckets, "failed_requests")),
+    formatCount(sumCount(buckets, "input_tokens")),
+    formatCount(sumCount(buckets, "output_tokens")),
+    formatMicrosUSD(sumMicros(buckets)),
+  ]);
+  return table(headers, rows);
+}
+
+function formatCount(value: unknown): string {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return "0";
+  return String(Math.trunc(n));
+}
+
+function sumCount(
+  buckets: readonly UsageBucket[],
+  key: "requests" | "failed_requests" | "input_tokens" | "output_tokens",
+): number {
+  return buckets.reduce((sum, bucket) => {
+    const n = Number(bucket[key]);
+    return sum + (Number.isFinite(n) ? Math.trunc(n) : 0);
+  }, 0);
+}
+
+function asMicros(value: unknown): bigint {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return BigInt(Math.trunc(value));
+  if (typeof value === "string" && /^-?\d+$/.test(value.trim())) return BigInt(value.trim());
+  return 0n;
+}
+
+function sumMicros(buckets: readonly UsageBucket[]): bigint {
+  return buckets.reduce((sum, bucket) => sum + asMicros(bucket.charged_micros_usd), 0n);
+}
+
+export async function usageAction(options: UsageActionOptions = {}): Promise<void> {
+  const parsed = parseUsageOptions(options, Math.floor(Date.now() / 1000));
+  const token = await requireAccessToken();
+  const res = await apiRequest<UsageResponse>(token, "usage", {
+    query: { start_time: parsed.query.start_time, scope: parsed.query.scope },
+  });
+  if (!res.success || !res.data) {
+    throw new Error(res.error || "Failed to fetch usage");
+  }
+  if (options.json) {
+    console.log(formatJson(res.data));
+    return;
+  }
+  const buckets = Array.isArray(res.data.buckets) ? res.data.buckets : [];
+  console.log(renderUsageReport(selectRecentBuckets(buckets, parsed.limit)));
 }

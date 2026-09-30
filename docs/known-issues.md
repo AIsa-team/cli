@@ -76,13 +76,9 @@ content-type: text/plain
 `GET /v1/credits/balance` on the same middleware group returns 200, so this is
 one route missing rather than the whole group.
 
-`aisa usage` therefore remains a stub in 0.2.3 — shipping a client for a route
-that does not exist would only produce a more elaborate failure. The client-side
-implementation was written and validated against the documented contract using a
-local mock gateway (rendering, `--days` / `--start` / `--end` / `--endpoint` /
-`--model` / `--status` / `--scope` filters, opaque cursor pagination with
-`--all`, and the 400/404/503 branches all check out), so wiring it up once the
-route ships is a small, already-verified change.
+In 0.2.3, `aisa usage` stayed a stub so it would not call this missing route.
+The current command reads `GET /v1/usage` (daily buckets, `--scope key|account`)
+and does not call `GET /v1/credits/usage`.
 
 One finding worth carrying over: per-request costs are micro-dollars — roughly
 $0.0012 for a chat call and $0.012 for an integration call. Any UI rendering
