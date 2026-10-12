@@ -34,6 +34,10 @@ export interface BalanceResponse {
   account_balance_micros_usd: number;
   available_balance_micros_usd: number;
   go_to_market_balance_micros_usd: number;
+  gtm?: {
+    /** Plan of the active paid period ("builder", "team"); absent without one or on older gateways. */
+    plan_code?: string;
+  };
   api_key: {
     unlimited: boolean;
     remaining_micros_usd: number;
