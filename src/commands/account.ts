@@ -20,6 +20,19 @@ export function formatMicrosUSD(micros: number | string | bigint): string {
   return `${negative ? "-" : ""}$${dollars.toString()}.${cents.toString().padStart(2, "0")}`;
 }
 
+/** Display name for the balance's plan credit, matching the console's plan catalog. */
+export function planName(planCode: string | undefined): string {
+  switch (planCode) {
+    case "builder":
+    case "hive_growth_30d":
+      return "Builder Plan";
+    case "team":
+      return "Team Plan";
+    default:
+      return "Subscription Plan";
+  }
+}
+
 export async function balanceAction(options: { json?: boolean } = {}): Promise<void> {
   const key = await requireAccessToken();
   const res = await apiRequest<BalanceResponse>(key, "credits/balance");
@@ -36,7 +49,7 @@ export async function balanceAction(options: { json?: boolean } = {}): Promise<v
   const balance = res.data;
   console.log(`  Balance:             ${formatMicrosUSD(balance.account_balance_micros_usd)} ${balance.currency}`);
   console.log(`  Available with key:  ${formatMicrosUSD(balance.available_balance_micros_usd)} ${balance.currency}`);
-  console.log(`  GTM balance:         ${formatMicrosUSD(balance.go_to_market_balance_micros_usd)} ${balance.currency}`);
+  console.log(`  ${`${planName(balance.gtm?.plan_code)}:`.padEnd(21)}${formatMicrosUSD(balance.go_to_market_balance_micros_usd)} ${balance.currency}`);
   if (balance.api_key.unlimited) {
     console.log("  API key limit:       Unlimited");
   } else {

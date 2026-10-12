@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { balanceAction, formatMicrosUSD } from "../src/commands/account.js";
+import { balanceAction, formatMicrosUSD, planName } from "../src/commands/account.js";
 
 const balance = {
   currency: "USD",
@@ -32,6 +32,24 @@ describe("balanceAction", () => {
     expect(formatMicrosUSD(-1_500_000)).toBe("-$1.50");
   });
 
+  it("names the plan from gtm.plan_code", async () => {
+    expect(planName("builder")).toBe("Builder Plan");
+    expect(planName("hive_growth_30d")).toBe("Builder Plan");
+    expect(planName("team")).toBe("Team Plan");
+    expect(planName(undefined)).toBe("Subscription Plan");
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      ...balance,
+      gtm: { plan_code: "team" },
+    }), { status: 200 })));
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await balanceAction();
+
+    const output = log.mock.calls.map(([line]) => line).join("\n");
+    expect(output).toContain("Team Plan:           $0.40 USD");
+  });
+
   it("requests the balance endpoint with the API key and renders the summary", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify(balance), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
@@ -46,7 +64,7 @@ describe("balanceAction", () => {
     const output = log.mock.calls.map(([line]) => line).join("\n");
     expect(output).toContain("Balance:             $2.50 USD");
     expect(output).toContain("Available with key:  $1.00 USD");
-    expect(output).toContain("GTM balance:         $0.40 USD");
+    expect(output).toContain("Subscription Plan:   $0.40 USD");
     expect(output).not.toContain("test-balance-key");
   });
 
