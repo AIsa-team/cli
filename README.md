@@ -185,7 +185,7 @@ OpenAI-compatible endpoint.
 ```bash
 aisa chat "your message" --model deepseek-v4.1-flash
 aisa chat "explain this" --model claude-opus-4-6
-aisa chat "respond in JSON" --model gemini-2.5-pro --json
+aisa chat "respond in JSON" --model gemini-3.5-flash --json
 echo "summarize this" | aisa chat                  # pipe support
 
 aisa models                          # list all models
