@@ -456,6 +456,13 @@ export const CATEGORY_BLURB: Record<string, Text> = {
   },
 };
 
+/** New host categories remain visible without waiting for a client release. */
+export function categoryBlurb(category: string, servers: Array<{ name: string }>): Text {
+  if (Object.hasOwn(CATEGORY_BLURB, category)) return CATEGORY_BLURB[category];
+  const names = servers.map((server) => server.name).filter(Boolean).join(", ");
+  return { en: `Explore ${names || category}.`, zh: `查看 ${names || category} 的接口。` };
+}
+
 // ── step 5: install ─────────────────────────────────────────────────────────
 
 export const STEP_INSTALL = {

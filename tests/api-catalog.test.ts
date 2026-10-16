@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getProviderDetail, getProviders, type CatalogDetail } from "../src/catalog.js";
+import { getProviderDetail, getProviders, formatPrice, type CatalogDetail } from "../src/catalog.js";
 import { apiListAction, apiShowAction } from "../src/commands/api.js";
 
 vi.mock("../src/catalog.js", async (original) => ({
@@ -86,12 +86,54 @@ describe("API catalog pricing", () => {
       expect(output.join("\n")).toContain(expected);
       output.length = 0;
       await apiShowAction("financial");
-      expect(output.join("\n")).toContain(`Pricing:  ${normal > 0 ? "from " : ""}${expected} per request`);
+      expect(output.join("\n")).toContain(`Pricing:  ${normal > 0 ? "from " : ""}${expected} (reference; check schema and quote for charging conditions)`);
       output.length = 0;
       await apiShowAction("financial", "news");
-      expect(output.join("\n")).toContain(`Pricing:  ${expected} per request`);
+      expect(output.join("\n")).toContain(`Pricing:  ${expected} (reference; check schema and quote for charging conditions)`);
     }
   );
+
+  it("retains Runtime's success condition rather than inferring it from provider cost", async () => {
+    const detail = provider("per_request", 0.012);
+    detail.endpoint_groups![0].endpoints[0].pricing!.details = {
+      customer_pricing: "fixed_success", cost_contract: "response_count",
+    };
+    stubCatalog(detail);
+    await apiShowAction("financial", "news");
+    expect(output.join("\n")).toContain("$0.012 per successful request");
+    expect(output.join("\n")).not.toContain("$0.012 per request");
+    output.length = 0;
+    await apiShowAction("financial", "news", { json: true });
+    expect(JSON.parse(output.pop()!).pricing.details).toEqual({
+      customer_pricing: "fixed_success", cost_contract: "response_count",
+    });
+  });
+
+  it("shows the complete supplied rate without rounding a successful charge", async () => {
+    const detail = provider("per_request", 0.01975);
+    detail.endpoint_groups![0].endpoints[0].pricing!.details = { customer_pricing: "fixed_success" };
+    stubCatalog(detail);
+    await apiShowAction("financial", "news");
+    expect(output.join("\n")).toContain("$0.01975 per successful request");
+    expect(output.join("\n")).not.toContain("$0.02");
+  });
+
+  it.each([[1.23456789e-7, "$0.000000123456789"], [1e-11, "$0.00000000001"]] as const)(
+    "preserves tiny nonzero rate %s", (normal, expected) => {
+      expect(formatPrice({ type: "per_request", normal })).toBe(expected);
+    },
+  );
+
+  it("does not turn an explicitly unavailable estimate into free", async () => {
+    const detail = provider("per_request", 0);
+    detail.pricing!.estimate_unavailable = true;
+    detail.endpoint_groups![0].endpoints[0].pricing!.estimate_unavailable = true;
+    stubCatalog(detail);
+    await apiListAction({});
+    await apiShowAction("financial", "news");
+    expect(output.join("\n")).not.toContain("free");
+    expect(output.join("\n")).toContain("Pricing:  —");
+  });
 
   it.each([0, 0.012])("adds quote guidance while preserving raw pricing %s in JSON for every view", async (normal) => {
     const detail = provider("metered", normal);

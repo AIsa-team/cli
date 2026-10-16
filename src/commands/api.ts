@@ -28,8 +28,12 @@ function withPricingNote<T extends { pricing?: CatalogPricing }>(item: T): T & {
 function pricingDescription(pricing?: CatalogPricing, from = false): string {
   const price = formatPrice(pricing);
   if (pricing?.type === "metered") return `${price} (cost varies)`;
-  if (pricing?.normal == null) return price;
-  return `${from && pricing.normal > 0 ? "from " : ""}${price} per request`;
+  if (pricing?.estimate_unavailable || pricing?.normal == null) return price;
+  const reference = `${from && pricing.normal > 0 ? "from " : ""}${price}`;
+  if (pricing.details?.customer_pricing === "fixed_success") {
+    return `${reference} per successful request`;
+  }
+  return `${reference} (reference; check schema and quote for charging conditions)`;
 }
 
 function statusBadge(status?: string): string {
@@ -98,7 +102,7 @@ export async function apiListAction(options: {
       p.id,
       categoryOf(p.id),
       String(p.endpoint_count),
-      p.pricing?.type !== "metered" && p.pricing?.normal != null && p.pricing.normal > 0
+      p.pricing?.type !== "metered" && !p.pricing?.estimate_unavailable && p.pricing?.normal != null && p.pricing.normal > 0
         ? `from ${formatPrice(p.pricing)}`
         : formatPrice(p.pricing),
       shortDate(p.updated_at),

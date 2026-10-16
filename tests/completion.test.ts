@@ -136,13 +136,13 @@ function writeEnvelope(key: string, data: unknown): void {
 function writeCatalogCache(): void {
   // Caches are namespaced by the configured gateway host; fixtures must land
   // under the same scope the completion code reads from.
-  writeEnvelope(`catalog/${cacheScope()}/category.json`, {
+  writeEnvelope(`catalog-v2/${cacheScope()}/category.json`, {
     apis: [
       { id: "financial", endpoint_count: 28, is_active: true },
       { id: "brave-search", endpoint_count: 11, is_active: true },
     ],
   });
-  writeEnvelope(`catalog/${cacheScope()}/financial.json`, {
+  writeEnvelope(`catalog-v2/${cacheScope()}/financial.json`, {
     api: {
       id: "financial",
       endpoint_count: 28,
@@ -158,7 +158,7 @@ function writeCatalogCache(): void {
       ],
     },
   });
-  writeEnvelope(`catalog/${cacheScope()}/brave-search.json`, {
+  writeEnvelope(`catalog-v2/${cacheScope()}/brave-search.json`, {
     api: {
       id: "brave-search",
       endpoint_count: 11,

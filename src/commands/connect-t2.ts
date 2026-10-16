@@ -7,7 +7,7 @@ import {
   STEP_AGENT, AGENT_ORDER, agentRank, AGENT_BADGE, AGENT_SIDE_TITLES,
   AGENT_NOTES, AGENT_HAVE_NOTES, installOffer, t, fill, type Lang, LANGS, LANG_LABEL, NAV,
   STEP_TITLES, STEP_WELCOME, STEP_MODELS, STEP_CAPS, STEP_INSTALL, STEP_DONE,
-  FILE_MODEL_NOTE, FILE_MODEL_FALLBACK, BACKUP_COPY, CATEGORY_BLURB, runtimeCopy, NEXT_WORD, SUPERSEDED,
+  FILE_MODEL_NOTE, FILE_MODEL_FALLBACK, BACKUP_COPY, categoryBlurb, runtimeCopy, NEXT_WORD, SUPERSEDED,
 } from "./flow.js";
 import {
   RED,
@@ -257,7 +257,7 @@ ${restChips}
   <span class="cico">${CATEGORY_ICON[cat] ?? I.sparkles}</span>
   <span class="cname">${cat}</span>
   <span class="cmeta">${fill(STEP_CAPS.tileMeta, lang, { n: list.length, noun: list.length > 1 ? T(STEP_CAPS.serversWord) : T(STEP_CAPS.serverWord), tools })}</span>
-  <span class="cblurb">${CATEGORY_BLURB[cat] ? T(CATEGORY_BLURB[cat]) : ""}</span>
+  <span class="cblurb">${T(categoryBlurb(cat, list)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</span>
   <span class="csel" data-csel></span></button>`;
     })
     .join("");
