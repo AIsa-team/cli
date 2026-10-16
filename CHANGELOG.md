@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.9] — 2026-10-16
+
+### Fixed
+
+- Preserve Runtime's successful-request billing condition and the full reference
+  rate in catalog details. Unknown estimates are not free requests.
+- Revalidate catalog references every five minutes, bypass legacy long-lived
+  caches, and label stale offline references. Completion uses the same cache.
+- Display newly published MCP categories using live server names when curated
+  copy is unavailable.
+
 ## [0.6.8] — 2026-10-14
 
 ### Fixed
