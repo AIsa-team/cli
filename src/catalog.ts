@@ -15,8 +15,11 @@ import { readCache, writeCache, touchCache } from "./cache.js";
 
 export interface CatalogPricing {
   type: string;
-  /** Dollars per request, as a float — not micros. Metered prices may use 0 as a placeholder. */
-  normal: number;
+  /** Runtime reference estimate in dollars; unavailable estimates are not zero prices. */
+  normal?: number;
+  estimate_unavailable?: boolean;
+  /** Runtime's pricing declaration; provider costs do not determine customer charges. */
+  details?: { customer_pricing?: string; [key: string]: unknown };
 }
 
 export interface CatalogProvider {
@@ -52,8 +55,8 @@ export interface ProviderHealth {
   checked_at?: string;
 }
 
-const CATEGORY_TTL_MS = 6 * 60 * 60 * 1000;
-const DETAIL_TTL_MS = 24 * 60 * 60 * 1000;
+const CATEGORY_TTL_MS = 5 * 60 * 1000;
+const DETAIL_TTL_MS = 5 * 60 * 1000;
 const HEALTH_TTL_MS = 5 * 60 * 1000;
 
 /** Fetch with disk caching and ETag revalidation; falls back to stale data offline. */
@@ -70,7 +73,10 @@ async function cachedGet<T>(
   try {
     res = await publicRequest<T>(path, { etag: refresh ? undefined : cached?.etag });
   } catch (err) {
-    if (cached) return cached.data;
+    if (cached) {
+      console.error("Warning: catalog refresh failed; showing a stale cached reference. Use aisa schema and aisa quote before calling.");
+      return cached.data;
+    }
     throw err;
   }
 
@@ -79,7 +85,10 @@ async function cachedGet<T>(
     return cached.data;
   }
   if (!res.data) {
-    if (cached) return cached.data;
+    if (cached) {
+      console.error("Warning: catalog refresh failed; showing a stale cached reference. Use aisa schema and aisa quote before calling.");
+      return cached.data;
+    }
     throw new Error(`Catalog request failed: ${path} returned ${res.status}`);
   }
 
@@ -90,7 +99,7 @@ async function cachedGet<T>(
 export async function getProviders(options: { refresh?: boolean } = {}): Promise<CatalogProvider[]> {
   const data = await cachedGet<{ apis?: CatalogProvider[] }>(
     "info/apis/category",
-    `catalog/${cacheScope()}/category.json`,
+    `catalog-v2/${cacheScope()}/category.json`,
     CATEGORY_TTL_MS,
     options.refresh
   );
@@ -103,7 +112,7 @@ export async function getProviderDetail(
 ): Promise<CatalogDetail> {
   const data = await cachedGet<{ api?: CatalogDetail }>(
     `info/apis/${encodeURIComponent(id)}`,
-    `catalog/${cacheScope()}/${id.replace(/[^\w.-]/g, "_")}.json`,
+    `catalog-v2/${cacheScope()}/${id.replace(/[^\w.-]/g, "_")}.json`,
     DETAIL_TTL_MS,
     options.refresh
   );
@@ -146,17 +155,26 @@ export function runSlugOf(detail: CatalogDetail): string | undefined {
  * Format catalog pricing, keeping metered billing distinct from a free request.
  * Fixed prices span $0.000001 to $0.08, so a fixed
  * number of decimals either rounds the cheap endpoints to $0.00 or pads the
- * rest with noise — keep two significant digits instead.
+ * rest with noise. Preserve the supplied amount without rounding its rate.
  */
 export function formatPrice(pricing?: CatalogPricing): string {
   if (pricing?.type === "metered") return "usage-based";
+  if (pricing?.estimate_unavailable) return "—";
 
   const usd = pricing?.normal;
-  if (usd == null) return "—";
+  if (usd == null || !Number.isFinite(usd)) return "—";
   if (usd === 0) return "free";
 
-  const precise = Number(usd.toPrecision(2));
-  const text = precise.toString();
-  // toString switches to exponent notation below 1e-6; expand it.
-  return `$${text.includes("e") ? precise.toFixed(10).replace(/0+$/, "") : text}`;
+  const text = usd.toString();
+  if (!text.includes("e")) return `$${text}`;
+  // Expand the supplied numeric text without rounding tiny nonzero rates.
+  const [coefficient, exponent] = text.split("e");
+  const negative = coefficient.startsWith("-");
+  const [whole, fraction = ""] = (negative ? coefficient.slice(1) : coefficient).split(".");
+  const digits = whole + fraction;
+  const point = whole.length + Number(exponent);
+  const expanded = point <= 0 ? `0.${"0".repeat(-point)}${digits}`
+    : point >= digits.length ? digits + "0".repeat(point - digits.length)
+    : digits.slice(0, point) + "." + digits.slice(point);
+  return `$${negative ? "-" : ""}${expanded}`;
 }

@@ -32,7 +32,7 @@ export function isShell(value: string): value is Shell {
 // ── Dynamic candidates, all cache-only ───────────────────────────────────────
 
 function cachedProviders(): CatalogProvider[] {
-  return readCache<{ apis?: CatalogProvider[] }>(`catalog/${cacheScope()}/category.json`)?.data.apis || [];
+  return readCache<{ apis?: CatalogProvider[] }>(`catalog-v2/${cacheScope()}/category.json`)?.data.apis || [];
 }
 
 function providerIds(): Candidate[] {

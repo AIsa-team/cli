@@ -164,18 +164,26 @@ aisa api show dataforseo --all         # long lists truncate to 40 by default
 ```
 
 A provider **id is not always its URL slug** — `brave-search` serves
-`/apis/v1/brave/...`, and `api show` prints the catalog path. The catalog
-reports every method as `GET`; treat that as advisory.
+`/apis/v1/brave/...`, and `api show` prints the catalog path. Use the published
+Router schema for methods and request parameters; legacy catalog entries may
+still report an advisory method.
 
 Prices with `type: metered` display as `usage-based` (billing depends on usage),
 even when the catalog returns `normal: 0`. Details show `usage-based (cost varies)`.
 Use `aisa quote` for a request-specific estimate; JSON keeps the original pricing metadata.
+When Runtime declares `customer_pricing: fixed_success`, endpoint details say
+`per successful request`. Other fixed catalog amounts remain references until
+their charging conditions are checked. Unavailable estimates do not mean free,
+and displayed rates retain the supplied amount without rounding.
 In `--json` output, metered providers and endpoints also include `pricing_note`
 with quote guidance, including endpoints nested in provider details. The list
 remains an array, and the original `pricing` fields are unchanged.
 
-The catalog is cached in `~/.aisa/cache` (override with `AISA_CACHE_DIR`). Pass
-`--refresh` to any command to bypass it, or `aisa cache clear`.
+The catalog is cached for five minutes in `~/.aisa/cache` (override with
+`AISA_CACHE_DIR`). Upgrading bypasses the old six-hour/day-long catalog cache.
+If refresh fails, an explicitly labelled stale reference remains available;
+schema and quote are still required before a call. Pass `--refresh` to bypass
+the cache, or `aisa cache clear`.
 
 ## LLM Gateway
 
@@ -398,8 +406,8 @@ configured `baseUrl`. It tolerates a value with either suffix already attached,
 because the shipped default has always included `/v1` and is persisted in every
 existing user's config.
 
-**The catalog's shape has three traps.** `endpoints[].method` is hardcoded to
-`GET` server-side. `endpoint_groups[].name` is an operator-entered label
+**The catalog's shape has three traps.** Legacy `endpoints[].method` values can
+be advisory. `endpoint_groups[].name` is an operator-entered label
 (`Zero`, `One`, `default`) with no business meaning, which is why `api show`
 flattens by default. And health is tracked per provider, not per endpoint, so
 per-endpoint counts are one value repeated.
