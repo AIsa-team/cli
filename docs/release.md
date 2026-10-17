@@ -8,16 +8,16 @@ that commit is merged and reviewed. A push to `main` runs CI only;
 
 | Item | Value |
 | --- | --- |
-| Version | `0.6.8` (release target) |
+| Version | `0.6.9` (release target) |
 | Command surface | 22 root help entries including implicit `help`; `api` is `list`/`show` only |
-| Registry latest | `0.6.7` on `https://registry.npmjs.org` (verified 2026-10-14; recheck before tagging) |
+| Registry latest | `0.6.8` on `https://registry.npmjs.org` (verified 2026-10-16; recheck before tagging) |
 | Default Router origin | `https://tools.aisa.one` |
 | LLM / catalog host | `https://api.aisa.one` |
 | Node | `engines` `>=18`. CI on Ubuntu: 18/20 legacy compatibility, 22/24 maintained, 26 current. Publish job uses Node 24 and npm `11.6.0`. |
 
 `package.json`, `package-lock.json` (root / `packages[""]`),
 `src/constants.ts` `VERSION`, installed `aisa --version`, and
-`CHANGELOG.md` `## [0.6.8]` must agree. Confirm with
+`CHANGELOG.md` `## [0.6.9]` must agree. Confirm with
 `node scripts/package-smoke.mjs` (or `--tarball` of the candidate
 archive). The VS Code extension is not version-bumped with this CLI
 release unless its own packaging requires it.
@@ -45,16 +45,16 @@ official registry agree.
 ```bash
 # Official registry only — do not use a mirror as the source of truth.
 npm view @aisa-one/cli version --registry https://registry.npmjs.org
-# verified 2026-10-14: 0.6.7 — recheck before tagging
+# verified 2026-10-16: 0.6.8 — recheck before tagging
 
 git checkout main
 git pull origin main
-# Confirm this commit is the reviewed merge of the 0.6.8 candidate.
-node -p "require('./package.json').version"   # 0.6.8
-grep -E '^export const VERSION' src/constants.ts   # "0.6.8"
+# Confirm this commit is the reviewed merge of the 0.6.9 candidate.
+node -p "require('./package.json').version"   # 0.6.9
+grep -E '^export const VERSION' src/constants.ts   # "0.6.9"
 
-git tag -a v0.6.8 -m "v0.6.8"
-git push origin v0.6.8
+git tag -a v0.6.9 -m "v0.6.9"
+git push origin v0.6.9
 ```
 
 Do not tag a worktree or unmerged branch. Do not run `npm publish` on a
@@ -77,7 +77,7 @@ again via `prepack`). It:
 Local smoke of an existing archive:
 
 ```bash
-node scripts/package-smoke.mjs --tarball /path/to/aisa-one-cli-0.6.8.tgz
+node scripts/package-smoke.mjs --tarball /path/to/aisa-one-cli-0.6.9.tgz
 ```
 
 `prepack` (`npm run build`) is what puts `dist/` into a clean `npm pack`.
@@ -85,6 +85,6 @@ CI still runs an explicit `npm run build` before `npm test`.
 
 ## After the tag
 
-Watch the Release workflow. Success is `0.6.8` on
+Watch the Release workflow. Success is `0.6.9` on
 `https://registry.npmjs.org/@aisa-one/cli`. Recheck the official registry
 before assuming the tag published. Never move an existing release tag.
