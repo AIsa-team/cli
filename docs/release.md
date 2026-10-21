@@ -10,7 +10,7 @@ that commit is merged and reviewed. A push to `main` runs CI only;
 | --- | --- |
 | Version | `0.6.9` (release target) |
 | Command surface | 22 root help entries including implicit `help`; `api` is `list`/`show` only |
-| Registry latest | `0.6.8` on `https://registry.npmjs.org` (verified 2026-10-16; recheck before tagging) |
+| Registry latest | `0.6.8` on `https://registry.npmjs.org` (verified 2026-10-21; recheck before tagging) |
 | Default Router origin | `https://tools.aisa.one` |
 | LLM / catalog host | `https://api.aisa.one` |
 | Node | `engines` `>=18`. CI on Ubuntu: 18/20 legacy compatibility, 22/24 maintained, 26 current. Publish job uses Node 24 and npm `11.6.0`. |
@@ -45,7 +45,7 @@ official registry agree.
 ```bash
 # Official registry only — do not use a mirror as the source of truth.
 npm view @aisa-one/cli version --registry https://registry.npmjs.org
-# verified 2026-10-16: 0.6.8 — recheck before tagging
+# verified 2026-10-21: 0.6.8 — recheck before tagging
 
 git checkout main
 git pull origin main

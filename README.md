@@ -376,7 +376,7 @@ Settings:
 Legacy mirrors contain the current access token; older CLIs cannot refresh it.
 Third-party client configurations written by `aisa connect` and
 `aisa mcp setup` get the long-lived "aisa cli" API key, minted from your
-sign-in, never the expiring OAuth access token. Configs written by 0.6.0–0.6.9
+sign-in, never the expiring OAuth access token. Configs written by 0.6.0–0.6.8
 hold an access token that stops working after a day; run `aisa connect` again
 to replace it.
 Environment variables:
