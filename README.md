@@ -374,8 +374,11 @@ Settings:
 `aisa login` stores OAuth credentials in `~/.aisa/tokens.json`.
 `aisa login --key <key>` stores a static credential without refresh metadata.
 Legacy mirrors contain the current access token; older CLIs cannot refresh it.
-Third-party client configurations written by `aisa connect` also contain a
-snapshot of the credential, not a refresh-capable OAuth session.
+Third-party client configurations written by `aisa connect` and
+`aisa mcp setup` get the long-lived "aisa cli" API key, minted from your
+sign-in, never the expiring OAuth access token. Configs written by 0.6.0–0.6.9
+hold an access token that stops working after a day; run `aisa connect` again
+to replace it.
 Environment variables:
 `AISA_API_KEY` takes precedence over the stored key.
 `AISA_ROUTER_BASE_URL` is the Router origin/prefix before

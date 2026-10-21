@@ -53,6 +53,7 @@ import { handOverResults, closeStaleResults, SUPERSEDE_GRACE_MS } from "./serve-
 import { restoreTerminal, handOffStdin } from "./prompt.js";
 import { printBanner } from "../utils/banner.js";
 import { verifyKey, type KeyVerdict } from "../utils/key-check.js";
+import { clientConfigKey } from "../utils/client-key.js";
 
 /**
  * Page templates. T1 is the original two-page flow (selection + live
@@ -84,12 +85,13 @@ export function resolveTemplate(flag: string | undefined): ConnectTemplate {
  *   sign in, exit. No daemon, no terminal takeover, no prompt or skill
  *   injection into the user's agent. The user stays in their own Claude Code.
  * - Sign-in is one OAuth round for everything: with no key stored, the run
- *   starts with the same browser approval `aisa login` uses. Every MCP entry
- *   is written with the current access token and the model provider gets
- *   the same token — zero
- *   per-server authorization popups. Only if that sign-in fails do we fall
- *   back to each client's own OAuth machinery (`claude mcp login <name>` per
- *   server; `codex mcp add` runs its own flow), which still works but costs
+ *   starts with the same browser approval `aisa login` uses, and the token it
+ *   yields is traded for the durable "aisa cli" key (POST /v1/keys/mint).
+ *   Every MCP entry is written with that key and the model provider gets
+ *   the same key — zero per-server authorization popups. Only if that
+ *   sign-in fails do we fall back to each client's own OAuth machinery
+ *   (`claude mcp login <name>` per server; `codex mcp add` runs its own
+ *   flow), which still works but costs
  *   one browser round per server. A key configured beforehand skips the
  *   sign-in entirely.
  * - The page reports the whole journey live (GET /status polling), and a
@@ -802,6 +804,26 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
   // Reached the far side of the sign-in, so whatever it was is over.
   state.needsSignIn = false;
 
+  // Everything below writes into other programs' configs, which never refresh
+  // an OAuth token: trade it for the durable key first, or every entry dies
+  // with the token a day from now.
+  if (key && !input.dryRun) {
+    try {
+      key = await clientConfigKey(key);
+    } catch (e) {
+      failures++;
+      const why = (e as Error).message.split("\n")[0].trim();
+      setStep(state, "mcp", { state: "fail", detail: `${why} — nothing was written` });
+      log.line("fail", "Issue a key for your clients", (e as Error).message);
+      for (const step of state.steps) {
+        if (step.state === "pending") {
+          setStep(state, step.id, { state: "skip", detail: "waiting for a key" });
+        }
+      }
+      return failures;
+    }
+  }
+
   // ── MCP entries ──
   const willAuthorize = !key && input.clients[0] === "codex";
   setStep(state, "mcp", {
@@ -1235,8 +1257,8 @@ function renderPage(
   const authCopy = keyed
     ? `Your current AIsa credential is written into each entry — <b>no sign-in needed</b>.`
     : `<b>One sign-in, nothing to paste.</b> Your browser opens the AIsa approval
-       <b>once</b>; every server and model below is configured with the current
-       access token. Reconnect when that token expires.`;
+       <b>once</b>; it issues a long-lived key for this machine, and every server
+       and model below is configured with it — no further popups.`;
 
   const body = `
 <div class="eyebrow">Connect</div>
@@ -2762,7 +2784,15 @@ export async function connectAction(options: {
         res.writeHead(403).end();
         return;
       }
-      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ key: key ?? null }));
+      // Read now, not at startup: the run may have signed in since. And the
+      // durable key, never the OAuth token — it is about to be pasted into
+      // an app that will not refresh it.
+      const current = await getAccessToken();
+      let pasted: string | null = null;
+      try {
+        pasted = current ? await clientConfigKey(current) : null;
+      } catch { /* no key to offer; the page says so */ }
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ key: pasted }));
       return;
     }
     if (req.method === "POST" && url.pathname === "/lang") {
