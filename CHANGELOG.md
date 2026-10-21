@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `aisa connect` and `aisa mcp setup` write the long-lived "aisa cli" key
+  (minted via `/v1/keys/mint`) into third-party client configs instead of the
+  OAuth access token, which expired after 24 hours. Static keys are unchanged.
+  Re-run `aisa connect` to replace a config written by 0.6.0–0.6.9.
+
 ## [0.6.9] — 2026-10-16
 
 ### Fixed

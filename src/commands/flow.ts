@@ -476,8 +476,8 @@ export const STEP_INSTALL = {
     zh: "你当前的 AIsa 凭证会写进每一条配置 —— <b>无需登录</b>。",
   },
   authFresh: {
-    en: "<b>One sign-in, nothing to paste.</b> Your browser opens the AIsa approval once; every server and model is configured with the current access token. Reconnect when that token expires.",
-    zh: "<b>登录一次,不用粘贴任何东西。</b>浏览器会打开一次 AIsa 授权页;所有 server 和模型都使用当前 access token 配置。token 过期后请重新连接。",
+    en: "<b>One sign-in, nothing to paste.</b> Your browser opens the AIsa approval once; it issues a long-lived key for this machine, and every server and model is configured with it — no further popups.",
+    zh: "<b>登录一次,不用粘贴任何东西。</b>浏览器会打开一次 AIsa 授权页;它会为这台机器签发一把长期有效的 key,所有 server 和模型都用它配置 —— 不会再有弹窗。",
   },
 };
 

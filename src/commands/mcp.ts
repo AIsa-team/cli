@@ -5,6 +5,7 @@ import { expandHome, ensureDir } from "../utils/file.js";
 import { MCP_CONFIGS, MCP_MANIFEST_URL, MCP_CATALOG_URL, DOCS_MCP_URL, MCP_DEFAULT_SLUGS } from "../constants.js";
 import { httpFetch, MAX_ATTEMPTS } from "../utils/http.js";
 import { getAccessToken } from "../config.js";
+import { clientConfigKey } from "../utils/client-key.js";
 import { detectClients } from "./connect.js";
 import { join } from "node:path";
 
@@ -219,8 +220,8 @@ export async function mcpSetupAction(
     : servers.filter((s) => MCP_DEFAULT_SLUGS.includes(s.slug));
   const skipped = servers.length - chosen.length;
 
-  const key = await getAccessToken();
-  if (key) {
+  const credential = await getAccessToken();
+  if (credential) {
     info("Using your configured API key (Bearer). It will be written into each client's config file.");
   } else {
     info("No API key configured — entries are written without credentials, and the");
@@ -240,6 +241,18 @@ export async function mcpSetupAction(
       console.log(`    ${chalk.gray(`aisa-${s.slug}`)}  ${stripped(s.name)} (${s.toolCount} tools)`);
     }
     hint("Nothing was written. Re-run with --yes to apply, or use `aisa connect` to choose interactively.");
+    return;
+  }
+
+  // A client config never refreshes an OAuth token, so it gets the durable
+  // key instead — otherwise every entry stops working a day from now.
+  let key: string | undefined;
+  try {
+    key = credential ? await clientConfigKey(credential) : undefined;
+  } catch (e) {
+    error((e as Error).message);
+    hint("Nothing was written.");
+    process.exitCode = 1;
     return;
   }
 

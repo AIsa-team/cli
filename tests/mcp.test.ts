@@ -118,6 +118,34 @@ describe("mcp setup", () => {
     expect(entries["aisa-docs"]).toEqual({ url: "https://aisa.one/docs/mcp" });
   });
 
+  it("writes the minted key, never the expiring OAuth access token", async () => {
+    apiKey = "oauth-access-token";
+    const fetchMock = stubManifest();
+    const manifest = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (url: string | URL) =>
+      String(url).endsWith("/v1/keys/mint") ? Response.json({ key: "sk-minted" }) : manifest(url)
+    );
+    const { mcpSetupAction } = await freshMcp();
+    await mcpSetupAction({ agent: "cursor", yes: true });
+
+    expect(cursorConfig().mcpServers["aisa-web-search"].headers).toEqual({ Authorization: "Bearer sk-minted" });
+    expect(readFileSync(join(home, ".cursor", "mcp.json"), "utf-8")).not.toContain("oauth-access-token");
+  });
+
+  it("writes nothing when the key cannot be minted", async () => {
+    apiKey = "oauth-access-token";
+    const fetchMock = stubManifest();
+    const manifest = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (url: string | URL) =>
+      String(url).endsWith("/v1/keys/mint") ? Response.json({ error: "unauthorized" }, { status: 401 }) : manifest(url)
+    );
+    const { mcpSetupAction } = await freshMcp();
+    await mcpSetupAction({ agent: "cursor", yes: true });
+
+    expect(existsSync(join(home, ".cursor", "mcp.json"))).toBe(false);
+    expect(process.exitCode).toBe(1);
+  });
+
   it("writes an mcp-remote stdio bridge for claude-desktop", async () => {
     stubManifest();
     const { mcpSetupAction } = await freshMcp();
