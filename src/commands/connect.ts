@@ -459,7 +459,7 @@ const CODEX_KEY_ENV_VAR = "AISA_API_KEY";
 const LOW_BALANCE_MICROS = 5_000_000;
 
 /** The manual fallback when the inline sign-in cannot obtain an access token. */
-const CONSOLE_KEYS_URL = "https://console.aisa.one/api-keys";
+const CONSOLE_KEYS_URL = "https://console.aisa.one/connections?tab=keys";
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Mutate one step in place; the page picks it up on its next poll. */
@@ -906,7 +906,7 @@ async function runPlan(state: RunState, input: RunInput, log: Journal): Promise<
       // console page that hands them out, with exact instructions.
       setStep(state, "llm", {
         state: "running",
-        detail: "opening console.aisa.one/api-keys — copy a key from there…",
+        detail: "opening console.aisa.one/connections?tab=keys — copy a key from there…",
       });
       await pause(BEFORE_HANDOFF_MS);
       if (withBrowserEarly()) openBrowser(CONSOLE_KEYS_URL);

@@ -28,7 +28,7 @@ export async function clientConfigKey(credential: string): Promise<string> {
   });
   if (res.status === 404) {
     throw new Error(
-      "this deployment cannot issue CLI keys — copy one from https://console.aisa.one/api-keys and run: aisa login --key <key>"
+      "this deployment cannot issue CLI keys — copy one from https://console.aisa.one/connections?tab=keys and run: aisa login --key <key>"
     );
   }
   const minted = (await res.json().catch(() => ({}))) as { key?: string; error?: string };
