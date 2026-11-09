@@ -178,8 +178,8 @@ export const AGENT_NOTES: Record<string, Text> = {
     zh: "每个 server 一次点击:最后一步会给出 <b>Add to Cursor</b> 链接。Cursor 会打开、把确切的配置内容给你看,你确认后由它自己写进 MCP 设置。模型保持原样 —— Cursor 用它自己的。",
   },
   "claude-desktop": {
-    en: "Claude Desktop's config file only takes MCP servers over stdio, so each AIsa server is written in as a small <code>mcp-remote</code> bridge carrying your key (plus the free <code>aisa-docs</code> server). The bridges live and die with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the servers appear under its tools menu.",
-    zh: "Claude Desktop 的配置文件只接受 stdio 形式的 MCP server,所以每个 AIsa server 都写成一个带你 key 的 <code>mcp-remote</code> 小桥接(外加免费的 <code>aisa-docs</code>)。桥接随 app 启停 —— 没有后台服务,不开端口。模型无法更改:Claude Desktop 跑的是 Anthropic 自家模型。重启 app 后就能在工具菜单里看到这些 server。",
+    en: "Claude Desktop's config file only takes MCP servers over stdio, so each AIsa server is written in as a small <code>mcp-remote</code> bridge carrying your key. The bridges live and die with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the servers appear under its tools menu.",
+    zh: "Claude Desktop 的配置文件只接受 stdio 形式的 MCP server,所以每个 AIsa server 都写成一个带你 key 的 <code>mcp-remote</code> 小桥接。桥接随 app 启停 —— 没有后台服务,不开端口。模型无法更改:Claude Desktop 跑的是 Anthropic 自家模型。重启 app 后就能在工具菜单里看到这些 server。",
   },
   "claude-ai": {
     en: "Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own.",
@@ -378,10 +378,10 @@ export const BACKUP_COPY: Record<string, Text> = {
 // ── step 4: capabilities ────────────────────────────────────────────────────
 
 export const STEP_CAPS = {
-  h1: { en: "What should your agent be able to reach?", zh: "你的 agent 需要够得着什么?" },
+  h1: { en: "Connect AIsa tools", zh: "连接 AIsa 工具" },
   ledeTail: {
-    en: "Open an area to pick the servers inside it. Everything here is live production data with licensed sources; you can add more later with one more <code>aisa connect</code>.",
-    zh: "点开一个领域来挑里面的 server。这里全都是有授权来源的生产环境实时数据;之后再跑一次 <code>aisa connect</code> 就能加更多。",
+    en: "One Router MCP connects your agent to AIsa tools. Existing MCP entries stay unchanged; remove old domain entries manually.",
+    zh: "通过一个 Router MCP 接入 AIsa 工具。已有 MCP 条目保持不变；旧的领域条目请自行删除。",
   },
   pickArea: { en: "Pick an area above", zh: "先在上面选一个领域" },
   selectAll: { en: "Select all in this area", zh: "全选这个领域" },
@@ -392,8 +392,8 @@ export const STEP_CAPS = {
    * full stop. Whatever varies goes in as a placeholder instead.
    */
   counts: {
-    en: "{areas} areas, {servers} servers, {tools} tools.",
-    zh: "{areas} 个领域、{servers} 个 server、{tools} 个工具。",
+    en: "One unified AIsa MCP connection.",
+    zh: "一个统一的 AIsa MCP 连接。",
   },
   /** Category tile meta: "3 servers · 47 tools". */
   tileMeta: {

@@ -66,6 +66,7 @@ export const CATEGORY_ICON: Record<string, string> = {
  * AIsa tools on its own and no naming is needed at all.
  */
 export const EXAMPLES: Record<string, string[]> = {
+  router: ["Using AIsa, research the latest developments in AI and cite your sources."],
   "web-search": [
     "Using AIsa, search the web for this week's biggest AI news and summarize the top 3 results with links.",
     "Using AIsa, research how teams are adopting MCP servers in production and give me a sourced brief.",

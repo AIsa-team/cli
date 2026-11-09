@@ -1,3 +1,4 @@
+import { unifiedMcpServer } from "../src/commands/mcp.js";
 import { describe, expect, it } from "vitest";
 import {
   LANGS, resolveLang, t, STEP_AGENT, AGENT_ORDER, agentRank,
@@ -145,9 +146,7 @@ describe("installOffer", () => {
  * The reason this file exists: one source, two renderers.
  */
 describe("the page renders from the flow definition, not its own copy", () => {
-  const servers: LiveServer[] = [
-    { slug: "web-search", name: "AIsa Web Search", endpoint: "https://mcp.aisa.one/web-search/mcp", toolCount: 27, description: "Search.", category: "Search & Research" },
-  ];
+  const servers = [unifiedMcpServer()];
   const clients: ClientInfo[] = [
     { id: "claude-code", label: "Claude Code", kind: "cli", detected: true, detail: "2.1.241" },
     { id: "codex", label: "Codex", kind: "cli", detected: false, detail: "not on PATH", installable: true, command: "npm install -g @openai/codex" },

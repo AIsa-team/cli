@@ -409,25 +409,25 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
   <span class="tbody"><span class="thead"><span class="tname">Claude Code</span></span>
     <span class="tbrief" data-brief>2.1.241</span></span>
   <span class="badge ok end">✓ detected</span></label>
-<label class="tile agent" data-cid="codex">
+<label class="tile agent on" data-cid="codex">
   <input type="radio" class="dot" name="client" value="codex" data-install="1">
   <span class="tlogo"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g fill="none" stroke="#0d0d0b" stroke-width="2.1" stroke-linecap="round"><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(0 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(60 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(120 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(180 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(240 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(300 12 12)"/></g></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">Codex</span></span>
     <span class="tbrief" data-brief>Install <b>and</b> connect it — <code>npm install -g @openai/codex</code></span></span>
   <span class="badge todo end" data-badge>not installed</span></label>
-<label class="tile agent" data-cid="opencode">
+<label class="tile agent on" data-cid="opencode">
   <input type="radio" class="dot" name="client" value="opencode" data-install="1">
   <span class="tlogo"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="5" fill="#0d0d0b"/><g fill="#fafafa"><rect x="5" y="8" width="6" height="8"/><rect x="7" y="10" width="2" height="4" fill="#0d0d0b"/><rect x="13" y="8" width="6" height="2"/><rect x="13" y="14" width="6" height="2"/><rect x="13" y="8" width="2" height="8"/></g></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">opencode</span></span>
     <span class="tbrief" data-brief>Install <b>and</b> connect it — <code>npm install -g opencode-ai</code></span></span>
   <span class="badge todo end" data-badge>not installed</span></label>
-<label class="tile agent" data-cid="vscode">
+<label class="tile agent on" data-cid="vscode">
   <input type="radio" class="dot" name="client" value="vscode">
   <span class="tlogo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 254" aria-hidden="true"><defs><linearGradient id="SVG6Q5wMbNQ" x1="50%" x2="50%" y1="0%" y2="100%"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></linearGradient><path id="SVGWhZ12djk" d="M180.828 252.605a15.87 15.87 0 0 0 12.65-.486l52.501-25.262a15.94 15.94 0 0 0 9.025-14.364V41.197a15.94 15.94 0 0 0-9.025-14.363l-52.5-25.263a15.88 15.88 0 0 0-18.115 3.084L74.857 96.35l-43.78-33.232a10.614 10.614 0 0 0-13.56.603L3.476 76.494c-4.63 4.211-4.635 11.495-.012 15.713l37.967 34.638l-37.967 34.637c-4.623 4.219-4.618 11.502.012 15.714l14.041 12.772a10.614 10.614 0 0 0 13.56.604l43.78-33.233l100.507 91.695a15.85 15.85 0 0 0 5.464 3.571m10.464-183.649l-76.262 57.889l76.262 57.888z"/></defs><mask id="SVGSAQ58H2f" fill="#fff"><use href="#SVGWhZ12djk"/></mask><path fill="#0065a9" d="M246.135 26.873L193.593 1.575a15.885 15.885 0 0 0-18.123 3.08L3.466 161.482c-4.626 4.219-4.62 11.502.012 15.714l14.05 12.772a10.625 10.625 0 0 0 13.569.604L238.229 33.436c6.949-5.271 16.93-.315 16.93 8.407v-.61a15.94 15.94 0 0 0-9.024-14.36" mask="url(#SVGSAQ58H2f)"/><path fill="#007acc" d="m246.135 226.816l-52.542 25.298a15.89 15.89 0 0 1-18.123-3.08L3.466 92.207c-4.626-4.218-4.62-11.502.012-15.713l14.05-12.773a10.625 10.625 0 0 1 13.569-.603l207.132 157.135c6.949 5.271 16.93.315 16.93-8.408v.611a15.94 15.94 0 0 1-9.024 14.36" mask="url(#SVGSAQ58H2f)"/><path fill="#1f9cf0" d="M193.428 252.134a15.89 15.89 0 0 1-18.125-3.083c5.881 5.88 15.938 1.715 15.938-6.603V11.273c0-8.318-10.057-12.483-15.938-6.602a15.89 15.89 0 0 1 18.125-3.084l52.533 25.263a15.94 15.94 0 0 1 9.03 14.363V212.51c0 6.125-3.51 11.709-9.03 14.363z" mask="url(#SVGSAQ58H2f)"/><path fill="url(#SVG6Q5wMbNQ)" fill-opacity=".25" d="M180.828 252.605a15.87 15.87 0 0 0 12.65-.486l52.5-25.263a15.94 15.94 0 0 0 9.026-14.363V41.197a15.94 15.94 0 0 0-9.025-14.363L193.477 1.57a15.88 15.88 0 0 0-18.114 3.084L74.857 96.35l-43.78-33.232a10.614 10.614 0 0 0-13.56.603L3.476 76.494c-4.63 4.211-4.635 11.495-.012 15.713l37.967 34.638l-37.967 34.637c-4.623 4.219-4.618 11.502.012 15.714l14.041 12.772a10.614 10.614 0 0 0 13.56.604l43.78-33.233l100.506 91.695a15.9 15.9 0 0 0 5.465 3.571m10.464-183.65l-76.262 57.89l76.262 57.888z" mask="url(#SVGSAQ58H2f)"/></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">VS Code</span></span>
     <span class="tbrief" data-brief>~/Library/Application Support/Code/User</span></span>
   <span class="badge ok end">✓ detected</span></label>
-<label class="tile agent" data-cid="cursor">
+<label class="tile agent on" data-cid="cursor">
   <input type="radio" class="dot" name="client" value="cursor">
   <span class="tlogo mono"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 466.73 532.09" aria-hidden="true"><path fill="#26251e" d="M457.43 125.94L244.42 2.96a22.13 22.13 0 0 0-22.12 0L9.3 125.94C3.55 129.26 0 135.4 0 142.05v247.99c0 6.65 3.55 12.79 9.3 16.11l213.01 122.98a22.13 22.13 0 0 0 22.12 0l213.01-122.98c5.75-3.32 9.3-9.46 9.3-16.11V142.05c0-6.65-3.55-12.79-9.3-16.11zm-13.38 26.05L238.42 508.15c-1.39 2.4-5.06 1.42-5.06-1.36V273.58c0-4.66-2.49-8.97-6.53-11.31L24.87 145.67c-2.4-1.39-1.42-5.06 1.36-5.06h411.26c5.84 0 9.49 6.33 6.57 11.39h-.01Z"/></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">Cursor</span></span>
@@ -482,39 +482,14 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
   <button type="button" class="mw-fix" id="modelfix">Use AIsa models →</button>
 </div></div>
   <div class="pane" data-pane="4">
-<h1>What should your agent be able to <em>reach</em>?</h1>
-<p class="lede">3 areas, 3 servers, 97 tools. Open an area to pick the servers inside it. Everything here is live production data with licensed sources; you can add more later with one more <code>aisa connect</code>.</p>
-<div class="cgrid"><button type="button" class="ctile" data-cat="Search & Research">
-  <span class="cico"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="m21 21l-4.34-4.34"/><circle cx="11" cy="11" r="8"/></g></svg></span>
-  <span class="cname">Search & Research</span>
-  <span class="cmeta">1 server · 27 tools</span>
-  <span class="cblurb">Ranked web results with page text already extracted, plus YouTube.</span>
-  <span class="csel" data-csel></span></button><button type="button" class="ctile" data-cat="Finance">
-  <span class="cico"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M16 7h6v6"/><path d="m22 7l-8.5 8.5l-5-5L2 17"/></g></svg></span>
-  <span class="cname">Finance</span>
-  <span class="cmeta">1 server · 21 tools</span>
-  <span class="cblurb">US equities, crypto, prediction markets and what X is saying about a ticker.</span>
-  <span class="csel" data-csel></span></button><button type="button" class="ctile" data-cat="Communication">
-  <span class="cico"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/></g></svg></span>
-  <span class="cname">Communication</span>
-  <span class="cmeta">1 server · 49 tools</span>
-  <span class="cblurb">An inbox an agent can actually use — its own address, sending and receiving.</span>
-  <span class="csel" data-csel></span></button></div>
+<h1>Connect AIsa tools</h1>
+<p class="lede">One unified AIsa MCP connection. One Router MCP connects your agent to AIsa tools. Existing MCP entries stay unchanged; remove old domain entries manually.</p>
 <div class="spanel" id="spanel">
-  <div class="sphead"><h2 id="spTitle">Pick an area above</h2><button type="button" class="link" id="spAll">Select all in this area</button></div>
-  <div class="sgrid" id="sgrid"><label class="stile on" data-cat="Search & Research">
-  <input type="checkbox" name="server" value="web-search" checked>
-  <span class="tbody"><span class="thead"><span class="tname">Web Search</span>
-    <span class="badge">27 tools</span></span>
-    <span class="sdesc">Search the web.</span></span></label><label class="stile" data-cat="Finance">
-  <input type="checkbox" name="server" value="marketpulse">
-  <span class="tbody"><span class="thead"><span class="tname">MarketPulse</span>
-    <span class="badge">21 tools</span></span>
-    <span class="sdesc">US equities.</span></span></label><label class="stile" data-cat="Communication">
-  <input type="checkbox" name="server" value="agentmail">
-  <span class="tbody"><span class="thead"><span class="tname">AgentMail</span>
-    <span class="badge">49 tools</span></span>
-    <span class="sdesc">Email for agents.</span></span></label></div>
+    <div class="sgrid" id="sgrid"><label class="stile on" data-cat="AIsa">
+  <input type="checkbox" name="server" value="router" checked disabled>
+  <span class="tbody"><span class="thead"><span class="tname">Router</span>
+    <span class="badge">5 tools</span></span>
+    <span class="sdesc">One AIsa connection: search, batch_get_schema, batch_quote, batch_use, and account. Discover tools, inspect schemas, quote costs, and execute through the Router.</span></span></label></div>
 </div>
 <div class="tally" id="tally"></div></div>
   <div class="pane" data-pane="5">
@@ -544,13 +519,13 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
   // home again, and neither move was theirs.
   var CAME_BACK = /[?&]signedin=1/.test(location.search);
   var VIEW = "done";
-  var SERVERS = [{"slug":"web-search","endpoint":"https://mcp.aisa.one/web-search/mcp","name":"Web Search","category":"Search & Research","toolCount":27,"description":"Search the web."},{"slug":"agentmail","endpoint":"https://mcp.aisa.one/agentmail/mcp","name":"AgentMail","category":"Communication","toolCount":49,"description":"Email for agents."},{"slug":"marketpulse","endpoint":"https://mcp.aisa.one/marketpulse/mcp","name":"MarketPulse","category":"Finance","toolCount":21,"description":"US equities."}];
+  var SERVERS = [{"slug":"router","endpoint":"https://mcp.aisa.one/mcp","name":"Router","category":"AIsa","toolCount":5,"description":"One AIsa connection: search, batch_get_schema, batch_quote, batch_use, and account. Discover tools, inspect schemas, quote costs, and execute through the Router."}];
   var CLIENTS = [{"id":"claude-code","label":"Claude Code","kind":"cli","detected":true,"detail":"2.1.241","installable":false,"command":"curl -fsSL -A aisa-cli --connect-timeout 10 --max-time 180 https://claude.ai/install.sh | bash"},{"id":"codex","label":"Codex","kind":"cli","detected":false,"detail":"codex not found on PATH","installable":true,"command":"npm install -g @openai/codex"},{"id":"opencode","label":"opencode","kind":"cli","detected":false,"detail":"opencode not found on PATH","installable":true,"command":"npm install -g opencode-ai"},{"id":"vscode","label":"VS Code","kind":"file","detected":true,"detail":"~/Library/Application Support/Code/User","installable":false,"command":""},{"id":"cursor","label":"Cursor","kind":"file","detected":true,"detail":"~/.cursor/mcp.json","installable":false,"command":""},{"id":"claude-desktop","label":"Claude Desktop","kind":"file","detected":false,"detail":"not installed","installable":false,"command":""}];
   var MODEL_FOR = {"claude-code":"claude-sonnet-5","codex":"gpt-5.3-codex","opencode":"claude-sonnet-5","vscode":"claude-sonnet-5","cursor":"claude-sonnet-5","claude-desktop":"claude-sonnet-5"};
-  var EXAMPLES = {"web-search":["Using AIsa, search the web for this week's biggest AI news and summarize the top 3 results with links.","Using AIsa, research how teams are adopting MCP servers in production and give me a sourced brief."],"twitter-api":["Using AIsa, fetch the latest tweets from @AnthropicAI and summarize the main themes.","Using AIsa, pull @sama's five most recent tweets with their engagement numbers."],"crypto-market-data":["Using AIsa, get Bitcoin's current price and 24h change, then compare it with Ethereum.","Using AIsa's crypto data, list today's trending coins with prices and market caps."],"marketpulse":["Using AIsa, pull AAPL's latest income statement and summarize the revenue and margin trend.","Using AIsa's market data, screen for US stocks with a market cap above $1T and compare their P/E ratios."],"stock-pulse":["Using AIsa, show what X/Twitter is saying about NVDA today, joined with its market data.","Using AIsa, find which tickers are trending on X right now and why."],"prediction-market-data":["Using AIsa, list the most active prediction markets right now with their implied probabilities.","Using AIsa, compare what Polymarket and Kalshi imply about the next Fed rate decision."],"reddit":["Using AIsa, find today's top posts in r/MachineLearning and summarize the discussion.","Using AIsa, search Reddit for real-world Claude Code workflows people recommend."],"youtube-search":["Using AIsa, find the three most relevant YouTube videos about MCP servers and list their channels.","Using AIsa, find beginner YouTube tutorials for Claude Code and pick the best one to start with."],"instagram":["Using AIsa, fetch the Instagram profile and recent posts of @nasa and describe their content strategy.","Using AIsa, compare the recent Instagram engagement of @natgeo and @nasa."],"pinterest":["Using AIsa, search Pinterest for 'mid-century interior' and summarize the visual trends.","Using AIsa, find trending home-office ideas on Pinterest and summarize them with links."],"apollo":["Using AIsa, enrich the company anthropic.com — size, industry, and key people.","Using AIsa, find five AI infrastructure startups in San Francisco with their CEOs."]};
+  var EXAMPLES = {"router":["Using AIsa, research the latest developments in AI and cite your sources."],"web-search":["Using AIsa, search the web for this week's biggest AI news and summarize the top 3 results with links.","Using AIsa, research how teams are adopting MCP servers in production and give me a sourced brief."],"twitter-api":["Using AIsa, fetch the latest tweets from @AnthropicAI and summarize the main themes.","Using AIsa, pull @sama's five most recent tweets with their engagement numbers."],"crypto-market-data":["Using AIsa, get Bitcoin's current price and 24h change, then compare it with Ethereum.","Using AIsa's crypto data, list today's trending coins with prices and market caps."],"marketpulse":["Using AIsa, pull AAPL's latest income statement and summarize the revenue and margin trend.","Using AIsa's market data, screen for US stocks with a market cap above $1T and compare their P/E ratios."],"stock-pulse":["Using AIsa, show what X/Twitter is saying about NVDA today, joined with its market data.","Using AIsa, find which tickers are trending on X right now and why."],"prediction-market-data":["Using AIsa, list the most active prediction markets right now with their implied probabilities.","Using AIsa, compare what Polymarket and Kalshi imply about the next Fed rate decision."],"reddit":["Using AIsa, find today's top posts in r/MachineLearning and summarize the discussion.","Using AIsa, search Reddit for real-world Claude Code workflows people recommend."],"youtube-search":["Using AIsa, find the three most relevant YouTube videos about MCP servers and list their channels.","Using AIsa, find beginner YouTube tutorials for Claude Code and pick the best one to start with."],"instagram":["Using AIsa, fetch the Instagram profile and recent posts of @nasa and describe their content strategy.","Using AIsa, compare the recent Instagram engagement of @natgeo and @nasa."],"pinterest":["Using AIsa, search Pinterest for 'mid-century interior' and summarize the visual trends.","Using AIsa, find trending home-office ideas on Pinterest and summarize them with links."],"apollo":["Using AIsa, enrich the company anthropic.com — size, industry, and key people.","Using AIsa, find five AI infrastructure startups in San Francisco with their CEOs."]};
   var BACKUP_COPY = {"claude-code":"Installs one small command, <b><code>claude-aisa</code></b>, next to your other tools. Your original <b><code>claude</code></b> keeps its login, models and settings <b>exactly as they are</b>.<br>You can use the newly added <b><code>claude-aisa</code></b> whenever you want AIsa's models at lower prices. Delete that one file to remove it.","codex":"Adds an <b>aisa profile</b> inside Codex's own config and a <b><code>codex-aisa</code></b> command. Your default Codex is <b>untouched</b>.<br>You can use the newly added <b><code>codex-aisa</code></b> (or <code>codex --profile aisa</code>) whenever you want AIsa's models; it applies to that session only.","vscode":"Adds a <b>Custom Endpoint</b> group named <b>AIsa</b> to VS Code's chat models — Claude, GPT, DeepSeek, Kimi, GLM, Qwen — beside Copilot's own. Your Copilot setup is <b>untouched</b>.<br>A small <b>AIsa extension</b> is installed so VS Code stores your key itself — nothing to paste. Then pick any AIsa model from the chat model picker; inline completions stay on Copilot.","opencode":"Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b>.<br>You can pick the newly added <code>aisa/…</code> models from opencode's model list whenever you want them."};
   var COPY = {"nothingSelected":"Nothing selected yet — pick at least one server.","planBackup":{"claude-code":"Install the claude-aisa command","codex":"Add the aisa profile and codex-aisa","vscode":"Add AIsa models to VS Code chat","other":"Add AIsa as a backup provider"},"planBackupNote":"your current setup stays untouched","ledeFailed":"Some steps did not complete — the details are in the list; your results page explains how to retry.","ledeAllRan":"Everything ran. Your results, balance and try-it-now prompts are on the last step.","backupIntact":"Your usual setup is untouched.","backupOpencode":"Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa.","backupBin":"Run <code>{bin}</code> whenever you want AIsa's models; delete that one file to remove it.","noKeyStored":"No key stored here — run <code>aisa login</code>, then copy it from <code>~/.aisa/key</code>.","cannotStartApp":"Could not start {name} — open it from your Applications folder.","cannotOpenTerminal":"Could not open a terminal — run <b><code>{bin}</code></b> in any terminal."};
-  var AGENT_NOTES = {"claude-code":"Servers are added with <code>claude mcp add</code> in user scope — the official mechanism, reversible with <code>claude mcp remove</code>. Models, if you choose to, are set through Claude Code's own settings file.","codex":"Servers are added with <code>codex mcp add</code>, Codex's own command. Models go in an <code>aisa</code> provider inside <code>~/.codex/config.toml</code> — only keys we wrote are ever touched.","opencode":"Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.","vscode":"Nothing is done by hand. The AIsa servers go into VS Code's <code>mcp.json</code> (with your key, or VS Code signs in to them itself), and a small <b>AIsa extension</b> is installed that asks VS Code to store your key and add the models as a <b>Custom Endpoint</b> group named AIsa — beside Copilot's own, which stay. Inline completions keep using Copilot.","cursor":"One click per server: each becomes an <b>Add to Cursor</b> link on the last step. Cursor opens, shows you the exact entry, and writes it into its own MCP settings when you confirm. Models stay as they are — Cursor picks its own.","claude-desktop":"Claude Desktop's config file only takes MCP servers over stdio, so each AIsa server is written in as a small <code>mcp-remote</code> bridge carrying your key (plus the free <code>aisa-docs</code> server). The bridges live and die with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the servers appear under its tools menu.","claude-ai":"Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own."};
+  var AGENT_NOTES = {"claude-code":"Servers are added with <code>claude mcp add</code> in user scope — the official mechanism, reversible with <code>claude mcp remove</code>. Models, if you choose to, are set through Claude Code's own settings file.","codex":"Servers are added with <code>codex mcp add</code>, Codex's own command. Models go in an <code>aisa</code> provider inside <code>~/.codex/config.toml</code> — only keys we wrote are ever touched.","opencode":"Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.","vscode":"Nothing is done by hand. The AIsa servers go into VS Code's <code>mcp.json</code> (with your key, or VS Code signs in to them itself), and a small <b>AIsa extension</b> is installed that asks VS Code to store your key and add the models as a <b>Custom Endpoint</b> group named AIsa — beside Copilot's own, which stay. Inline completions keep using Copilot.","cursor":"One click per server: each becomes an <b>Add to Cursor</b> link on the last step. Cursor opens, shows you the exact entry, and writes it into its own MCP settings when you confirm. Models stay as they are — Cursor picks its own.","claude-desktop":"Claude Desktop's config file only takes MCP servers over stdio, so each AIsa server is written in as a small <code>mcp-remote</code> bridge carrying your key. The bridges live and die with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the servers appear under its tools menu.","claude-ai":"Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own."};
   var HAVE_NOTES = {"claude-code":"Nothing of yours is replaced. Your <code>claude</code> keeps its login, models and settings; the next step lets you add AIsa <b>beside</b> it as a separate <b><code>claude-aisa</code></b> command, or switch — your call.","codex":"Nothing of yours is replaced. Your <code>codex</code> keeps its login and config; the next step lets you add AIsa <b>beside</b> it as an <code>aisa</code> profile and a <b><code>codex-aisa</code></b> command, or switch — your call.","opencode":"Nothing of yours is replaced. Your default model stays; the next step can add AIsa as an extra <code>aisa/…</code> provider you pick from the model list, or switch — your call.","claude-desktop":"Nothing of yours is replaced. Anything already in <code>claude_desktop_config.json</code> stays; AIsa's entries are added beside it under <code>aisa-*</code> names and removing them is deleting those entries.","claude-ai":"Nothing of yours is touched — the connectors live in your claude.ai account, beside any you already have, and can be removed there in one click.","vscode":"Nothing of yours is replaced. Other MCP servers and model groups in those two files stay; only the <code>aisa-*</code> entries and the AIsa group are ours, and removing them is deleting those entries.","cursor":"Nothing of yours is replaced. Cursor adds each AIsa server beside your existing MCP entries under <code>aisa-*</code> names, and you approve every one inside Cursor first."};
   var FILE_MODEL_NOTE = {"claude-desktop":"<b>Claude Desktop runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents on the same AIsa account; Claude Desktop gets the MCP tools.","claude-ai":"<b>claude.ai runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents (Claude Code, Codex, opencode) on the same AIsa account; claude.ai gets the MCP connectors.","cursor":"<b>Cursor picks its models inside the app</b>, so nothing changes here — only the MCP servers are added."};
   var NEEDS_CLI = false;
@@ -999,42 +974,11 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
   });
 
   // ── step 4 ──
-  var activeCat = null;
   function syncCaps() {
-    var picked = pickedServers();
-    $$(".ctile").forEach(function (t) {
-      var cat = t.dataset.cat;
-      var n = SERVERS.filter(function (s) { return s.category === cat && picked.indexOf(s.slug) !== -1; }).length;
-      var sel = t.querySelector("[data-csel]");
-      sel.textContent = n ? n + " selected" : "";
-      t.classList.toggle("has", n > 0);
-      t.classList.toggle("active", cat === activeCat);
-    });
-    $$(".stile").forEach(function (t) {
-      t.classList.toggle("on", t.querySelector("input").checked);
-      t.style.display = t.dataset.cat === activeCat ? "" : "none";
-    });
-    $("#spanel").classList.toggle("open", Boolean(activeCat));
-    $("#spTitle").textContent = activeCat ? activeCat : "Pick an area above";
-    var tools = picked.reduce(function (n, s) { return n + (BY_SLUG[s] ? BY_SLUG[s].toolCount : 0); }, 0);
-    $("#tally").innerHTML = picked.length
-      ? "<b>" + picked.length + " server" + (picked.length > 1 ? "s" : "") + "</b> · " + tools + " tools selected"
-      : COPY.nothingSelected;
+    $$('input[name="server"]').forEach(function (i) { i.checked = true; i.disabled = true; });
+    $("#spanel").classList.add("open");
+    $("#tally").textContent = "https://mcp.aisa.one/mcp";
   }
-  $$(".ctile").forEach(function (t) { t.addEventListener("click", function () {
-    activeCat = activeCat === t.dataset.cat ? null : t.dataset.cat; syncCaps();
-    if (activeCat) $("#spanel").scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }); });
-  $$('input[name="server"]').forEach(function (c) { c.addEventListener("change", function () { syncCaps(); publishDraft(current); }); });
-  $("#spAll").addEventListener("click", function () {
-    if (!activeCat) return;
-    var boxes = $$('.stile[data-cat="' + activeCat + '"] input');
-    var all = boxes.every(function (b) { return b.checked; });
-    boxes.forEach(function (b) { b.checked = !all; });
-    syncCaps();
-  });
-  // Open the area holding the default selection so the page never starts blank.
-  (function () { var first = $('input[name="server"]:checked'); if (first) activeCat = first.closest(".stile").dataset.cat; })();
 
   // ── next button ──
   nextBtn.addEventListener("click", function () {
@@ -1226,7 +1170,6 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
     locked = true;
     paintRail();
     $$('.pane[data-pane="2"] input, .pane[data-pane="3"] input, .pane[data-pane="4"] input').forEach(function (i) { i.disabled = true; });
-    $$(".ctile, #spAll").forEach(function (b) { b.disabled = false; });
     document.body.classList.add("locked");
   }
   function start() {
@@ -1307,7 +1250,7 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
     var fileNote = "";
     if (id === "claude-desktop") {
       fileNote = "<div class='vsccard'><div class='vschead'><span class='blogo lg'>" + CLAUDE_DT_LOGO + "</span><div><b>Claude Desktop is ready</b>" +
-        "<div class='fine' style='margin:0'>" + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " (plus aisa-docs) are in its config — one restart loads them.</div></div>" +
+        "<div class='fine' style='margin:0'>" + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " are in its config — one restart loads them.</div></div>" +
         "<div class='termside'><button type='button' class='cta sm' id='launch'>Restart Claude Desktop →</button><span class='fine' id='launchnote'></span></div></div>" +
         "<div class='vscgrid'>" +
         "<div class='vscitem'><span class='srv'>Tools</span>After the restart, open the <b>tools menu</b> (🔧) in a chat — the <code>aisa-…</code> servers are there. Each runs as a small bridge that lives and dies with the app; no background service.</div>" +
@@ -1405,7 +1348,7 @@ exports[`T2 page — byte-exact snapshots > done view 1`] = `
     $$('input[name="server"]').forEach(function (i) { i.checked = sel.servers.indexOf(i.value) !== -1; });
     var fresh = sel.install.length > 0;
     var r = $('input[name="' + (fresh ? "lmodeFresh" : "lmodeDet") + '"][value="' + sel.llmMode + '"]'); if (r) r.checked = true;
-    var first = $('input[name="server"]:checked'); if (first) activeCat = first.closest(".stile").dataset.cat;
+
     syncAgent(); syncModels(); syncCaps(); lockSelections();
     phase = s.phase; serverSteps = s.steps; lastStatus = s;
     var settled = phase === "done" || phase === "failed";
@@ -1902,13 +1845,13 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
   <span class="tbody"><span class="thead"><span class="tname">Claude Code</span></span>
     <span class="tbrief" data-brief>Install <b>and</b> connect it — <code>curl -fsSL -A aisa-cli --connect-timeout 10 --max-time 180 https://claude.ai/install.sh | bash</code></span></span>
   <span class="badge todo end" data-badge>not installed</span></label>
-<label class="tile agent" data-cid="codex">
+<label class="tile agent on" data-cid="codex">
   <input type="radio" class="dot" name="client" value="codex" data-install="1">
   <span class="tlogo"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g fill="none" stroke="#0d0d0b" stroke-width="2.1" stroke-linecap="round"><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(0 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(60 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(120 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(180 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(240 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(300 12 12)"/></g></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">Codex</span></span>
     <span class="tbrief" data-brief>Install <b>and</b> connect it — <code>npm install -g @openai/codex</code></span></span>
   <span class="badge todo end" data-badge>not installed</span></label>
-<label class="tile agent" data-cid="opencode">
+<label class="tile agent on" data-cid="opencode">
   <input type="radio" class="dot" name="client" value="opencode" data-install="1">
   <span class="tlogo"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="5" fill="#0d0d0b"/><g fill="#fafafa"><rect x="5" y="8" width="6" height="8"/><rect x="7" y="10" width="2" height="4" fill="#0d0d0b"/><rect x="13" y="8" width="6" height="2"/><rect x="13" y="14" width="6" height="2"/><rect x="13" y="8" width="2" height="8"/></g></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">opencode</span></span>
@@ -1963,39 +1906,14 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
   <button type="button" class="mw-fix" id="modelfix">Use AIsa models →</button>
 </div></div>
   <div class="pane" data-pane="4">
-<h1>What should your agent be able to <em>reach</em>?</h1>
-<p class="lede">3 areas, 3 servers, 97 tools. Open an area to pick the servers inside it. Everything here is live production data with licensed sources; you can add more later with one more <code>aisa connect</code>.</p>
-<div class="cgrid"><button type="button" class="ctile" data-cat="Search & Research">
-  <span class="cico"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="m21 21l-4.34-4.34"/><circle cx="11" cy="11" r="8"/></g></svg></span>
-  <span class="cname">Search & Research</span>
-  <span class="cmeta">1 server · 27 tools</span>
-  <span class="cblurb">Ranked web results with page text already extracted, plus YouTube.</span>
-  <span class="csel" data-csel></span></button><button type="button" class="ctile" data-cat="Finance">
-  <span class="cico"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M16 7h6v6"/><path d="m22 7l-8.5 8.5l-5-5L2 17"/></g></svg></span>
-  <span class="cname">Finance</span>
-  <span class="cmeta">1 server · 21 tools</span>
-  <span class="cblurb">US equities, crypto, prediction markets and what X is saying about a ticker.</span>
-  <span class="csel" data-csel></span></button><button type="button" class="ctile" data-cat="Communication">
-  <span class="cico"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/></g></svg></span>
-  <span class="cname">Communication</span>
-  <span class="cmeta">1 server · 49 tools</span>
-  <span class="cblurb">An inbox an agent can actually use — its own address, sending and receiving.</span>
-  <span class="csel" data-csel></span></button></div>
+<h1>Connect AIsa tools</h1>
+<p class="lede">One unified AIsa MCP connection. One Router MCP connects your agent to AIsa tools. Existing MCP entries stay unchanged; remove old domain entries manually.</p>
 <div class="spanel" id="spanel">
-  <div class="sphead"><h2 id="spTitle">Pick an area above</h2><button type="button" class="link" id="spAll">Select all in this area</button></div>
-  <div class="sgrid" id="sgrid"><label class="stile on" data-cat="Search & Research">
-  <input type="checkbox" name="server" value="web-search" checked>
-  <span class="tbody"><span class="thead"><span class="tname">Web Search</span>
-    <span class="badge">27 tools</span></span>
-    <span class="sdesc">Search the web.</span></span></label><label class="stile" data-cat="Finance">
-  <input type="checkbox" name="server" value="marketpulse">
-  <span class="tbody"><span class="thead"><span class="tname">MarketPulse</span>
-    <span class="badge">21 tools</span></span>
-    <span class="sdesc">US equities.</span></span></label><label class="stile" data-cat="Communication">
-  <input type="checkbox" name="server" value="agentmail">
-  <span class="tbody"><span class="thead"><span class="tname">AgentMail</span>
-    <span class="badge">49 tools</span></span>
-    <span class="sdesc">Email for agents.</span></span></label></div>
+    <div class="sgrid" id="sgrid"><label class="stile on" data-cat="AIsa">
+  <input type="checkbox" name="server" value="router" checked disabled>
+  <span class="tbody"><span class="thead"><span class="tname">Router</span>
+    <span class="badge">5 tools</span></span>
+    <span class="sdesc">One AIsa connection: search, batch_get_schema, batch_quote, batch_use, and account. Discover tools, inspect schemas, quote costs, and execute through the Router.</span></span></label></div>
 </div>
 <div class="tally" id="tally"></div></div>
   <div class="pane" data-pane="5">
@@ -2025,13 +1943,13 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
   // home again, and neither move was theirs.
   var CAME_BACK = /[?&]signedin=1/.test(location.search);
   var VIEW = "start";
-  var SERVERS = [{"slug":"web-search","endpoint":"https://mcp.aisa.one/web-search/mcp","name":"Web Search","category":"Search & Research","toolCount":27,"description":"Search the web."},{"slug":"agentmail","endpoint":"https://mcp.aisa.one/agentmail/mcp","name":"AgentMail","category":"Communication","toolCount":49,"description":"Email for agents."},{"slug":"marketpulse","endpoint":"https://mcp.aisa.one/marketpulse/mcp","name":"MarketPulse","category":"Finance","toolCount":21,"description":"US equities."}];
+  var SERVERS = [{"slug":"router","endpoint":"https://mcp.aisa.one/mcp","name":"Router","category":"AIsa","toolCount":5,"description":"One AIsa connection: search, batch_get_schema, batch_quote, batch_use, and account. Discover tools, inspect schemas, quote costs, and execute through the Router."}];
   var CLIENTS = [{"id":"claude-code","label":"Claude Code","kind":"cli","detected":false,"detail":"2.1.241","installable":true,"command":"curl -fsSL -A aisa-cli --connect-timeout 10 --max-time 180 https://claude.ai/install.sh | bash"},{"id":"codex","label":"Codex","kind":"cli","detected":false,"detail":"codex not found on PATH","installable":true,"command":"npm install -g @openai/codex"},{"id":"opencode","label":"opencode","kind":"cli","detected":false,"detail":"opencode not found on PATH","installable":true,"command":"npm install -g opencode-ai"},{"id":"vscode","label":"VS Code","kind":"file","detected":false,"detail":"~/Library/Application Support/Code/User","installable":false,"command":""},{"id":"cursor","label":"Cursor","kind":"file","detected":false,"detail":"~/.cursor/mcp.json","installable":false,"command":""},{"id":"claude-desktop","label":"Claude Desktop","kind":"file","detected":false,"detail":"not installed","installable":false,"command":""}];
   var MODEL_FOR = {"claude-code":"claude-sonnet-5","codex":"gpt-5.3-codex","opencode":"claude-sonnet-5","vscode":"claude-sonnet-5","cursor":"claude-sonnet-5","claude-desktop":"claude-sonnet-5"};
-  var EXAMPLES = {"web-search":["Using AIsa, search the web for this week's biggest AI news and summarize the top 3 results with links.","Using AIsa, research how teams are adopting MCP servers in production and give me a sourced brief."],"twitter-api":["Using AIsa, fetch the latest tweets from @AnthropicAI and summarize the main themes.","Using AIsa, pull @sama's five most recent tweets with their engagement numbers."],"crypto-market-data":["Using AIsa, get Bitcoin's current price and 24h change, then compare it with Ethereum.","Using AIsa's crypto data, list today's trending coins with prices and market caps."],"marketpulse":["Using AIsa, pull AAPL's latest income statement and summarize the revenue and margin trend.","Using AIsa's market data, screen for US stocks with a market cap above $1T and compare their P/E ratios."],"stock-pulse":["Using AIsa, show what X/Twitter is saying about NVDA today, joined with its market data.","Using AIsa, find which tickers are trending on X right now and why."],"prediction-market-data":["Using AIsa, list the most active prediction markets right now with their implied probabilities.","Using AIsa, compare what Polymarket and Kalshi imply about the next Fed rate decision."],"reddit":["Using AIsa, find today's top posts in r/MachineLearning and summarize the discussion.","Using AIsa, search Reddit for real-world Claude Code workflows people recommend."],"youtube-search":["Using AIsa, find the three most relevant YouTube videos about MCP servers and list their channels.","Using AIsa, find beginner YouTube tutorials for Claude Code and pick the best one to start with."],"instagram":["Using AIsa, fetch the Instagram profile and recent posts of @nasa and describe their content strategy.","Using AIsa, compare the recent Instagram engagement of @natgeo and @nasa."],"pinterest":["Using AIsa, search Pinterest for 'mid-century interior' and summarize the visual trends.","Using AIsa, find trending home-office ideas on Pinterest and summarize them with links."],"apollo":["Using AIsa, enrich the company anthropic.com — size, industry, and key people.","Using AIsa, find five AI infrastructure startups in San Francisco with their CEOs."]};
+  var EXAMPLES = {"router":["Using AIsa, research the latest developments in AI and cite your sources."],"web-search":["Using AIsa, search the web for this week's biggest AI news and summarize the top 3 results with links.","Using AIsa, research how teams are adopting MCP servers in production and give me a sourced brief."],"twitter-api":["Using AIsa, fetch the latest tweets from @AnthropicAI and summarize the main themes.","Using AIsa, pull @sama's five most recent tweets with their engagement numbers."],"crypto-market-data":["Using AIsa, get Bitcoin's current price and 24h change, then compare it with Ethereum.","Using AIsa's crypto data, list today's trending coins with prices and market caps."],"marketpulse":["Using AIsa, pull AAPL's latest income statement and summarize the revenue and margin trend.","Using AIsa's market data, screen for US stocks with a market cap above $1T and compare their P/E ratios."],"stock-pulse":["Using AIsa, show what X/Twitter is saying about NVDA today, joined with its market data.","Using AIsa, find which tickers are trending on X right now and why."],"prediction-market-data":["Using AIsa, list the most active prediction markets right now with their implied probabilities.","Using AIsa, compare what Polymarket and Kalshi imply about the next Fed rate decision."],"reddit":["Using AIsa, find today's top posts in r/MachineLearning and summarize the discussion.","Using AIsa, search Reddit for real-world Claude Code workflows people recommend."],"youtube-search":["Using AIsa, find the three most relevant YouTube videos about MCP servers and list their channels.","Using AIsa, find beginner YouTube tutorials for Claude Code and pick the best one to start with."],"instagram":["Using AIsa, fetch the Instagram profile and recent posts of @nasa and describe their content strategy.","Using AIsa, compare the recent Instagram engagement of @natgeo and @nasa."],"pinterest":["Using AIsa, search Pinterest for 'mid-century interior' and summarize the visual trends.","Using AIsa, find trending home-office ideas on Pinterest and summarize them with links."],"apollo":["Using AIsa, enrich the company anthropic.com — size, industry, and key people.","Using AIsa, find five AI infrastructure startups in San Francisco with their CEOs."]};
   var BACKUP_COPY = {"claude-code":"Installs one small command, <b><code>claude-aisa</code></b>, next to your other tools. Your original <b><code>claude</code></b> keeps its login, models and settings <b>exactly as they are</b>.<br>You can use the newly added <b><code>claude-aisa</code></b> whenever you want AIsa's models at lower prices. Delete that one file to remove it.","codex":"Adds an <b>aisa profile</b> inside Codex's own config and a <b><code>codex-aisa</code></b> command. Your default Codex is <b>untouched</b>.<br>You can use the newly added <b><code>codex-aisa</code></b> (or <code>codex --profile aisa</code>) whenever you want AIsa's models; it applies to that session only.","vscode":"Adds a <b>Custom Endpoint</b> group named <b>AIsa</b> to VS Code's chat models — Claude, GPT, DeepSeek, Kimi, GLM, Qwen — beside Copilot's own. Your Copilot setup is <b>untouched</b>.<br>A small <b>AIsa extension</b> is installed so VS Code stores your key itself — nothing to paste. Then pick any AIsa model from the chat model picker; inline completions stay on Copilot.","opencode":"Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b>.<br>You can pick the newly added <code>aisa/…</code> models from opencode's model list whenever you want them."};
   var COPY = {"nothingSelected":"Nothing selected yet — pick at least one server.","planBackup":{"claude-code":"Install the claude-aisa command","codex":"Add the aisa profile and codex-aisa","vscode":"Add AIsa models to VS Code chat","other":"Add AIsa as a backup provider"},"planBackupNote":"your current setup stays untouched","ledeFailed":"Some steps did not complete — the details are in the list; your results page explains how to retry.","ledeAllRan":"Everything ran. Your results, balance and try-it-now prompts are on the last step.","backupIntact":"Your usual setup is untouched.","backupOpencode":"Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa.","backupBin":"Run <code>{bin}</code> whenever you want AIsa's models; delete that one file to remove it.","noKeyStored":"No key stored here — run <code>aisa login</code>, then copy it from <code>~/.aisa/key</code>.","cannotStartApp":"Could not start {name} — open it from your Applications folder.","cannotOpenTerminal":"Could not open a terminal — run <b><code>{bin}</code></b> in any terminal."};
-  var AGENT_NOTES = {"claude-code":"Servers are added with <code>claude mcp add</code> in user scope — the official mechanism, reversible with <code>claude mcp remove</code>. Models, if you choose to, are set through Claude Code's own settings file.","codex":"Servers are added with <code>codex mcp add</code>, Codex's own command. Models go in an <code>aisa</code> provider inside <code>~/.codex/config.toml</code> — only keys we wrote are ever touched.","opencode":"Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.","vscode":"Nothing is done by hand. The AIsa servers go into VS Code's <code>mcp.json</code> (with your key, or VS Code signs in to them itself), and a small <b>AIsa extension</b> is installed that asks VS Code to store your key and add the models as a <b>Custom Endpoint</b> group named AIsa — beside Copilot's own, which stay. Inline completions keep using Copilot.","cursor":"One click per server: each becomes an <b>Add to Cursor</b> link on the last step. Cursor opens, shows you the exact entry, and writes it into its own MCP settings when you confirm. Models stay as they are — Cursor picks its own.","claude-desktop":"Claude Desktop's config file only takes MCP servers over stdio, so each AIsa server is written in as a small <code>mcp-remote</code> bridge carrying your key (plus the free <code>aisa-docs</code> server). The bridges live and die with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the servers appear under its tools menu.","claude-ai":"Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own."};
+  var AGENT_NOTES = {"claude-code":"Servers are added with <code>claude mcp add</code> in user scope — the official mechanism, reversible with <code>claude mcp remove</code>. Models, if you choose to, are set through Claude Code's own settings file.","codex":"Servers are added with <code>codex mcp add</code>, Codex's own command. Models go in an <code>aisa</code> provider inside <code>~/.codex/config.toml</code> — only keys we wrote are ever touched.","opencode":"Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.","vscode":"Nothing is done by hand. The AIsa servers go into VS Code's <code>mcp.json</code> (with your key, or VS Code signs in to them itself), and a small <b>AIsa extension</b> is installed that asks VS Code to store your key and add the models as a <b>Custom Endpoint</b> group named AIsa — beside Copilot's own, which stay. Inline completions keep using Copilot.","cursor":"One click per server: each becomes an <b>Add to Cursor</b> link on the last step. Cursor opens, shows you the exact entry, and writes it into its own MCP settings when you confirm. Models stay as they are — Cursor picks its own.","claude-desktop":"Claude Desktop's config file only takes MCP servers over stdio, so each AIsa server is written in as a small <code>mcp-remote</code> bridge carrying your key. The bridges live and die with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the servers appear under its tools menu.","claude-ai":"Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own."};
   var HAVE_NOTES = {"claude-code":"Nothing of yours is replaced. Your <code>claude</code> keeps its login, models and settings; the next step lets you add AIsa <b>beside</b> it as a separate <b><code>claude-aisa</code></b> command, or switch — your call.","codex":"Nothing of yours is replaced. Your <code>codex</code> keeps its login and config; the next step lets you add AIsa <b>beside</b> it as an <code>aisa</code> profile and a <b><code>codex-aisa</code></b> command, or switch — your call.","opencode":"Nothing of yours is replaced. Your default model stays; the next step can add AIsa as an extra <code>aisa/…</code> provider you pick from the model list, or switch — your call.","claude-desktop":"Nothing of yours is replaced. Anything already in <code>claude_desktop_config.json</code> stays; AIsa's entries are added beside it under <code>aisa-*</code> names and removing them is deleting those entries.","claude-ai":"Nothing of yours is touched — the connectors live in your claude.ai account, beside any you already have, and can be removed there in one click.","vscode":"Nothing of yours is replaced. Other MCP servers and model groups in those two files stay; only the <code>aisa-*</code> entries and the AIsa group are ours, and removing them is deleting those entries.","cursor":"Nothing of yours is replaced. Cursor adds each AIsa server beside your existing MCP entries under <code>aisa-*</code> names, and you approve every one inside Cursor first."};
   var FILE_MODEL_NOTE = {"claude-desktop":"<b>Claude Desktop runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents on the same AIsa account; Claude Desktop gets the MCP tools.","claude-ai":"<b>claude.ai runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents (Claude Code, Codex, opencode) on the same AIsa account; claude.ai gets the MCP connectors.","cursor":"<b>Cursor picks its models inside the app</b>, so nothing changes here — only the MCP servers are added."};
   var NEEDS_CLI = false;
@@ -2480,42 +2398,11 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
   });
 
   // ── step 4 ──
-  var activeCat = null;
   function syncCaps() {
-    var picked = pickedServers();
-    $$(".ctile").forEach(function (t) {
-      var cat = t.dataset.cat;
-      var n = SERVERS.filter(function (s) { return s.category === cat && picked.indexOf(s.slug) !== -1; }).length;
-      var sel = t.querySelector("[data-csel]");
-      sel.textContent = n ? n + " selected" : "";
-      t.classList.toggle("has", n > 0);
-      t.classList.toggle("active", cat === activeCat);
-    });
-    $$(".stile").forEach(function (t) {
-      t.classList.toggle("on", t.querySelector("input").checked);
-      t.style.display = t.dataset.cat === activeCat ? "" : "none";
-    });
-    $("#spanel").classList.toggle("open", Boolean(activeCat));
-    $("#spTitle").textContent = activeCat ? activeCat : "Pick an area above";
-    var tools = picked.reduce(function (n, s) { return n + (BY_SLUG[s] ? BY_SLUG[s].toolCount : 0); }, 0);
-    $("#tally").innerHTML = picked.length
-      ? "<b>" + picked.length + " server" + (picked.length > 1 ? "s" : "") + "</b> · " + tools + " tools selected"
-      : COPY.nothingSelected;
+    $$('input[name="server"]').forEach(function (i) { i.checked = true; i.disabled = true; });
+    $("#spanel").classList.add("open");
+    $("#tally").textContent = "https://mcp.aisa.one/mcp";
   }
-  $$(".ctile").forEach(function (t) { t.addEventListener("click", function () {
-    activeCat = activeCat === t.dataset.cat ? null : t.dataset.cat; syncCaps();
-    if (activeCat) $("#spanel").scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }); });
-  $$('input[name="server"]').forEach(function (c) { c.addEventListener("change", function () { syncCaps(); publishDraft(current); }); });
-  $("#spAll").addEventListener("click", function () {
-    if (!activeCat) return;
-    var boxes = $$('.stile[data-cat="' + activeCat + '"] input');
-    var all = boxes.every(function (b) { return b.checked; });
-    boxes.forEach(function (b) { b.checked = !all; });
-    syncCaps();
-  });
-  // Open the area holding the default selection so the page never starts blank.
-  (function () { var first = $('input[name="server"]:checked'); if (first) activeCat = first.closest(".stile").dataset.cat; })();
 
   // ── next button ──
   nextBtn.addEventListener("click", function () {
@@ -2707,7 +2594,6 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
     locked = true;
     paintRail();
     $$('.pane[data-pane="2"] input, .pane[data-pane="3"] input, .pane[data-pane="4"] input').forEach(function (i) { i.disabled = true; });
-    $$(".ctile, #spAll").forEach(function (b) { b.disabled = false; });
     document.body.classList.add("locked");
   }
   function start() {
@@ -2788,7 +2674,7 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
     var fileNote = "";
     if (id === "claude-desktop") {
       fileNote = "<div class='vsccard'><div class='vschead'><span class='blogo lg'>" + CLAUDE_DT_LOGO + "</span><div><b>Claude Desktop is ready</b>" +
-        "<div class='fine' style='margin:0'>" + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " (plus aisa-docs) are in its config — one restart loads them.</div></div>" +
+        "<div class='fine' style='margin:0'>" + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " are in its config — one restart loads them.</div></div>" +
         "<div class='termside'><button type='button' class='cta sm' id='launch'>Restart Claude Desktop →</button><span class='fine' id='launchnote'></span></div></div>" +
         "<div class='vscgrid'>" +
         "<div class='vscitem'><span class='srv'>Tools</span>After the restart, open the <b>tools menu</b> (🔧) in a chat — the <code>aisa-…</code> servers are there. Each runs as a small bridge that lives and dies with the app; no background service.</div>" +
@@ -2886,7 +2772,7 @@ exports[`T2 page — byte-exact snapshots > nothing detected — every card is a
     $$('input[name="server"]').forEach(function (i) { i.checked = sel.servers.indexOf(i.value) !== -1; });
     var fresh = sel.install.length > 0;
     var r = $('input[name="' + (fresh ? "lmodeFresh" : "lmodeDet") + '"][value="' + sel.llmMode + '"]'); if (r) r.checked = true;
-    var first = $('input[name="server"]:checked'); if (first) activeCat = first.closest(".stile").dataset.cat;
+
     syncAgent(); syncModels(); syncCaps(); lockSelections();
     phase = s.phase; serverSteps = s.steps; lastStatus = s;
     var settled = phase === "done" || phase === "failed";
@@ -3383,13 +3269,13 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
   <span class="tbody"><span class="thead"><span class="tname">Claude Code</span></span>
     <span class="tbrief" data-brief>2.1.241</span></span>
   <span class="badge ok end">✓ detected</span></label>
-<label class="tile agent" data-cid="vscode">
+<label class="tile agent on" data-cid="vscode">
   <input type="radio" class="dot" name="client" value="vscode">
   <span class="tlogo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 254" aria-hidden="true"><defs><linearGradient id="SVG6Q5wMbNQ" x1="50%" x2="50%" y1="0%" y2="100%"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></linearGradient><path id="SVGWhZ12djk" d="M180.828 252.605a15.87 15.87 0 0 0 12.65-.486l52.501-25.262a15.94 15.94 0 0 0 9.025-14.364V41.197a15.94 15.94 0 0 0-9.025-14.363l-52.5-25.263a15.88 15.88 0 0 0-18.115 3.084L74.857 96.35l-43.78-33.232a10.614 10.614 0 0 0-13.56.603L3.476 76.494c-4.63 4.211-4.635 11.495-.012 15.713l37.967 34.638l-37.967 34.637c-4.623 4.219-4.618 11.502.012 15.714l14.041 12.772a10.614 10.614 0 0 0 13.56.604l43.78-33.233l100.507 91.695a15.85 15.85 0 0 0 5.464 3.571m10.464-183.649l-76.262 57.889l76.262 57.888z"/></defs><mask id="SVGSAQ58H2f" fill="#fff"><use href="#SVGWhZ12djk"/></mask><path fill="#0065a9" d="M246.135 26.873L193.593 1.575a15.885 15.885 0 0 0-18.123 3.08L3.466 161.482c-4.626 4.219-4.62 11.502.012 15.714l14.05 12.772a10.625 10.625 0 0 0 13.569.604L238.229 33.436c6.949-5.271 16.93-.315 16.93 8.407v-.61a15.94 15.94 0 0 0-9.024-14.36" mask="url(#SVGSAQ58H2f)"/><path fill="#007acc" d="m246.135 226.816l-52.542 25.298a15.89 15.89 0 0 1-18.123-3.08L3.466 92.207c-4.626-4.218-4.62-11.502.012-15.713l14.05-12.773a10.625 10.625 0 0 1 13.569-.603l207.132 157.135c6.949 5.271 16.93.315 16.93-8.408v.611a15.94 15.94 0 0 1-9.024 14.36" mask="url(#SVGSAQ58H2f)"/><path fill="#1f9cf0" d="M193.428 252.134a15.89 15.89 0 0 1-18.125-3.083c5.881 5.88 15.938 1.715 15.938-6.603V11.273c0-8.318-10.057-12.483-15.938-6.602a15.89 15.89 0 0 1 18.125-3.084l52.533 25.263a15.94 15.94 0 0 1 9.03 14.363V212.51c0 6.125-3.51 11.709-9.03 14.363z" mask="url(#SVGSAQ58H2f)"/><path fill="url(#SVG6Q5wMbNQ)" fill-opacity=".25" d="M180.828 252.605a15.87 15.87 0 0 0 12.65-.486l52.5-25.263a15.94 15.94 0 0 0 9.026-14.363V41.197a15.94 15.94 0 0 0-9.025-14.363L193.477 1.57a15.88 15.88 0 0 0-18.114 3.084L74.857 96.35l-43.78-33.232a10.614 10.614 0 0 0-13.56.603L3.476 76.494c-4.63 4.211-4.635 11.495-.012 15.713l37.967 34.638l-37.967 34.637c-4.623 4.219-4.618 11.502.012 15.714l14.041 12.772a10.614 10.614 0 0 0 13.56.604l43.78-33.233l100.506 91.695a15.9 15.9 0 0 0 5.465 3.571m10.464-183.65l-76.262 57.89l76.262 57.888z" mask="url(#SVGSAQ58H2f)"/></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">VS Code</span></span>
     <span class="tbrief" data-brief>~/Library/Application Support/Code/User</span></span>
   <span class="badge ok end">✓ detected</span></label>
-<label class="tile agent" data-cid="cursor">
+<label class="tile agent on" data-cid="cursor">
   <input type="radio" class="dot" name="client" value="cursor">
   <span class="tlogo mono"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 466.73 532.09" aria-hidden="true"><path fill="#26251e" d="M457.43 125.94L244.42 2.96a22.13 22.13 0 0 0-22.12 0L9.3 125.94C3.55 129.26 0 135.4 0 142.05v247.99c0 6.65 3.55 12.79 9.3 16.11l213.01 122.98a22.13 22.13 0 0 0 22.12 0l213.01-122.98c5.75-3.32 9.3-9.46 9.3-16.11V142.05c0-6.65-3.55-12.79-9.3-16.11zm-13.38 26.05L238.42 508.15c-1.39 2.4-5.06 1.42-5.06-1.36V273.58c0-4.66-2.49-8.97-6.53-11.31L24.87 145.67c-2.4-1.39-1.42-5.06 1.36-5.06h411.26c5.84 0 9.49 6.33 6.57 11.39h-.01Z"/></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">Cursor</span></span>
@@ -3444,39 +3330,14 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
   <button type="button" class="mw-fix" id="modelfix">Use AIsa models →</button>
 </div></div>
   <div class="pane" data-pane="4">
-<h1>What should your agent be able to <em>reach</em>?</h1>
-<p class="lede">3 areas, 3 servers, 97 tools. Open an area to pick the servers inside it. Everything here is live production data with licensed sources; you can add more later with one more <code>aisa connect</code>.</p>
-<div class="cgrid"><button type="button" class="ctile" data-cat="Search & Research">
-  <span class="cico"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="m21 21l-4.34-4.34"/><circle cx="11" cy="11" r="8"/></g></svg></span>
-  <span class="cname">Search & Research</span>
-  <span class="cmeta">1 server · 27 tools</span>
-  <span class="cblurb">Ranked web results with page text already extracted, plus YouTube.</span>
-  <span class="csel" data-csel></span></button><button type="button" class="ctile" data-cat="Finance">
-  <span class="cico"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M16 7h6v6"/><path d="m22 7l-8.5 8.5l-5-5L2 17"/></g></svg></span>
-  <span class="cname">Finance</span>
-  <span class="cmeta">1 server · 21 tools</span>
-  <span class="cblurb">US equities, crypto, prediction markets and what X is saying about a ticker.</span>
-  <span class="csel" data-csel></span></button><button type="button" class="ctile" data-cat="Communication">
-  <span class="cico"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/></g></svg></span>
-  <span class="cname">Communication</span>
-  <span class="cmeta">1 server · 49 tools</span>
-  <span class="cblurb">An inbox an agent can actually use — its own address, sending and receiving.</span>
-  <span class="csel" data-csel></span></button></div>
+<h1>Connect AIsa tools</h1>
+<p class="lede">One unified AIsa MCP connection. One Router MCP connects your agent to AIsa tools. Existing MCP entries stay unchanged; remove old domain entries manually.</p>
 <div class="spanel" id="spanel">
-  <div class="sphead"><h2 id="spTitle">Pick an area above</h2><button type="button" class="link" id="spAll">Select all in this area</button></div>
-  <div class="sgrid" id="sgrid"><label class="stile on" data-cat="Search & Research">
-  <input type="checkbox" name="server" value="web-search" checked>
-  <span class="tbody"><span class="thead"><span class="tname">Web Search</span>
-    <span class="badge">27 tools</span></span>
-    <span class="sdesc">Search the web.</span></span></label><label class="stile" data-cat="Finance">
-  <input type="checkbox" name="server" value="marketpulse">
-  <span class="tbody"><span class="thead"><span class="tname">MarketPulse</span>
-    <span class="badge">21 tools</span></span>
-    <span class="sdesc">US equities.</span></span></label><label class="stile" data-cat="Communication">
-  <input type="checkbox" name="server" value="agentmail">
-  <span class="tbody"><span class="thead"><span class="tname">AgentMail</span>
-    <span class="badge">49 tools</span></span>
-    <span class="sdesc">Email for agents.</span></span></label></div>
+    <div class="sgrid" id="sgrid"><label class="stile on" data-cat="AIsa">
+  <input type="checkbox" name="server" value="router" checked disabled>
+  <span class="tbody"><span class="thead"><span class="tname">Router</span>
+    <span class="badge">5 tools</span></span>
+    <span class="sdesc">One AIsa connection: search, batch_get_schema, batch_quote, batch_use, and account. Discover tools, inspect schemas, quote costs, and execute through the Router.</span></span></label></div>
 </div>
 <div class="tally" id="tally"></div></div>
   <div class="pane" data-pane="5">
@@ -3506,13 +3367,13 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
   // home again, and neither move was theirs.
   var CAME_BACK = /[?&]signedin=1/.test(location.search);
   var VIEW = "start";
-  var SERVERS = [{"slug":"web-search","endpoint":"https://mcp.aisa.one/web-search/mcp","name":"Web Search","category":"Search & Research","toolCount":27,"description":"Search the web."},{"slug":"agentmail","endpoint":"https://mcp.aisa.one/agentmail/mcp","name":"AgentMail","category":"Communication","toolCount":49,"description":"Email for agents."},{"slug":"marketpulse","endpoint":"https://mcp.aisa.one/marketpulse/mcp","name":"MarketPulse","category":"Finance","toolCount":21,"description":"US equities."}];
+  var SERVERS = [{"slug":"router","endpoint":"https://mcp.aisa.one/mcp","name":"Router","category":"AIsa","toolCount":5,"description":"One AIsa connection: search, batch_get_schema, batch_quote, batch_use, and account. Discover tools, inspect schemas, quote costs, and execute through the Router."}];
   var CLIENTS = [{"id":"claude-code","label":"Claude Code","kind":"cli","detected":true,"detail":"2.1.241","installable":false,"command":"curl -fsSL -A aisa-cli --connect-timeout 10 --max-time 180 https://claude.ai/install.sh | bash"},{"id":"codex","label":"Codex","kind":"cli","detected":false,"detail":"codex not found on PATH","installable":false,"command":"npm install -g @openai/codex"},{"id":"opencode","label":"opencode","kind":"cli","detected":false,"detail":"opencode not found on PATH","installable":false,"command":"npm install -g opencode-ai"},{"id":"vscode","label":"VS Code","kind":"file","detected":true,"detail":"~/Library/Application Support/Code/User","installable":false,"command":""},{"id":"cursor","label":"Cursor","kind":"file","detected":true,"detail":"~/.cursor/mcp.json","installable":false,"command":""},{"id":"claude-desktop","label":"Claude Desktop","kind":"file","detected":false,"detail":"not installed","installable":false,"command":""}];
   var MODEL_FOR = {"claude-code":"claude-sonnet-5","codex":"gpt-5.3-codex","opencode":"claude-sonnet-5","vscode":"claude-sonnet-5","cursor":"claude-sonnet-5","claude-desktop":"claude-sonnet-5"};
-  var EXAMPLES = {"web-search":["Using AIsa, search the web for this week's biggest AI news and summarize the top 3 results with links.","Using AIsa, research how teams are adopting MCP servers in production and give me a sourced brief."],"twitter-api":["Using AIsa, fetch the latest tweets from @AnthropicAI and summarize the main themes.","Using AIsa, pull @sama's five most recent tweets with their engagement numbers."],"crypto-market-data":["Using AIsa, get Bitcoin's current price and 24h change, then compare it with Ethereum.","Using AIsa's crypto data, list today's trending coins with prices and market caps."],"marketpulse":["Using AIsa, pull AAPL's latest income statement and summarize the revenue and margin trend.","Using AIsa's market data, screen for US stocks with a market cap above $1T and compare their P/E ratios."],"stock-pulse":["Using AIsa, show what X/Twitter is saying about NVDA today, joined with its market data.","Using AIsa, find which tickers are trending on X right now and why."],"prediction-market-data":["Using AIsa, list the most active prediction markets right now with their implied probabilities.","Using AIsa, compare what Polymarket and Kalshi imply about the next Fed rate decision."],"reddit":["Using AIsa, find today's top posts in r/MachineLearning and summarize the discussion.","Using AIsa, search Reddit for real-world Claude Code workflows people recommend."],"youtube-search":["Using AIsa, find the three most relevant YouTube videos about MCP servers and list their channels.","Using AIsa, find beginner YouTube tutorials for Claude Code and pick the best one to start with."],"instagram":["Using AIsa, fetch the Instagram profile and recent posts of @nasa and describe their content strategy.","Using AIsa, compare the recent Instagram engagement of @natgeo and @nasa."],"pinterest":["Using AIsa, search Pinterest for 'mid-century interior' and summarize the visual trends.","Using AIsa, find trending home-office ideas on Pinterest and summarize them with links."],"apollo":["Using AIsa, enrich the company anthropic.com — size, industry, and key people.","Using AIsa, find five AI infrastructure startups in San Francisco with their CEOs."]};
+  var EXAMPLES = {"router":["Using AIsa, research the latest developments in AI and cite your sources."],"web-search":["Using AIsa, search the web for this week's biggest AI news and summarize the top 3 results with links.","Using AIsa, research how teams are adopting MCP servers in production and give me a sourced brief."],"twitter-api":["Using AIsa, fetch the latest tweets from @AnthropicAI and summarize the main themes.","Using AIsa, pull @sama's five most recent tweets with their engagement numbers."],"crypto-market-data":["Using AIsa, get Bitcoin's current price and 24h change, then compare it with Ethereum.","Using AIsa's crypto data, list today's trending coins with prices and market caps."],"marketpulse":["Using AIsa, pull AAPL's latest income statement and summarize the revenue and margin trend.","Using AIsa's market data, screen for US stocks with a market cap above $1T and compare their P/E ratios."],"stock-pulse":["Using AIsa, show what X/Twitter is saying about NVDA today, joined with its market data.","Using AIsa, find which tickers are trending on X right now and why."],"prediction-market-data":["Using AIsa, list the most active prediction markets right now with their implied probabilities.","Using AIsa, compare what Polymarket and Kalshi imply about the next Fed rate decision."],"reddit":["Using AIsa, find today's top posts in r/MachineLearning and summarize the discussion.","Using AIsa, search Reddit for real-world Claude Code workflows people recommend."],"youtube-search":["Using AIsa, find the three most relevant YouTube videos about MCP servers and list their channels.","Using AIsa, find beginner YouTube tutorials for Claude Code and pick the best one to start with."],"instagram":["Using AIsa, fetch the Instagram profile and recent posts of @nasa and describe their content strategy.","Using AIsa, compare the recent Instagram engagement of @natgeo and @nasa."],"pinterest":["Using AIsa, search Pinterest for 'mid-century interior' and summarize the visual trends.","Using AIsa, find trending home-office ideas on Pinterest and summarize them with links."],"apollo":["Using AIsa, enrich the company anthropic.com — size, industry, and key people.","Using AIsa, find five AI infrastructure startups in San Francisco with their CEOs."]};
   var BACKUP_COPY = {"claude-code":"Installs one small command, <b><code>claude-aisa</code></b>, next to your other tools. Your original <b><code>claude</code></b> keeps its login, models and settings <b>exactly as they are</b>.<br>You can use the newly added <b><code>claude-aisa</code></b> whenever you want AIsa's models at lower prices. Delete that one file to remove it.","codex":"Adds an <b>aisa profile</b> inside Codex's own config and a <b><code>codex-aisa</code></b> command. Your default Codex is <b>untouched</b>.<br>You can use the newly added <b><code>codex-aisa</code></b> (or <code>codex --profile aisa</code>) whenever you want AIsa's models; it applies to that session only.","vscode":"Adds a <b>Custom Endpoint</b> group named <b>AIsa</b> to VS Code's chat models — Claude, GPT, DeepSeek, Kimi, GLM, Qwen — beside Copilot's own. Your Copilot setup is <b>untouched</b>.<br>A small <b>AIsa extension</b> is installed so VS Code stores your key itself — nothing to paste. Then pick any AIsa model from the chat model picker; inline completions stay on Copilot.","opencode":"Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b>.<br>You can pick the newly added <code>aisa/…</code> models from opencode's model list whenever you want them."};
   var COPY = {"nothingSelected":"Nothing selected yet — pick at least one server.","planBackup":{"claude-code":"Install the claude-aisa command","codex":"Add the aisa profile and codex-aisa","vscode":"Add AIsa models to VS Code chat","other":"Add AIsa as a backup provider"},"planBackupNote":"your current setup stays untouched","ledeFailed":"Some steps did not complete — the details are in the list; your results page explains how to retry.","ledeAllRan":"Everything ran. Your results, balance and try-it-now prompts are on the last step.","backupIntact":"Your usual setup is untouched.","backupOpencode":"Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa.","backupBin":"Run <code>{bin}</code> whenever you want AIsa's models; delete that one file to remove it.","noKeyStored":"No key stored here — run <code>aisa login</code>, then copy it from <code>~/.aisa/key</code>.","cannotStartApp":"Could not start {name} — open it from your Applications folder.","cannotOpenTerminal":"Could not open a terminal — run <b><code>{bin}</code></b> in any terminal."};
-  var AGENT_NOTES = {"claude-code":"Servers are added with <code>claude mcp add</code> in user scope — the official mechanism, reversible with <code>claude mcp remove</code>. Models, if you choose to, are set through Claude Code's own settings file.","codex":"Servers are added with <code>codex mcp add</code>, Codex's own command. Models go in an <code>aisa</code> provider inside <code>~/.codex/config.toml</code> — only keys we wrote are ever touched.","opencode":"Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.","vscode":"Nothing is done by hand. The AIsa servers go into VS Code's <code>mcp.json</code> (with your key, or VS Code signs in to them itself), and a small <b>AIsa extension</b> is installed that asks VS Code to store your key and add the models as a <b>Custom Endpoint</b> group named AIsa — beside Copilot's own, which stay. Inline completions keep using Copilot.","cursor":"One click per server: each becomes an <b>Add to Cursor</b> link on the last step. Cursor opens, shows you the exact entry, and writes it into its own MCP settings when you confirm. Models stay as they are — Cursor picks its own.","claude-desktop":"Claude Desktop's config file only takes MCP servers over stdio, so each AIsa server is written in as a small <code>mcp-remote</code> bridge carrying your key (plus the free <code>aisa-docs</code> server). The bridges live and die with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the servers appear under its tools menu.","claude-ai":"Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own."};
+  var AGENT_NOTES = {"claude-code":"Servers are added with <code>claude mcp add</code> in user scope — the official mechanism, reversible with <code>claude mcp remove</code>. Models, if you choose to, are set through Claude Code's own settings file.","codex":"Servers are added with <code>codex mcp add</code>, Codex's own command. Models go in an <code>aisa</code> provider inside <code>~/.codex/config.toml</code> — only keys we wrote are ever touched.","opencode":"Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.","vscode":"Nothing is done by hand. The AIsa servers go into VS Code's <code>mcp.json</code> (with your key, or VS Code signs in to them itself), and a small <b>AIsa extension</b> is installed that asks VS Code to store your key and add the models as a <b>Custom Endpoint</b> group named AIsa — beside Copilot's own, which stay. Inline completions keep using Copilot.","cursor":"One click per server: each becomes an <b>Add to Cursor</b> link on the last step. Cursor opens, shows you the exact entry, and writes it into its own MCP settings when you confirm. Models stay as they are — Cursor picks its own.","claude-desktop":"Claude Desktop's config file only takes MCP servers over stdio, so each AIsa server is written in as a small <code>mcp-remote</code> bridge carrying your key. The bridges live and die with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the servers appear under its tools menu.","claude-ai":"Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own."};
   var HAVE_NOTES = {"claude-code":"Nothing of yours is replaced. Your <code>claude</code> keeps its login, models and settings; the next step lets you add AIsa <b>beside</b> it as a separate <b><code>claude-aisa</code></b> command, or switch — your call.","codex":"Nothing of yours is replaced. Your <code>codex</code> keeps its login and config; the next step lets you add AIsa <b>beside</b> it as an <code>aisa</code> profile and a <b><code>codex-aisa</code></b> command, or switch — your call.","opencode":"Nothing of yours is replaced. Your default model stays; the next step can add AIsa as an extra <code>aisa/…</code> provider you pick from the model list, or switch — your call.","claude-desktop":"Nothing of yours is replaced. Anything already in <code>claude_desktop_config.json</code> stays; AIsa's entries are added beside it under <code>aisa-*</code> names and removing them is deleting those entries.","claude-ai":"Nothing of yours is touched — the connectors live in your claude.ai account, beside any you already have, and can be removed there in one click.","vscode":"Nothing of yours is replaced. Other MCP servers and model groups in those two files stay; only the <code>aisa-*</code> entries and the AIsa group are ours, and removing them is deleting those entries.","cursor":"Nothing of yours is replaced. Cursor adds each AIsa server beside your existing MCP entries under <code>aisa-*</code> names, and you approve every one inside Cursor first."};
   var FILE_MODEL_NOTE = {"claude-desktop":"<b>Claude Desktop runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents on the same AIsa account; Claude Desktop gets the MCP tools.","claude-ai":"<b>claude.ai runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents (Claude Code, Codex, opencode) on the same AIsa account; claude.ai gets the MCP connectors.","cursor":"<b>Cursor picks its models inside the app</b>, so nothing changes here — only the MCP servers are added."};
   var NEEDS_CLI = false;
@@ -3961,42 +3822,11 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
   });
 
   // ── step 4 ──
-  var activeCat = null;
   function syncCaps() {
-    var picked = pickedServers();
-    $$(".ctile").forEach(function (t) {
-      var cat = t.dataset.cat;
-      var n = SERVERS.filter(function (s) { return s.category === cat && picked.indexOf(s.slug) !== -1; }).length;
-      var sel = t.querySelector("[data-csel]");
-      sel.textContent = n ? n + " selected" : "";
-      t.classList.toggle("has", n > 0);
-      t.classList.toggle("active", cat === activeCat);
-    });
-    $$(".stile").forEach(function (t) {
-      t.classList.toggle("on", t.querySelector("input").checked);
-      t.style.display = t.dataset.cat === activeCat ? "" : "none";
-    });
-    $("#spanel").classList.toggle("open", Boolean(activeCat));
-    $("#spTitle").textContent = activeCat ? activeCat : "Pick an area above";
-    var tools = picked.reduce(function (n, s) { return n + (BY_SLUG[s] ? BY_SLUG[s].toolCount : 0); }, 0);
-    $("#tally").innerHTML = picked.length
-      ? "<b>" + picked.length + " server" + (picked.length > 1 ? "s" : "") + "</b> · " + tools + " tools selected"
-      : COPY.nothingSelected;
+    $$('input[name="server"]').forEach(function (i) { i.checked = true; i.disabled = true; });
+    $("#spanel").classList.add("open");
+    $("#tally").textContent = "https://mcp.aisa.one/mcp";
   }
-  $$(".ctile").forEach(function (t) { t.addEventListener("click", function () {
-    activeCat = activeCat === t.dataset.cat ? null : t.dataset.cat; syncCaps();
-    if (activeCat) $("#spanel").scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }); });
-  $$('input[name="server"]').forEach(function (c) { c.addEventListener("change", function () { syncCaps(); publishDraft(current); }); });
-  $("#spAll").addEventListener("click", function () {
-    if (!activeCat) return;
-    var boxes = $$('.stile[data-cat="' + activeCat + '"] input');
-    var all = boxes.every(function (b) { return b.checked; });
-    boxes.forEach(function (b) { b.checked = !all; });
-    syncCaps();
-  });
-  // Open the area holding the default selection so the page never starts blank.
-  (function () { var first = $('input[name="server"]:checked'); if (first) activeCat = first.closest(".stile").dataset.cat; })();
 
   // ── next button ──
   nextBtn.addEventListener("click", function () {
@@ -4188,7 +4018,6 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
     locked = true;
     paintRail();
     $$('.pane[data-pane="2"] input, .pane[data-pane="3"] input, .pane[data-pane="4"] input').forEach(function (i) { i.disabled = true; });
-    $$(".ctile, #spAll").forEach(function (b) { b.disabled = false; });
     document.body.classList.add("locked");
   }
   function start() {
@@ -4269,7 +4098,7 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
     var fileNote = "";
     if (id === "claude-desktop") {
       fileNote = "<div class='vsccard'><div class='vschead'><span class='blogo lg'>" + CLAUDE_DT_LOGO + "</span><div><b>Claude Desktop is ready</b>" +
-        "<div class='fine' style='margin:0'>" + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " (plus aisa-docs) are in its config — one restart loads them.</div></div>" +
+        "<div class='fine' style='margin:0'>" + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " are in its config — one restart loads them.</div></div>" +
         "<div class='termside'><button type='button' class='cta sm' id='launch'>Restart Claude Desktop →</button><span class='fine' id='launchnote'></span></div></div>" +
         "<div class='vscgrid'>" +
         "<div class='vscitem'><span class='srv'>Tools</span>After the restart, open the <b>tools menu</b> (🔧) in a chat — the <code>aisa-…</code> servers are there. Each runs as a small bridge that lives and dies with the app; no background service.</div>" +
@@ -4367,7 +4196,7 @@ exports[`T2 page — byte-exact snapshots > start view, installers unavailable �
     $$('input[name="server"]').forEach(function (i) { i.checked = sel.servers.indexOf(i.value) !== -1; });
     var fresh = sel.install.length > 0;
     var r = $('input[name="' + (fresh ? "lmodeFresh" : "lmodeDet") + '"][value="' + sel.llmMode + '"]'); if (r) r.checked = true;
-    var first = $('input[name="server"]:checked'); if (first) activeCat = first.closest(".stile").dataset.cat;
+
     syncAgent(); syncModels(); syncCaps(); lockSelections();
     phase = s.phase; serverSteps = s.steps; lastStatus = s;
     var settled = phase === "done" || phase === "failed";
@@ -4864,25 +4693,25 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
   <span class="tbody"><span class="thead"><span class="tname">Claude Code</span></span>
     <span class="tbrief" data-brief>2.1.241</span></span>
   <span class="badge ok end">✓ detected</span></label>
-<label class="tile agent" data-cid="codex">
+<label class="tile agent on" data-cid="codex">
   <input type="radio" class="dot" name="client" value="codex" data-install="1">
   <span class="tlogo"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g fill="none" stroke="#0d0d0b" stroke-width="2.1" stroke-linecap="round"><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(0 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(60 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(120 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(180 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(240 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(300 12 12)"/></g></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">Codex</span></span>
     <span class="tbrief" data-brief>Install <b>and</b> connect it — <code>npm install -g @openai/codex</code></span></span>
   <span class="badge todo end" data-badge>not installed</span></label>
-<label class="tile agent" data-cid="opencode">
+<label class="tile agent on" data-cid="opencode">
   <input type="radio" class="dot" name="client" value="opencode" data-install="1">
   <span class="tlogo"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="5" fill="#0d0d0b"/><g fill="#fafafa"><rect x="5" y="8" width="6" height="8"/><rect x="7" y="10" width="2" height="4" fill="#0d0d0b"/><rect x="13" y="8" width="6" height="2"/><rect x="13" y="14" width="6" height="2"/><rect x="13" y="8" width="2" height="8"/></g></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">opencode</span></span>
     <span class="tbrief" data-brief>Install <b>and</b> connect it — <code>npm install -g opencode-ai</code></span></span>
   <span class="badge todo end" data-badge>not installed</span></label>
-<label class="tile agent" data-cid="vscode">
+<label class="tile agent on" data-cid="vscode">
   <input type="radio" class="dot" name="client" value="vscode">
   <span class="tlogo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 254" aria-hidden="true"><defs><linearGradient id="SVG6Q5wMbNQ" x1="50%" x2="50%" y1="0%" y2="100%"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></linearGradient><path id="SVGWhZ12djk" d="M180.828 252.605a15.87 15.87 0 0 0 12.65-.486l52.501-25.262a15.94 15.94 0 0 0 9.025-14.364V41.197a15.94 15.94 0 0 0-9.025-14.363l-52.5-25.263a15.88 15.88 0 0 0-18.115 3.084L74.857 96.35l-43.78-33.232a10.614 10.614 0 0 0-13.56.603L3.476 76.494c-4.63 4.211-4.635 11.495-.012 15.713l37.967 34.638l-37.967 34.637c-4.623 4.219-4.618 11.502.012 15.714l14.041 12.772a10.614 10.614 0 0 0 13.56.604l43.78-33.233l100.507 91.695a15.85 15.85 0 0 0 5.464 3.571m10.464-183.649l-76.262 57.889l76.262 57.888z"/></defs><mask id="SVGSAQ58H2f" fill="#fff"><use href="#SVGWhZ12djk"/></mask><path fill="#0065a9" d="M246.135 26.873L193.593 1.575a15.885 15.885 0 0 0-18.123 3.08L3.466 161.482c-4.626 4.219-4.62 11.502.012 15.714l14.05 12.772a10.625 10.625 0 0 0 13.569.604L238.229 33.436c6.949-5.271 16.93-.315 16.93 8.407v-.61a15.94 15.94 0 0 0-9.024-14.36" mask="url(#SVGSAQ58H2f)"/><path fill="#007acc" d="m246.135 226.816l-52.542 25.298a15.89 15.89 0 0 1-18.123-3.08L3.466 92.207c-4.626-4.218-4.62-11.502.012-15.713l14.05-12.773a10.625 10.625 0 0 1 13.569-.603l207.132 157.135c6.949 5.271 16.93.315 16.93-8.408v.611a15.94 15.94 0 0 1-9.024 14.36" mask="url(#SVGSAQ58H2f)"/><path fill="#1f9cf0" d="M193.428 252.134a15.89 15.89 0 0 1-18.125-3.083c5.881 5.88 15.938 1.715 15.938-6.603V11.273c0-8.318-10.057-12.483-15.938-6.602a15.89 15.89 0 0 1 18.125-3.084l52.533 25.263a15.94 15.94 0 0 1 9.03 14.363V212.51c0 6.125-3.51 11.709-9.03 14.363z" mask="url(#SVGSAQ58H2f)"/><path fill="url(#SVG6Q5wMbNQ)" fill-opacity=".25" d="M180.828 252.605a15.87 15.87 0 0 0 12.65-.486l52.5-25.263a15.94 15.94 0 0 0 9.026-14.363V41.197a15.94 15.94 0 0 0-9.025-14.363L193.477 1.57a15.88 15.88 0 0 0-18.114 3.084L74.857 96.35l-43.78-33.232a10.614 10.614 0 0 0-13.56.603L3.476 76.494c-4.63 4.211-4.635 11.495-.012 15.713l37.967 34.638l-37.967 34.637c-4.623 4.219-4.618 11.502.012 15.714l14.041 12.772a10.614 10.614 0 0 0 13.56.604l43.78-33.233l100.506 91.695a15.9 15.9 0 0 0 5.465 3.571m10.464-183.65l-76.262 57.89l76.262 57.888z" mask="url(#SVGSAQ58H2f)"/></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">VS Code</span></span>
     <span class="tbrief" data-brief>~/Library/Application Support/Code/User</span></span>
   <span class="badge ok end">✓ detected</span></label>
-<label class="tile agent" data-cid="cursor">
+<label class="tile agent on" data-cid="cursor">
   <input type="radio" class="dot" name="client" value="cursor">
   <span class="tlogo mono"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 466.73 532.09" aria-hidden="true"><path fill="#26251e" d="M457.43 125.94L244.42 2.96a22.13 22.13 0 0 0-22.12 0L9.3 125.94C3.55 129.26 0 135.4 0 142.05v247.99c0 6.65 3.55 12.79 9.3 16.11l213.01 122.98a22.13 22.13 0 0 0 22.12 0l213.01-122.98c5.75-3.32 9.3-9.46 9.3-16.11V142.05c0-6.65-3.55-12.79-9.3-16.11zm-13.38 26.05L238.42 508.15c-1.39 2.4-5.06 1.42-5.06-1.36V273.58c0-4.66-2.49-8.97-6.53-11.31L24.87 145.67c-2.4-1.39-1.42-5.06 1.36-5.06h411.26c5.84 0 9.49 6.33 6.57 11.39h-.01Z"/></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">Cursor</span></span>
@@ -4937,39 +4766,14 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
   <button type="button" class="mw-fix" id="modelfix">Use AIsa models →</button>
 </div></div>
   <div class="pane" data-pane="4">
-<h1>What should your agent be able to <em>reach</em>?</h1>
-<p class="lede">3 areas, 3 servers, 97 tools. Open an area to pick the servers inside it. Everything here is live production data with licensed sources; you can add more later with one more <code>aisa connect</code>.</p>
-<div class="cgrid"><button type="button" class="ctile" data-cat="Search & Research">
-  <span class="cico"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="m21 21l-4.34-4.34"/><circle cx="11" cy="11" r="8"/></g></svg></span>
-  <span class="cname">Search & Research</span>
-  <span class="cmeta">1 server · 27 tools</span>
-  <span class="cblurb">Ranked web results with page text already extracted, plus YouTube.</span>
-  <span class="csel" data-csel></span></button><button type="button" class="ctile" data-cat="Finance">
-  <span class="cico"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M16 7h6v6"/><path d="m22 7l-8.5 8.5l-5-5L2 17"/></g></svg></span>
-  <span class="cname">Finance</span>
-  <span class="cmeta">1 server · 21 tools</span>
-  <span class="cblurb">US equities, crypto, prediction markets and what X is saying about a ticker.</span>
-  <span class="csel" data-csel></span></button><button type="button" class="ctile" data-cat="Communication">
-  <span class="cico"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/></g></svg></span>
-  <span class="cname">Communication</span>
-  <span class="cmeta">1 server · 49 tools</span>
-  <span class="cblurb">An inbox an agent can actually use — its own address, sending and receiving.</span>
-  <span class="csel" data-csel></span></button></div>
+<h1>Connect AIsa tools</h1>
+<p class="lede">One unified AIsa MCP connection. One Router MCP connects your agent to AIsa tools. Existing MCP entries stay unchanged; remove old domain entries manually.</p>
 <div class="spanel" id="spanel">
-  <div class="sphead"><h2 id="spTitle">Pick an area above</h2><button type="button" class="link" id="spAll">Select all in this area</button></div>
-  <div class="sgrid" id="sgrid"><label class="stile on" data-cat="Search & Research">
-  <input type="checkbox" name="server" value="web-search" checked>
-  <span class="tbody"><span class="thead"><span class="tname">Web Search</span>
-    <span class="badge">27 tools</span></span>
-    <span class="sdesc">Search the web.</span></span></label><label class="stile" data-cat="Finance">
-  <input type="checkbox" name="server" value="marketpulse">
-  <span class="tbody"><span class="thead"><span class="tname">MarketPulse</span>
-    <span class="badge">21 tools</span></span>
-    <span class="sdesc">US equities.</span></span></label><label class="stile" data-cat="Communication">
-  <input type="checkbox" name="server" value="agentmail">
-  <span class="tbody"><span class="thead"><span class="tname">AgentMail</span>
-    <span class="badge">49 tools</span></span>
-    <span class="sdesc">Email for agents.</span></span></label></div>
+    <div class="sgrid" id="sgrid"><label class="stile on" data-cat="AIsa">
+  <input type="checkbox" name="server" value="router" checked disabled>
+  <span class="tbody"><span class="thead"><span class="tname">Router</span>
+    <span class="badge">5 tools</span></span>
+    <span class="sdesc">One AIsa connection: search, batch_get_schema, batch_quote, batch_use, and account. Discover tools, inspect schemas, quote costs, and execute through the Router.</span></span></label></div>
 </div>
 <div class="tally" id="tally"></div></div>
   <div class="pane" data-pane="5">
@@ -4999,13 +4803,13 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
   // home again, and neither move was theirs.
   var CAME_BACK = /[?&]signedin=1/.test(location.search);
   var VIEW = "start";
-  var SERVERS = [{"slug":"web-search","endpoint":"https://mcp.aisa.one/web-search/mcp","name":"Web Search","category":"Search & Research","toolCount":27,"description":"Search the web."},{"slug":"agentmail","endpoint":"https://mcp.aisa.one/agentmail/mcp","name":"AgentMail","category":"Communication","toolCount":49,"description":"Email for agents."},{"slug":"marketpulse","endpoint":"https://mcp.aisa.one/marketpulse/mcp","name":"MarketPulse","category":"Finance","toolCount":21,"description":"US equities."}];
+  var SERVERS = [{"slug":"router","endpoint":"https://mcp.aisa.one/mcp","name":"Router","category":"AIsa","toolCount":5,"description":"One AIsa connection: search, batch_get_schema, batch_quote, batch_use, and account. Discover tools, inspect schemas, quote costs, and execute through the Router."}];
   var CLIENTS = [{"id":"claude-code","label":"Claude Code","kind":"cli","detected":true,"detail":"2.1.241","installable":false,"command":"curl -fsSL -A aisa-cli --connect-timeout 10 --max-time 180 https://claude.ai/install.sh | bash"},{"id":"codex","label":"Codex","kind":"cli","detected":false,"detail":"codex not found on PATH","installable":true,"command":"npm install -g @openai/codex"},{"id":"opencode","label":"opencode","kind":"cli","detected":false,"detail":"opencode not found on PATH","installable":true,"command":"npm install -g opencode-ai"},{"id":"vscode","label":"VS Code","kind":"file","detected":true,"detail":"~/Library/Application Support/Code/User","installable":false,"command":""},{"id":"cursor","label":"Cursor","kind":"file","detected":true,"detail":"~/.cursor/mcp.json","installable":false,"command":""},{"id":"claude-desktop","label":"Claude Desktop","kind":"file","detected":false,"detail":"not installed","installable":false,"command":""}];
   var MODEL_FOR = {"claude-code":"claude-sonnet-5","codex":"gpt-5.3-codex","opencode":"claude-sonnet-5","vscode":"claude-sonnet-5","cursor":"claude-sonnet-5","claude-desktop":"claude-sonnet-5"};
-  var EXAMPLES = {"web-search":["Using AIsa, search the web for this week's biggest AI news and summarize the top 3 results with links.","Using AIsa, research how teams are adopting MCP servers in production and give me a sourced brief."],"twitter-api":["Using AIsa, fetch the latest tweets from @AnthropicAI and summarize the main themes.","Using AIsa, pull @sama's five most recent tweets with their engagement numbers."],"crypto-market-data":["Using AIsa, get Bitcoin's current price and 24h change, then compare it with Ethereum.","Using AIsa's crypto data, list today's trending coins with prices and market caps."],"marketpulse":["Using AIsa, pull AAPL's latest income statement and summarize the revenue and margin trend.","Using AIsa's market data, screen for US stocks with a market cap above $1T and compare their P/E ratios."],"stock-pulse":["Using AIsa, show what X/Twitter is saying about NVDA today, joined with its market data.","Using AIsa, find which tickers are trending on X right now and why."],"prediction-market-data":["Using AIsa, list the most active prediction markets right now with their implied probabilities.","Using AIsa, compare what Polymarket and Kalshi imply about the next Fed rate decision."],"reddit":["Using AIsa, find today's top posts in r/MachineLearning and summarize the discussion.","Using AIsa, search Reddit for real-world Claude Code workflows people recommend."],"youtube-search":["Using AIsa, find the three most relevant YouTube videos about MCP servers and list their channels.","Using AIsa, find beginner YouTube tutorials for Claude Code and pick the best one to start with."],"instagram":["Using AIsa, fetch the Instagram profile and recent posts of @nasa and describe their content strategy.","Using AIsa, compare the recent Instagram engagement of @natgeo and @nasa."],"pinterest":["Using AIsa, search Pinterest for 'mid-century interior' and summarize the visual trends.","Using AIsa, find trending home-office ideas on Pinterest and summarize them with links."],"apollo":["Using AIsa, enrich the company anthropic.com — size, industry, and key people.","Using AIsa, find five AI infrastructure startups in San Francisco with their CEOs."]};
+  var EXAMPLES = {"router":["Using AIsa, research the latest developments in AI and cite your sources."],"web-search":["Using AIsa, search the web for this week's biggest AI news and summarize the top 3 results with links.","Using AIsa, research how teams are adopting MCP servers in production and give me a sourced brief."],"twitter-api":["Using AIsa, fetch the latest tweets from @AnthropicAI and summarize the main themes.","Using AIsa, pull @sama's five most recent tweets with their engagement numbers."],"crypto-market-data":["Using AIsa, get Bitcoin's current price and 24h change, then compare it with Ethereum.","Using AIsa's crypto data, list today's trending coins with prices and market caps."],"marketpulse":["Using AIsa, pull AAPL's latest income statement and summarize the revenue and margin trend.","Using AIsa's market data, screen for US stocks with a market cap above $1T and compare their P/E ratios."],"stock-pulse":["Using AIsa, show what X/Twitter is saying about NVDA today, joined with its market data.","Using AIsa, find which tickers are trending on X right now and why."],"prediction-market-data":["Using AIsa, list the most active prediction markets right now with their implied probabilities.","Using AIsa, compare what Polymarket and Kalshi imply about the next Fed rate decision."],"reddit":["Using AIsa, find today's top posts in r/MachineLearning and summarize the discussion.","Using AIsa, search Reddit for real-world Claude Code workflows people recommend."],"youtube-search":["Using AIsa, find the three most relevant YouTube videos about MCP servers and list their channels.","Using AIsa, find beginner YouTube tutorials for Claude Code and pick the best one to start with."],"instagram":["Using AIsa, fetch the Instagram profile and recent posts of @nasa and describe their content strategy.","Using AIsa, compare the recent Instagram engagement of @natgeo and @nasa."],"pinterest":["Using AIsa, search Pinterest for 'mid-century interior' and summarize the visual trends.","Using AIsa, find trending home-office ideas on Pinterest and summarize them with links."],"apollo":["Using AIsa, enrich the company anthropic.com — size, industry, and key people.","Using AIsa, find five AI infrastructure startups in San Francisco with their CEOs."]};
   var BACKUP_COPY = {"claude-code":"Installs one small command, <b><code>claude-aisa</code></b>, next to your other tools. Your original <b><code>claude</code></b> keeps its login, models and settings <b>exactly as they are</b>.<br>You can use the newly added <b><code>claude-aisa</code></b> whenever you want AIsa's models at lower prices. Delete that one file to remove it.","codex":"Adds an <b>aisa profile</b> inside Codex's own config and a <b><code>codex-aisa</code></b> command. Your default Codex is <b>untouched</b>.<br>You can use the newly added <b><code>codex-aisa</code></b> (or <code>codex --profile aisa</code>) whenever you want AIsa's models; it applies to that session only.","vscode":"Adds a <b>Custom Endpoint</b> group named <b>AIsa</b> to VS Code's chat models — Claude, GPT, DeepSeek, Kimi, GLM, Qwen — beside Copilot's own. Your Copilot setup is <b>untouched</b>.<br>A small <b>AIsa extension</b> is installed so VS Code stores your key itself — nothing to paste. Then pick any AIsa model from the chat model picker; inline completions stay on Copilot.","opencode":"Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b>.<br>You can pick the newly added <code>aisa/…</code> models from opencode's model list whenever you want them."};
   var COPY = {"nothingSelected":"Nothing selected yet — pick at least one server.","planBackup":{"claude-code":"Install the claude-aisa command","codex":"Add the aisa profile and codex-aisa","vscode":"Add AIsa models to VS Code chat","other":"Add AIsa as a backup provider"},"planBackupNote":"your current setup stays untouched","ledeFailed":"Some steps did not complete — the details are in the list; your results page explains how to retry.","ledeAllRan":"Everything ran. Your results, balance and try-it-now prompts are on the last step.","backupIntact":"Your usual setup is untouched.","backupOpencode":"Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa.","backupBin":"Run <code>{bin}</code> whenever you want AIsa's models; delete that one file to remove it.","noKeyStored":"No key stored here — run <code>aisa login</code>, then copy it from <code>~/.aisa/key</code>.","cannotStartApp":"Could not start {name} — open it from your Applications folder.","cannotOpenTerminal":"Could not open a terminal — run <b><code>{bin}</code></b> in any terminal."};
-  var AGENT_NOTES = {"claude-code":"Servers are added with <code>claude mcp add</code> in user scope — the official mechanism, reversible with <code>claude mcp remove</code>. Models, if you choose to, are set through Claude Code's own settings file.","codex":"Servers are added with <code>codex mcp add</code>, Codex's own command. Models go in an <code>aisa</code> provider inside <code>~/.codex/config.toml</code> — only keys we wrote are ever touched.","opencode":"Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.","vscode":"Nothing is done by hand. The AIsa servers go into VS Code's <code>mcp.json</code> (with your key, or VS Code signs in to them itself), and a small <b>AIsa extension</b> is installed that asks VS Code to store your key and add the models as a <b>Custom Endpoint</b> group named AIsa — beside Copilot's own, which stay. Inline completions keep using Copilot.","cursor":"One click per server: each becomes an <b>Add to Cursor</b> link on the last step. Cursor opens, shows you the exact entry, and writes it into its own MCP settings when you confirm. Models stay as they are — Cursor picks its own.","claude-desktop":"Claude Desktop's config file only takes MCP servers over stdio, so each AIsa server is written in as a small <code>mcp-remote</code> bridge carrying your key (plus the free <code>aisa-docs</code> server). The bridges live and die with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the servers appear under its tools menu.","claude-ai":"Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own."};
+  var AGENT_NOTES = {"claude-code":"Servers are added with <code>claude mcp add</code> in user scope — the official mechanism, reversible with <code>claude mcp remove</code>. Models, if you choose to, are set through Claude Code's own settings file.","codex":"Servers are added with <code>codex mcp add</code>, Codex's own command. Models go in an <code>aisa</code> provider inside <code>~/.codex/config.toml</code> — only keys we wrote are ever touched.","opencode":"Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.","vscode":"Nothing is done by hand. The AIsa servers go into VS Code's <code>mcp.json</code> (with your key, or VS Code signs in to them itself), and a small <b>AIsa extension</b> is installed that asks VS Code to store your key and add the models as a <b>Custom Endpoint</b> group named AIsa — beside Copilot's own, which stay. Inline completions keep using Copilot.","cursor":"One click per server: each becomes an <b>Add to Cursor</b> link on the last step. Cursor opens, shows you the exact entry, and writes it into its own MCP settings when you confirm. Models stay as they are — Cursor picks its own.","claude-desktop":"Claude Desktop's config file only takes MCP servers over stdio, so each AIsa server is written in as a small <code>mcp-remote</code> bridge carrying your key. The bridges live and die with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the servers appear under its tools menu.","claude-ai":"Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own."};
   var HAVE_NOTES = {"claude-code":"Nothing of yours is replaced. Your <code>claude</code> keeps its login, models and settings; the next step lets you add AIsa <b>beside</b> it as a separate <b><code>claude-aisa</code></b> command, or switch — your call.","codex":"Nothing of yours is replaced. Your <code>codex</code> keeps its login and config; the next step lets you add AIsa <b>beside</b> it as an <code>aisa</code> profile and a <b><code>codex-aisa</code></b> command, or switch — your call.","opencode":"Nothing of yours is replaced. Your default model stays; the next step can add AIsa as an extra <code>aisa/…</code> provider you pick from the model list, or switch — your call.","claude-desktop":"Nothing of yours is replaced. Anything already in <code>claude_desktop_config.json</code> stays; AIsa's entries are added beside it under <code>aisa-*</code> names and removing them is deleting those entries.","claude-ai":"Nothing of yours is touched — the connectors live in your claude.ai account, beside any you already have, and can be removed there in one click.","vscode":"Nothing of yours is replaced. Other MCP servers and model groups in those two files stay; only the <code>aisa-*</code> entries and the AIsa group are ours, and removing them is deleting those entries.","cursor":"Nothing of yours is replaced. Cursor adds each AIsa server beside your existing MCP entries under <code>aisa-*</code> names, and you approve every one inside Cursor first."};
   var FILE_MODEL_NOTE = {"claude-desktop":"<b>Claude Desktop runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents on the same AIsa account; Claude Desktop gets the MCP tools.","claude-ai":"<b>claude.ai runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents (Claude Code, Codex, opencode) on the same AIsa account; claude.ai gets the MCP connectors.","cursor":"<b>Cursor picks its models inside the app</b>, so nothing changes here — only the MCP servers are added."};
   var NEEDS_CLI = false;
@@ -5454,42 +5258,11 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
   });
 
   // ── step 4 ──
-  var activeCat = null;
   function syncCaps() {
-    var picked = pickedServers();
-    $$(".ctile").forEach(function (t) {
-      var cat = t.dataset.cat;
-      var n = SERVERS.filter(function (s) { return s.category === cat && picked.indexOf(s.slug) !== -1; }).length;
-      var sel = t.querySelector("[data-csel]");
-      sel.textContent = n ? n + " selected" : "";
-      t.classList.toggle("has", n > 0);
-      t.classList.toggle("active", cat === activeCat);
-    });
-    $$(".stile").forEach(function (t) {
-      t.classList.toggle("on", t.querySelector("input").checked);
-      t.style.display = t.dataset.cat === activeCat ? "" : "none";
-    });
-    $("#spanel").classList.toggle("open", Boolean(activeCat));
-    $("#spTitle").textContent = activeCat ? activeCat : "Pick an area above";
-    var tools = picked.reduce(function (n, s) { return n + (BY_SLUG[s] ? BY_SLUG[s].toolCount : 0); }, 0);
-    $("#tally").innerHTML = picked.length
-      ? "<b>" + picked.length + " server" + (picked.length > 1 ? "s" : "") + "</b> · " + tools + " tools selected"
-      : COPY.nothingSelected;
+    $$('input[name="server"]').forEach(function (i) { i.checked = true; i.disabled = true; });
+    $("#spanel").classList.add("open");
+    $("#tally").textContent = "https://mcp.aisa.one/mcp";
   }
-  $$(".ctile").forEach(function (t) { t.addEventListener("click", function () {
-    activeCat = activeCat === t.dataset.cat ? null : t.dataset.cat; syncCaps();
-    if (activeCat) $("#spanel").scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }); });
-  $$('input[name="server"]').forEach(function (c) { c.addEventListener("change", function () { syncCaps(); publishDraft(current); }); });
-  $("#spAll").addEventListener("click", function () {
-    if (!activeCat) return;
-    var boxes = $$('.stile[data-cat="' + activeCat + '"] input');
-    var all = boxes.every(function (b) { return b.checked; });
-    boxes.forEach(function (b) { b.checked = !all; });
-    syncCaps();
-  });
-  // Open the area holding the default selection so the page never starts blank.
-  (function () { var first = $('input[name="server"]:checked'); if (first) activeCat = first.closest(".stile").dataset.cat; })();
 
   // ── next button ──
   nextBtn.addEventListener("click", function () {
@@ -5681,7 +5454,6 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
     locked = true;
     paintRail();
     $$('.pane[data-pane="2"] input, .pane[data-pane="3"] input, .pane[data-pane="4"] input').forEach(function (i) { i.disabled = true; });
-    $$(".ctile, #spAll").forEach(function (b) { b.disabled = false; });
     document.body.classList.add("locked");
   }
   function start() {
@@ -5762,7 +5534,7 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
     var fileNote = "";
     if (id === "claude-desktop") {
       fileNote = "<div class='vsccard'><div class='vschead'><span class='blogo lg'>" + CLAUDE_DT_LOGO + "</span><div><b>Claude Desktop is ready</b>" +
-        "<div class='fine' style='margin:0'>" + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " (plus aisa-docs) are in its config — one restart loads them.</div></div>" +
+        "<div class='fine' style='margin:0'>" + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " are in its config — one restart loads them.</div></div>" +
         "<div class='termside'><button type='button' class='cta sm' id='launch'>Restart Claude Desktop →</button><span class='fine' id='launchnote'></span></div></div>" +
         "<div class='vscgrid'>" +
         "<div class='vscitem'><span class='srv'>Tools</span>After the restart, open the <b>tools menu</b> (🔧) in a chat — the <code>aisa-…</code> servers are there. Each runs as a small bridge that lives and dies with the app; no background service.</div>" +
@@ -5860,7 +5632,7 @@ exports[`T2 page — byte-exact snapshots > start view, key already configured 1
     $$('input[name="server"]').forEach(function (i) { i.checked = sel.servers.indexOf(i.value) !== -1; });
     var fresh = sel.install.length > 0;
     var r = $('input[name="' + (fresh ? "lmodeFresh" : "lmodeDet") + '"][value="' + sel.llmMode + '"]'); if (r) r.checked = true;
-    var first = $('input[name="server"]:checked'); if (first) activeCat = first.closest(".stile").dataset.cat;
+
     syncAgent(); syncModels(); syncCaps(); lockSelections();
     phase = s.phase; serverSteps = s.steps; lastStatus = s;
     var settled = phase === "done" || phase === "failed";
@@ -6357,25 +6129,25 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
   <span class="tbody"><span class="thead"><span class="tname">Claude Code</span></span>
     <span class="tbrief" data-brief>2.1.241</span></span>
   <span class="badge ok end">✓ detected</span></label>
-<label class="tile agent" data-cid="codex">
+<label class="tile agent on" data-cid="codex">
   <input type="radio" class="dot" name="client" value="codex" data-install="1">
   <span class="tlogo"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g fill="none" stroke="#0d0d0b" stroke-width="2.1" stroke-linecap="round"><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(0 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(60 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(120 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(180 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(240 12 12)"/><path d="M12 3.4 A8.6 8.6 0 0 1 19.4 7.6" transform="rotate(300 12 12)"/></g></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">Codex</span></span>
     <span class="tbrief" data-brief>Install <b>and</b> connect it — <code>npm install -g @openai/codex</code></span></span>
   <span class="badge todo end" data-badge>not installed</span></label>
-<label class="tile agent" data-cid="opencode">
+<label class="tile agent on" data-cid="opencode">
   <input type="radio" class="dot" name="client" value="opencode" data-install="1">
   <span class="tlogo"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="5" fill="#0d0d0b"/><g fill="#fafafa"><rect x="5" y="8" width="6" height="8"/><rect x="7" y="10" width="2" height="4" fill="#0d0d0b"/><rect x="13" y="8" width="6" height="2"/><rect x="13" y="14" width="6" height="2"/><rect x="13" y="8" width="2" height="8"/></g></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">opencode</span></span>
     <span class="tbrief" data-brief>Install <b>and</b> connect it — <code>npm install -g opencode-ai</code></span></span>
   <span class="badge todo end" data-badge>not installed</span></label>
-<label class="tile agent" data-cid="vscode">
+<label class="tile agent on" data-cid="vscode">
   <input type="radio" class="dot" name="client" value="vscode">
   <span class="tlogo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 254" aria-hidden="true"><defs><linearGradient id="SVG6Q5wMbNQ" x1="50%" x2="50%" y1="0%" y2="100%"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></linearGradient><path id="SVGWhZ12djk" d="M180.828 252.605a15.87 15.87 0 0 0 12.65-.486l52.501-25.262a15.94 15.94 0 0 0 9.025-14.364V41.197a15.94 15.94 0 0 0-9.025-14.363l-52.5-25.263a15.88 15.88 0 0 0-18.115 3.084L74.857 96.35l-43.78-33.232a10.614 10.614 0 0 0-13.56.603L3.476 76.494c-4.63 4.211-4.635 11.495-.012 15.713l37.967 34.638l-37.967 34.637c-4.623 4.219-4.618 11.502.012 15.714l14.041 12.772a10.614 10.614 0 0 0 13.56.604l43.78-33.233l100.507 91.695a15.85 15.85 0 0 0 5.464 3.571m10.464-183.649l-76.262 57.889l76.262 57.888z"/></defs><mask id="SVGSAQ58H2f" fill="#fff"><use href="#SVGWhZ12djk"/></mask><path fill="#0065a9" d="M246.135 26.873L193.593 1.575a15.885 15.885 0 0 0-18.123 3.08L3.466 161.482c-4.626 4.219-4.62 11.502.012 15.714l14.05 12.772a10.625 10.625 0 0 0 13.569.604L238.229 33.436c6.949-5.271 16.93-.315 16.93 8.407v-.61a15.94 15.94 0 0 0-9.024-14.36" mask="url(#SVGSAQ58H2f)"/><path fill="#007acc" d="m246.135 226.816l-52.542 25.298a15.89 15.89 0 0 1-18.123-3.08L3.466 92.207c-4.626-4.218-4.62-11.502.012-15.713l14.05-12.773a10.625 10.625 0 0 1 13.569-.603l207.132 157.135c6.949 5.271 16.93.315 16.93-8.408v.611a15.94 15.94 0 0 1-9.024 14.36" mask="url(#SVGSAQ58H2f)"/><path fill="#1f9cf0" d="M193.428 252.134a15.89 15.89 0 0 1-18.125-3.083c5.881 5.88 15.938 1.715 15.938-6.603V11.273c0-8.318-10.057-12.483-15.938-6.602a15.89 15.89 0 0 1 18.125-3.084l52.533 25.263a15.94 15.94 0 0 1 9.03 14.363V212.51c0 6.125-3.51 11.709-9.03 14.363z" mask="url(#SVGSAQ58H2f)"/><path fill="url(#SVG6Q5wMbNQ)" fill-opacity=".25" d="M180.828 252.605a15.87 15.87 0 0 0 12.65-.486l52.5-25.263a15.94 15.94 0 0 0 9.026-14.363V41.197a15.94 15.94 0 0 0-9.025-14.363L193.477 1.57a15.88 15.88 0 0 0-18.114 3.084L74.857 96.35l-43.78-33.232a10.614 10.614 0 0 0-13.56.603L3.476 76.494c-4.63 4.211-4.635 11.495-.012 15.713l37.967 34.638l-37.967 34.637c-4.623 4.219-4.618 11.502.012 15.714l14.041 12.772a10.614 10.614 0 0 0 13.56.604l43.78-33.233l100.506 91.695a15.9 15.9 0 0 0 5.465 3.571m10.464-183.65l-76.262 57.89l76.262 57.888z" mask="url(#SVGSAQ58H2f)"/></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">VS Code</span></span>
     <span class="tbrief" data-brief>~/Library/Application Support/Code/User</span></span>
   <span class="badge ok end">✓ detected</span></label>
-<label class="tile agent" data-cid="cursor">
+<label class="tile agent on" data-cid="cursor">
   <input type="radio" class="dot" name="client" value="cursor">
   <span class="tlogo mono"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 466.73 532.09" aria-hidden="true"><path fill="#26251e" d="M457.43 125.94L244.42 2.96a22.13 22.13 0 0 0-22.12 0L9.3 125.94C3.55 129.26 0 135.4 0 142.05v247.99c0 6.65 3.55 12.79 9.3 16.11l213.01 122.98a22.13 22.13 0 0 0 22.12 0l213.01-122.98c5.75-3.32 9.3-9.46 9.3-16.11V142.05c0-6.65-3.55-12.79-9.3-16.11zm-13.38 26.05L238.42 508.15c-1.39 2.4-5.06 1.42-5.06-1.36V273.58c0-4.66-2.49-8.97-6.53-11.31L24.87 145.67c-2.4-1.39-1.42-5.06 1.36-5.06h411.26c5.84 0 9.49 6.33 6.57 11.39h-.01Z"/></svg></span>
   <span class="tbody"><span class="thead"><span class="tname">Cursor</span></span>
@@ -6430,39 +6202,14 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
   <button type="button" class="mw-fix" id="modelfix">Use AIsa models →</button>
 </div></div>
   <div class="pane" data-pane="4">
-<h1>What should your agent be able to <em>reach</em>?</h1>
-<p class="lede">3 areas, 3 servers, 97 tools. Open an area to pick the servers inside it. Everything here is live production data with licensed sources; you can add more later with one more <code>aisa connect</code>.</p>
-<div class="cgrid"><button type="button" class="ctile" data-cat="Search & Research">
-  <span class="cico"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="m21 21l-4.34-4.34"/><circle cx="11" cy="11" r="8"/></g></svg></span>
-  <span class="cname">Search & Research</span>
-  <span class="cmeta">1 server · 27 tools</span>
-  <span class="cblurb">Ranked web results with page text already extracted, plus YouTube.</span>
-  <span class="csel" data-csel></span></button><button type="button" class="ctile" data-cat="Finance">
-  <span class="cico"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M16 7h6v6"/><path d="m22 7l-8.5 8.5l-5-5L2 17"/></g></svg></span>
-  <span class="cname">Finance</span>
-  <span class="cmeta">1 server · 21 tools</span>
-  <span class="cblurb">US equities, crypto, prediction markets and what X is saying about a ticker.</span>
-  <span class="csel" data-csel></span></button><button type="button" class="ctile" data-cat="Communication">
-  <span class="cico"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/></g></svg></span>
-  <span class="cname">Communication</span>
-  <span class="cmeta">1 server · 49 tools</span>
-  <span class="cblurb">An inbox an agent can actually use — its own address, sending and receiving.</span>
-  <span class="csel" data-csel></span></button></div>
+<h1>Connect AIsa tools</h1>
+<p class="lede">One unified AIsa MCP connection. One Router MCP connects your agent to AIsa tools. Existing MCP entries stay unchanged; remove old domain entries manually.</p>
 <div class="spanel" id="spanel">
-  <div class="sphead"><h2 id="spTitle">Pick an area above</h2><button type="button" class="link" id="spAll">Select all in this area</button></div>
-  <div class="sgrid" id="sgrid"><label class="stile on" data-cat="Search & Research">
-  <input type="checkbox" name="server" value="web-search" checked>
-  <span class="tbody"><span class="thead"><span class="tname">Web Search</span>
-    <span class="badge">27 tools</span></span>
-    <span class="sdesc">Search the web.</span></span></label><label class="stile" data-cat="Finance">
-  <input type="checkbox" name="server" value="marketpulse">
-  <span class="tbody"><span class="thead"><span class="tname">MarketPulse</span>
-    <span class="badge">21 tools</span></span>
-    <span class="sdesc">US equities.</span></span></label><label class="stile" data-cat="Communication">
-  <input type="checkbox" name="server" value="agentmail">
-  <span class="tbody"><span class="thead"><span class="tname">AgentMail</span>
-    <span class="badge">49 tools</span></span>
-    <span class="sdesc">Email for agents.</span></span></label></div>
+    <div class="sgrid" id="sgrid"><label class="stile on" data-cat="AIsa">
+  <input type="checkbox" name="server" value="router" checked disabled>
+  <span class="tbody"><span class="thead"><span class="tname">Router</span>
+    <span class="badge">5 tools</span></span>
+    <span class="sdesc">One AIsa connection: search, batch_get_schema, batch_quote, batch_use, and account. Discover tools, inspect schemas, quote costs, and execute through the Router.</span></span></label></div>
 </div>
 <div class="tally" id="tally"></div></div>
   <div class="pane" data-pane="5">
@@ -6492,13 +6239,13 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
   // home again, and neither move was theirs.
   var CAME_BACK = /[?&]signedin=1/.test(location.search);
   var VIEW = "start";
-  var SERVERS = [{"slug":"web-search","endpoint":"https://mcp.aisa.one/web-search/mcp","name":"Web Search","category":"Search & Research","toolCount":27,"description":"Search the web."},{"slug":"agentmail","endpoint":"https://mcp.aisa.one/agentmail/mcp","name":"AgentMail","category":"Communication","toolCount":49,"description":"Email for agents."},{"slug":"marketpulse","endpoint":"https://mcp.aisa.one/marketpulse/mcp","name":"MarketPulse","category":"Finance","toolCount":21,"description":"US equities."}];
+  var SERVERS = [{"slug":"router","endpoint":"https://mcp.aisa.one/mcp","name":"Router","category":"AIsa","toolCount":5,"description":"One AIsa connection: search, batch_get_schema, batch_quote, batch_use, and account. Discover tools, inspect schemas, quote costs, and execute through the Router."}];
   var CLIENTS = [{"id":"claude-code","label":"Claude Code","kind":"cli","detected":true,"detail":"2.1.241","installable":false,"command":"curl -fsSL -A aisa-cli --connect-timeout 10 --max-time 180 https://claude.ai/install.sh | bash"},{"id":"codex","label":"Codex","kind":"cli","detected":false,"detail":"codex not found on PATH","installable":true,"command":"npm install -g @openai/codex"},{"id":"opencode","label":"opencode","kind":"cli","detected":false,"detail":"opencode not found on PATH","installable":true,"command":"npm install -g opencode-ai"},{"id":"vscode","label":"VS Code","kind":"file","detected":true,"detail":"~/Library/Application Support/Code/User","installable":false,"command":""},{"id":"cursor","label":"Cursor","kind":"file","detected":true,"detail":"~/.cursor/mcp.json","installable":false,"command":""},{"id":"claude-desktop","label":"Claude Desktop","kind":"file","detected":false,"detail":"not installed","installable":false,"command":""}];
   var MODEL_FOR = {"claude-code":"claude-sonnet-5","codex":"gpt-5.3-codex","opencode":"claude-sonnet-5","vscode":"claude-sonnet-5","cursor":"claude-sonnet-5","claude-desktop":"claude-sonnet-5"};
-  var EXAMPLES = {"web-search":["Using AIsa, search the web for this week's biggest AI news and summarize the top 3 results with links.","Using AIsa, research how teams are adopting MCP servers in production and give me a sourced brief."],"twitter-api":["Using AIsa, fetch the latest tweets from @AnthropicAI and summarize the main themes.","Using AIsa, pull @sama's five most recent tweets with their engagement numbers."],"crypto-market-data":["Using AIsa, get Bitcoin's current price and 24h change, then compare it with Ethereum.","Using AIsa's crypto data, list today's trending coins with prices and market caps."],"marketpulse":["Using AIsa, pull AAPL's latest income statement and summarize the revenue and margin trend.","Using AIsa's market data, screen for US stocks with a market cap above $1T and compare their P/E ratios."],"stock-pulse":["Using AIsa, show what X/Twitter is saying about NVDA today, joined with its market data.","Using AIsa, find which tickers are trending on X right now and why."],"prediction-market-data":["Using AIsa, list the most active prediction markets right now with their implied probabilities.","Using AIsa, compare what Polymarket and Kalshi imply about the next Fed rate decision."],"reddit":["Using AIsa, find today's top posts in r/MachineLearning and summarize the discussion.","Using AIsa, search Reddit for real-world Claude Code workflows people recommend."],"youtube-search":["Using AIsa, find the three most relevant YouTube videos about MCP servers and list their channels.","Using AIsa, find beginner YouTube tutorials for Claude Code and pick the best one to start with."],"instagram":["Using AIsa, fetch the Instagram profile and recent posts of @nasa and describe their content strategy.","Using AIsa, compare the recent Instagram engagement of @natgeo and @nasa."],"pinterest":["Using AIsa, search Pinterest for 'mid-century interior' and summarize the visual trends.","Using AIsa, find trending home-office ideas on Pinterest and summarize them with links."],"apollo":["Using AIsa, enrich the company anthropic.com — size, industry, and key people.","Using AIsa, find five AI infrastructure startups in San Francisco with their CEOs."]};
+  var EXAMPLES = {"router":["Using AIsa, research the latest developments in AI and cite your sources."],"web-search":["Using AIsa, search the web for this week's biggest AI news and summarize the top 3 results with links.","Using AIsa, research how teams are adopting MCP servers in production and give me a sourced brief."],"twitter-api":["Using AIsa, fetch the latest tweets from @AnthropicAI and summarize the main themes.","Using AIsa, pull @sama's five most recent tweets with their engagement numbers."],"crypto-market-data":["Using AIsa, get Bitcoin's current price and 24h change, then compare it with Ethereum.","Using AIsa's crypto data, list today's trending coins with prices and market caps."],"marketpulse":["Using AIsa, pull AAPL's latest income statement and summarize the revenue and margin trend.","Using AIsa's market data, screen for US stocks with a market cap above $1T and compare their P/E ratios."],"stock-pulse":["Using AIsa, show what X/Twitter is saying about NVDA today, joined with its market data.","Using AIsa, find which tickers are trending on X right now and why."],"prediction-market-data":["Using AIsa, list the most active prediction markets right now with their implied probabilities.","Using AIsa, compare what Polymarket and Kalshi imply about the next Fed rate decision."],"reddit":["Using AIsa, find today's top posts in r/MachineLearning and summarize the discussion.","Using AIsa, search Reddit for real-world Claude Code workflows people recommend."],"youtube-search":["Using AIsa, find the three most relevant YouTube videos about MCP servers and list their channels.","Using AIsa, find beginner YouTube tutorials for Claude Code and pick the best one to start with."],"instagram":["Using AIsa, fetch the Instagram profile and recent posts of @nasa and describe their content strategy.","Using AIsa, compare the recent Instagram engagement of @natgeo and @nasa."],"pinterest":["Using AIsa, search Pinterest for 'mid-century interior' and summarize the visual trends.","Using AIsa, find trending home-office ideas on Pinterest and summarize them with links."],"apollo":["Using AIsa, enrich the company anthropic.com — size, industry, and key people.","Using AIsa, find five AI infrastructure startups in San Francisco with their CEOs."]};
   var BACKUP_COPY = {"claude-code":"Installs one small command, <b><code>claude-aisa</code></b>, next to your other tools. Your original <b><code>claude</code></b> keeps its login, models and settings <b>exactly as they are</b>.<br>You can use the newly added <b><code>claude-aisa</code></b> whenever you want AIsa's models at lower prices. Delete that one file to remove it.","codex":"Adds an <b>aisa profile</b> inside Codex's own config and a <b><code>codex-aisa</code></b> command. Your default Codex is <b>untouched</b>.<br>You can use the newly added <b><code>codex-aisa</code></b> (or <code>codex --profile aisa</code>) whenever you want AIsa's models; it applies to that session only.","vscode":"Adds a <b>Custom Endpoint</b> group named <b>AIsa</b> to VS Code's chat models — Claude, GPT, DeepSeek, Kimi, GLM, Qwen — beside Copilot's own. Your Copilot setup is <b>untouched</b>.<br>A small <b>AIsa extension</b> is installed so VS Code stores your key itself — nothing to paste. Then pick any AIsa model from the chat model picker; inline completions stay on Copilot.","opencode":"Adds AIsa as an <b>extra provider</b> in opencode's config. Your default model is <b>untouched</b>.<br>You can pick the newly added <code>aisa/…</code> models from opencode's model list whenever you want them."};
   var COPY = {"nothingSelected":"Nothing selected yet — pick at least one server.","planBackup":{"claude-code":"Install the claude-aisa command","codex":"Add the aisa profile and codex-aisa","vscode":"Add AIsa models to VS Code chat","other":"Add AIsa as a backup provider"},"planBackupNote":"your current setup stays untouched","ledeFailed":"Some steps did not complete — the details are in the list; your results page explains how to retry.","ledeAllRan":"Everything ran. Your results, balance and try-it-now prompts are on the last step.","backupIntact":"Your usual setup is untouched.","backupOpencode":"Pick <code>aisa/…</code> from opencode's model list whenever you want AIsa.","backupBin":"Run <code>{bin}</code> whenever you want AIsa's models; delete that one file to remove it.","noKeyStored":"No key stored here — run <code>aisa login</code>, then copy it from <code>~/.aisa/key</code>.","cannotStartApp":"Could not start {name} — open it from your Applications folder.","cannotOpenTerminal":"Could not open a terminal — run <b><code>{bin}</code></b> in any terminal."};
-  var AGENT_NOTES = {"claude-code":"Servers are added with <code>claude mcp add</code> in user scope — the official mechanism, reversible with <code>claude mcp remove</code>. Models, if you choose to, are set through Claude Code's own settings file.","codex":"Servers are added with <code>codex mcp add</code>, Codex's own command. Models go in an <code>aisa</code> provider inside <code>~/.codex/config.toml</code> — only keys we wrote are ever touched.","opencode":"Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.","vscode":"Nothing is done by hand. The AIsa servers go into VS Code's <code>mcp.json</code> (with your key, or VS Code signs in to them itself), and a small <b>AIsa extension</b> is installed that asks VS Code to store your key and add the models as a <b>Custom Endpoint</b> group named AIsa — beside Copilot's own, which stay. Inline completions keep using Copilot.","cursor":"One click per server: each becomes an <b>Add to Cursor</b> link on the last step. Cursor opens, shows you the exact entry, and writes it into its own MCP settings when you confirm. Models stay as they are — Cursor picks its own.","claude-desktop":"Claude Desktop's config file only takes MCP servers over stdio, so each AIsa server is written in as a small <code>mcp-remote</code> bridge carrying your key (plus the free <code>aisa-docs</code> server). The bridges live and die with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the servers appear under its tools menu.","claude-ai":"Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own."};
+  var AGENT_NOTES = {"claude-code":"Servers are added with <code>claude mcp add</code> in user scope — the official mechanism, reversible with <code>claude mcp remove</code>. Models, if you choose to, are set through Claude Code's own settings file.","codex":"Servers are added with <code>codex mcp add</code>, Codex's own command. Models go in an <code>aisa</code> provider inside <code>~/.codex/config.toml</code> — only keys we wrote are ever touched.","opencode":"Servers are added with <code>opencode mcp add</code>. Models become an extra <code>aisa</code> provider in <code>opencode.json</code>; pick <code>aisa/…</code> from its model list.","vscode":"Nothing is done by hand. The AIsa servers go into VS Code's <code>mcp.json</code> (with your key, or VS Code signs in to them itself), and a small <b>AIsa extension</b> is installed that asks VS Code to store your key and add the models as a <b>Custom Endpoint</b> group named AIsa — beside Copilot's own, which stay. Inline completions keep using Copilot.","cursor":"One click per server: each becomes an <b>Add to Cursor</b> link on the last step. Cursor opens, shows you the exact entry, and writes it into its own MCP settings when you confirm. Models stay as they are — Cursor picks its own.","claude-desktop":"Claude Desktop's config file only takes MCP servers over stdio, so each AIsa server is written in as a small <code>mcp-remote</code> bridge carrying your key. The bridges live and die with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the servers appear under its tools menu.","claude-ai":"Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own."};
   var HAVE_NOTES = {"claude-code":"Nothing of yours is replaced. Your <code>claude</code> keeps its login, models and settings; the next step lets you add AIsa <b>beside</b> it as a separate <b><code>claude-aisa</code></b> command, or switch — your call.","codex":"Nothing of yours is replaced. Your <code>codex</code> keeps its login and config; the next step lets you add AIsa <b>beside</b> it as an <code>aisa</code> profile and a <b><code>codex-aisa</code></b> command, or switch — your call.","opencode":"Nothing of yours is replaced. Your default model stays; the next step can add AIsa as an extra <code>aisa/…</code> provider you pick from the model list, or switch — your call.","claude-desktop":"Nothing of yours is replaced. Anything already in <code>claude_desktop_config.json</code> stays; AIsa's entries are added beside it under <code>aisa-*</code> names and removing them is deleting those entries.","claude-ai":"Nothing of yours is touched — the connectors live in your claude.ai account, beside any you already have, and can be removed there in one click.","vscode":"Nothing of yours is replaced. Other MCP servers and model groups in those two files stay; only the <code>aisa-*</code> entries and the AIsa group are ours, and removing them is deleting those entries.","cursor":"Nothing of yours is replaced. Cursor adds each AIsa server beside your existing MCP entries under <code>aisa-*</code> names, and you approve every one inside Cursor first."};
   var FILE_MODEL_NOTE = {"claude-desktop":"<b>Claude Desktop runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents on the same AIsa account; Claude Desktop gets the MCP tools.","claude-ai":"<b>claude.ai runs on Anthropic's own models</b>, and AIsa cannot stand in for them — so nothing changes here. You still get every model above through the coding agents (Claude Code, Codex, opencode) on the same AIsa account; claude.ai gets the MCP connectors.","cursor":"<b>Cursor picks its models inside the app</b>, so nothing changes here — only the MCP servers are added."};
   var NEEDS_CLI = false;
@@ -6947,42 +6694,11 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
   });
 
   // ── step 4 ──
-  var activeCat = null;
   function syncCaps() {
-    var picked = pickedServers();
-    $$(".ctile").forEach(function (t) {
-      var cat = t.dataset.cat;
-      var n = SERVERS.filter(function (s) { return s.category === cat && picked.indexOf(s.slug) !== -1; }).length;
-      var sel = t.querySelector("[data-csel]");
-      sel.textContent = n ? n + " selected" : "";
-      t.classList.toggle("has", n > 0);
-      t.classList.toggle("active", cat === activeCat);
-    });
-    $$(".stile").forEach(function (t) {
-      t.classList.toggle("on", t.querySelector("input").checked);
-      t.style.display = t.dataset.cat === activeCat ? "" : "none";
-    });
-    $("#spanel").classList.toggle("open", Boolean(activeCat));
-    $("#spTitle").textContent = activeCat ? activeCat : "Pick an area above";
-    var tools = picked.reduce(function (n, s) { return n + (BY_SLUG[s] ? BY_SLUG[s].toolCount : 0); }, 0);
-    $("#tally").innerHTML = picked.length
-      ? "<b>" + picked.length + " server" + (picked.length > 1 ? "s" : "") + "</b> · " + tools + " tools selected"
-      : COPY.nothingSelected;
+    $$('input[name="server"]').forEach(function (i) { i.checked = true; i.disabled = true; });
+    $("#spanel").classList.add("open");
+    $("#tally").textContent = "https://mcp.aisa.one/mcp";
   }
-  $$(".ctile").forEach(function (t) { t.addEventListener("click", function () {
-    activeCat = activeCat === t.dataset.cat ? null : t.dataset.cat; syncCaps();
-    if (activeCat) $("#spanel").scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }); });
-  $$('input[name="server"]').forEach(function (c) { c.addEventListener("change", function () { syncCaps(); publishDraft(current); }); });
-  $("#spAll").addEventListener("click", function () {
-    if (!activeCat) return;
-    var boxes = $$('.stile[data-cat="' + activeCat + '"] input');
-    var all = boxes.every(function (b) { return b.checked; });
-    boxes.forEach(function (b) { b.checked = !all; });
-    syncCaps();
-  });
-  // Open the area holding the default selection so the page never starts blank.
-  (function () { var first = $('input[name="server"]:checked'); if (first) activeCat = first.closest(".stile").dataset.cat; })();
 
   // ── next button ──
   nextBtn.addEventListener("click", function () {
@@ -7174,7 +6890,6 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
     locked = true;
     paintRail();
     $$('.pane[data-pane="2"] input, .pane[data-pane="3"] input, .pane[data-pane="4"] input').forEach(function (i) { i.disabled = true; });
-    $$(".ctile, #spAll").forEach(function (b) { b.disabled = false; });
     document.body.classList.add("locked");
   }
   function start() {
@@ -7255,7 +6970,7 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
     var fileNote = "";
     if (id === "claude-desktop") {
       fileNote = "<div class='vsccard'><div class='vschead'><span class='blogo lg'>" + CLAUDE_DT_LOGO + "</span><div><b>Claude Desktop is ready</b>" +
-        "<div class='fine' style='margin:0'>" + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " (plus aisa-docs) are in its config — one restart loads them.</div></div>" +
+        "<div class='fine' style='margin:0'>" + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " are in its config — one restart loads them.</div></div>" +
         "<div class='termside'><button type='button' class='cta sm' id='launch'>Restart Claude Desktop →</button><span class='fine' id='launchnote'></span></div></div>" +
         "<div class='vscgrid'>" +
         "<div class='vscitem'><span class='srv'>Tools</span>After the restart, open the <b>tools menu</b> (🔧) in a chat — the <code>aisa-…</code> servers are there. Each runs as a small bridge that lives and dies with the app; no background service.</div>" +
@@ -7353,7 +7068,7 @@ exports[`T2 page — byte-exact snapshots > start view, no key — the sign-in s
     $$('input[name="server"]').forEach(function (i) { i.checked = sel.servers.indexOf(i.value) !== -1; });
     var fresh = sel.install.length > 0;
     var r = $('input[name="' + (fresh ? "lmodeFresh" : "lmodeDet") + '"][value="' + sel.llmMode + '"]'); if (r) r.checked = true;
-    var first = $('input[name="server"]:checked'); if (first) activeCat = first.closest(".stile").dataset.cat;
+
     syncAgent(); syncModels(); syncCaps(); lockSelections();
     phase = s.phase; serverSteps = s.steps; lastStatus = s;
     var settled = phase === "done" || phase === "failed";

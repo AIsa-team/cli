@@ -1,12 +1,9 @@
+import { unifiedMcpServer } from "../src/commands/mcp.js";
 import { describe, expect, it } from "vitest";
 import { resolveTemplate, DEFAULT_TEMPLATE } from "../src/commands/connect.js";
 import { renderT2Page } from "../src/commands/connect-t2.js";
 
-const servers = [
-  { slug: "web-search", name: "AIsa Web Search", endpoint: "https://mcp.aisa.one/web-search/mcp", toolCount: 27, description: "Search the web.", category: "Search & Research" },
-  { slug: "youtube-search", name: "AIsa YouTube Search", endpoint: "https://mcp.aisa.one/youtube-search/mcp", toolCount: 1, description: "Search YouTube.", category: "Search" },
-  { slug: "marketpulse", name: "AIsa MarketPulse", endpoint: "https://mcp.aisa.one/marketpulse/mcp", toolCount: 21, description: "US equities.", category: "Finance" },
-];
+const servers = [unifiedMcpServer()];
 const clients = [
   { id: "claude-code", label: "Claude Code", kind: "cli" as const, detected: true, detail: "2.1.241" },
   { id: "codex", label: "Codex", kind: "cli" as const, detected: false, detail: "codex not found on PATH" },
@@ -37,10 +34,12 @@ describe("T2 page", () => {
     }
   });
 
-  it("merges the two search categories and puts Search first", () => {
-    expect(html).not.toMatch(/data-cat="Search"/);
-    expect(html.indexOf('data-cat="Search & Research"')).toBeLessThan(html.indexOf('data-cat="Finance"'));
-    expect(html).toContain("2 servers · 28 tools");
+  it("offers only the unified Router without category selection or docs MCP", () => {
+    expect(html).toContain("https://mcp.aisa.one/mcp");
+    expect(html).not.toContain('id="spAll"');
+    expect(html).not.toContain('class="ctile"');
+    expect(html).not.toContain("aisa-docs");
+    expect(html).not.toContain("/web-search/mcp");
   });
 
   it("offers install for a missing CLI agent and lists file clients as not found", () => {
@@ -50,7 +49,7 @@ describe("T2 page", () => {
   });
 
   it("keeps the default server ticked and embeds the run token", () => {
-    expect(html).toMatch(/value="web-search" checked/);
+    expect(html).toMatch(/value="router" checked disabled/);
     expect(html).toContain('var TOKEN = "tok"');
     expect(html).toContain('var VIEW = "start"');
     expect(renderT2Page(servers, clients, "tok", true, true, false, "done")).toContain('var VIEW = "done"');

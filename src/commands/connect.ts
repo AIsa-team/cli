@@ -10,7 +10,7 @@ import { success, error, info, hint } from "../utils/display.js";
 import { expandHome } from "../utils/file.js";
 import { MCP_CONFIGS, MCP_DEFAULT_SLUGS, AISA_PROVIDER_ID } from "../constants.js";
 import { getAccessToken, getConfig, setConfig } from "../config.js";
-import { fetchLiveServers, writeClientConfig, buildEntry, stripped, type LiveServer } from "./mcp.js";
+import { fetchLiveServers, writeClientConfig, buildEntry, stripped, type LiveServer, isUnifiedMcpSelection } from "./mcp.js";
 import { INSTALLERS, installAgent, isInstalled, supported } from "./install.js";
 import {
   writeCodexLLM,
@@ -304,6 +304,7 @@ async function applySelection(
   dryRun: boolean,
   state?: RunState
 ): Promise<ApplyResult[]> {
+  if (!isUnifiedMcpSelection(chosen)) throw new Error("Only the unified AIsa Router MCP can be configured");
   const results: ApplyResult[] = [];
   for (const id of clientIds) {
     if (id === "cursor" && state?.deeplinks) {
@@ -419,7 +420,7 @@ async function applySelection(
       });
     } else if (MCP_CONFIGS[id]) {
       if (dryRun) {
-        results.push({ client: id, ok: true, message: `would write ${chosen.length + 1} entries to ${MCP_CONFIGS[id].path}` });
+        results.push({ client: id, ok: true, message: `would write ${chosen.length} entries to ${MCP_CONFIGS[id].path}` });
         continue;
       }
       const r = writeClientConfig(id, chosen, key);
@@ -1207,7 +1208,7 @@ function renderPage(
           // expands it and is hidden by the page script when the text already
           // fits — so short cards carry no dead link and long ones stay tidy.
           return `<label class="card ${checked ? "on" : ""}" data-kind="server">
-  <input type="checkbox" name="server" value="${s.slug}" ${checked}>
+  <input type="checkbox" name="server" value="${s.slug}" checked disabled>
   <span class="body"><span class="head"><span class="name">${stripped(s.name)}</span>
     <span class="badge">${s.toolCount} tools</span></span>
     <span class="desc">${s.description}</span>
@@ -2463,12 +2464,14 @@ export async function connectAction(options: {
   let servers: LiveServer[];
   try {
     servers = resumed ? resumed.servers : await fetchLiveServers();
+    if (!isUnifiedMcpSelection(servers)) throw new Error("This saved run uses retired MCP endpoints. Start again with aisa connect --force.");
   } catch (e) {
-    log.line("fail", "Could not read the MCP manifest", (e as Error).message);
+    log.line("fail", "Could not prepare the unified MCP connection", (e as Error).message);
     log.note("check your network and try again");
     process.exitCode = 1;
     return;
   }
+  log.note("Existing MCP entries are preserved. Remove old domain entries manually after connecting to aisa-router.");
   const clients = resumed ? resumed.clients : detectClients();
   // Rehearsal aid: in a dry run, pretend the listed clients are present so a
   // page can be reviewed for a client this machine does not have. Never
@@ -2946,7 +2949,7 @@ export async function connectAction(options: {
       }
       // Who started this decides whether there is an animation to wait for.
       drivenByTerminal = req.headers["x-connect-source"] === "terminal";
-      chosenServers = servers.filter((s) => body.servers?.includes(s.slug));
+      chosenServers = servers;
       chosenClients = body.clients ?? [];
       const wantInstall = new Set(body.install ?? []);
       // Ticking "install" means "and connect it": nobody installs an agent
@@ -3252,7 +3255,7 @@ export async function connectAction(options: {
   // the real problem.
   if (resumed && state.selection) {
     chosenClients = [...state.selection.clients];
-    chosenServers = servers.filter((x) => state.selection!.servers.includes(x.slug));
+    chosenServers = servers;
     // llmMode is not a local here — the routes read state.llmMode, which
     // travels with the run.
   }
@@ -3263,7 +3266,7 @@ export async function connectAction(options: {
     armRetry({
       install: [...sel.install],
       clients: [...sel.clients],
-      servers: servers.filter((x) => sel.servers.includes(x.slug)),
+      servers: servers,
       key: liveKey(),
       catcher: signInCatcher,
       signinShown: signinShownP,
@@ -3392,7 +3395,7 @@ export async function connectAction(options: {
   log.line("ok", "Found on this machine", detected.map((c) => c.label).join(", "));
   const missing = clients.filter((c) => !c.detected).map((c) => c.label);
   if (missing.length) log.record(`not found: ${missing.join(", ")}`);
-  log.line("info", `${servers.length} AIsa MCP servers are live`, "pick what you need");
+  log.line("info", "AIsa Router MCP", "one connection for all published tools");
 
   // The terminal walks the same six steps from the same definition. It is not
   // a fallback: on a machine with no browser, printing a localhost URL is a

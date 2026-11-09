@@ -1,4 +1,3 @@
-import { MCP_DEFAULT_SLUGS } from "../constants.js";
 import { INSTALLERS } from "./install.js";
 import { defaultModelsFor } from "./llm-config.js";
 import { stripped, type LiveServer } from "./mcp.js";
@@ -180,7 +179,7 @@ export function renderT2Page(
   const firstPick = shown.find((c) => c.detected) ?? shown[0];
   const rest = CLIENTS.filter((c) => !c.detected && !c.installable);
   const clientCard = (c: (typeof CLIENTS)[number], checked: boolean) => `
-<label class="tile agent${checked ? " on" : ""}" data-cid="${c.id}">
+<label class="tile agent on" data-cid="${c.id}">
   <input type="radio" class="dot" name="client" value="${c.id}"${checked ? " checked" : ""}${c.installable ? ' data-install="1"' : ""}>
   <span class="tlogo${c.id === "cursor" ? " mono" : ""}">${BRAND_LOGOS[c.id] ?? (c.id === "claude-desktop" ? BRAND_LOGOS["claude-ai"] : undefined) ?? CLIENT_LOGOS[c.id] ?? I.terminal}</span>
   <span class="tbody"><span class="thead"><span class="tname">${c.label}</span></span>
@@ -250,24 +249,12 @@ ${restChips}
 </div>`;
 
   // ── step 4: capabilities ──
-  const catTiles = catList
-    .map(([cat, list]) => {
-      const tools = list.reduce((n, s) => n + s.toolCount, 0);
-      return `<button type="button" class="ctile" data-cat="${cat}">
-  <span class="cico">${CATEGORY_ICON[cat] ?? I.sparkles}</span>
-  <span class="cname">${cat}</span>
-  <span class="cmeta">${fill(STEP_CAPS.tileMeta, lang, { n: list.length, noun: list.length > 1 ? T(STEP_CAPS.serversWord) : T(STEP_CAPS.serverWord), tools })}</span>
-  <span class="cblurb">${T(categoryBlurb(cat, list)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</span>
-  <span class="csel" data-csel></span></button>`;
-    })
-    .join("");
   const serverTiles = catList
     .map(([cat, list]) =>
       list
         .map((s) => {
-          const checked = MCP_DEFAULT_SLUGS.includes(s.slug);
-          return `<label class="stile${checked ? " on" : ""}" data-cat="${cat}">
-  <input type="checkbox" name="server" value="${s.slug}"${checked ? " checked" : ""}>
+          return `<label class="stile on" data-cat="${cat}">
+  <input type="checkbox" name="server" value="${s.slug}" checked disabled>
   <span class="tbody"><span class="thead"><span class="tname">${stripped(s.name)}</span>
     <span class="badge">${s.toolCount} tools</span></span>
     <span class="sdesc">${s.description}</span></span></label>`;
@@ -278,10 +265,8 @@ ${restChips}
   const caps = `
 <h1>${T(STEP_CAPS.h1).replace("reach", "<em>reach</em>")}</h1>
 <p class="lede">${fill(STEP_CAPS.counts, lang, { areas: catList.length, servers: servers.length, tools: totalTools })} ${T(STEP_CAPS.ledeTail)}</p>
-<div class="cgrid">${catTiles}</div>
 <div class="spanel" id="spanel">
-  <div class="sphead"><h2 id="spTitle">${T(STEP_CAPS.pickArea)}</h2><button type="button" class="link" id="spAll">${T(STEP_CAPS.selectAll)}</button></div>
-  <div class="sgrid" id="sgrid">${serverTiles}</div>
+    <div class="sgrid" id="sgrid">${serverTiles}</div>
 </div>
 <div class="tally" id="tally"></div>`;
 
@@ -816,42 +801,11 @@ ${restChips}
   });
 
   // ── step 4 ──
-  var activeCat = null;
   function syncCaps() {
-    var picked = pickedServers();
-    $$(".ctile").forEach(function (t) {
-      var cat = t.dataset.cat;
-      var n = SERVERS.filter(function (s) { return s.category === cat && picked.indexOf(s.slug) !== -1; }).length;
-      var sel = t.querySelector("[data-csel]");
-      sel.textContent = n ? n + " selected" : "";
-      t.classList.toggle("has", n > 0);
-      t.classList.toggle("active", cat === activeCat);
-    });
-    $$(".stile").forEach(function (t) {
-      t.classList.toggle("on", t.querySelector("input").checked);
-      t.style.display = t.dataset.cat === activeCat ? "" : "none";
-    });
-    $("#spanel").classList.toggle("open", Boolean(activeCat));
-    $("#spTitle").textContent = activeCat ? activeCat : "Pick an area above";
-    var tools = picked.reduce(function (n, s) { return n + (BY_SLUG[s] ? BY_SLUG[s].toolCount : 0); }, 0);
-    $("#tally").innerHTML = picked.length
-      ? "<b>" + picked.length + " server" + (picked.length > 1 ? "s" : "") + "</b> · " + tools + " tools selected"
-      : COPY.nothingSelected;
+    $$('input[name="server"]').forEach(function (i) { i.checked = true; i.disabled = true; });
+    $("#spanel").classList.add("open");
+    $("#tally").textContent = "https://mcp.aisa.one/mcp";
   }
-  $$(".ctile").forEach(function (t) { t.addEventListener("click", function () {
-    activeCat = activeCat === t.dataset.cat ? null : t.dataset.cat; syncCaps();
-    if (activeCat) $("#spanel").scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }); });
-  $$('input[name="server"]').forEach(function (c) { c.addEventListener("change", function () { syncCaps(); publishDraft(current); }); });
-  $("#spAll").addEventListener("click", function () {
-    if (!activeCat) return;
-    var boxes = $$('.stile[data-cat="' + activeCat + '"] input');
-    var all = boxes.every(function (b) { return b.checked; });
-    boxes.forEach(function (b) { b.checked = !all; });
-    syncCaps();
-  });
-  // Open the area holding the default selection so the page never starts blank.
-  (function () { var first = $('input[name="server"]:checked'); if (first) activeCat = first.closest(".stile").dataset.cat; })();
 
   // ── next button ──
   nextBtn.addEventListener("click", function () {
@@ -1043,7 +997,6 @@ ${restChips}
     locked = true;
     paintRail();
     $$('.pane[data-pane="2"] input, .pane[data-pane="3"] input, .pane[data-pane="4"] input').forEach(function (i) { i.disabled = true; });
-    $$(".ctile, #spAll").forEach(function (b) { b.disabled = false; });
     document.body.classList.add("locked");
   }
   function start() {
@@ -1124,7 +1077,7 @@ ${restChips}
     var fileNote = "";
     if (id === "claude-desktop") {
       fileNote = "<div class='vsccard'><div class='vschead'><span class='blogo lg'>" + CLAUDE_DT_LOGO + "</span><div><b>Claude Desktop is ready</b>" +
-        "<div class='fine' style='margin:0'>" + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " (plus aisa-docs) are in its config — one restart loads them.</div></div>" +
+        "<div class='fine' style='margin:0'>" + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " are in its config — one restart loads them.</div></div>" +
         "<div class='termside'><button type='button' class='cta sm' id='launch'>Restart Claude Desktop →</button><span class='fine' id='launchnote'></span></div></div>" +
         "<div class='vscgrid'>" +
         "<div class='vscitem'><span class='srv'>Tools</span>After the restart, open the <b>tools menu</b> (🔧) in a chat — the <code>aisa-…</code> servers are there. Each runs as a small bridge that lives and dies with the app; no background service.</div>" +
@@ -1222,7 +1175,7 @@ ${restChips}
     $$('input[name="server"]').forEach(function (i) { i.checked = sel.servers.indexOf(i.value) !== -1; });
     var fresh = sel.install.length > 0;
     var r = $('input[name="' + (fresh ? "lmodeFresh" : "lmodeDet") + '"][value="' + sel.llmMode + '"]'); if (r) r.checked = true;
-    var first = $('input[name="server"]:checked'); if (first) activeCat = first.closest(".stile").dataset.cat;
+
     syncAgent(); syncModels(); syncCaps(); lockSelections();
     phase = s.phase; serverSteps = s.steps; lastStatus = s;
     var settled = phase === "done" || phase === "failed";

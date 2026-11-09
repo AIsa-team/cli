@@ -2,103 +2,50 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import chalk from "chalk";
 import { success, error, info, hint } from "../utils/display.js";
 import { expandHome, ensureDir } from "../utils/file.js";
-import { MCP_CONFIGS, MCP_MANIFEST_URL, MCP_CATALOG_URL, DOCS_MCP_URL, MCP_DEFAULT_SLUGS } from "../constants.js";
-import { httpFetch, MAX_ATTEMPTS } from "../utils/http.js";
+import { MCP_CONFIGS, MCP_CATALOG_URL, MCP_URL } from "../constants.js";
+import { httpFetch } from "../utils/http.js";
 import { getAccessToken } from "../config.js";
 import { clientConfigKey } from "../utils/client-key.js";
 import { detectClients } from "./connect.js";
 import { join } from "node:path";
 
-/**
- * `aisa mcp setup` — write real, per-client MCP entries from the live manifest.
- *
- * Three rules, each one a lesson from the version this replaces:
- *
- * 1. The server list comes from the platform's discovery manifest at setup
- *    time, never from this file. Servers ship without a CLI release.
- * 2. Nothing is written unless the manifest was actually fetched. The old
- *    command wrote first and verified never, which is how a dead hostname
- *    sat in users' configs across releases.
- * 3. Each client gets the shape it executes: `{url}` for clients that dial
- *    HTTP themselves, an `npx mcp-remote` stdio bridge for the ones that only
- *    spawn processes. One shape for all three was the old bug.
- *
- * Auth is a choice the user already made: with an API key configured, entries
- * carry it as a Bearer header (zero-interaction, but the key lands in each
- * client's config file); without one, entries carry no credentials and the
- * server's 401 challenge drives the client through the Clerk OAuth flow.
- */
+/** Configure the unified Router MCP. Existing client entries are preserved. */
 
 export interface LiveServer {
   slug: string;
   name: string;
   endpoint: string;
   toolCount: number;
-  /** One-paragraph capability description from the manifest — the single
-   *  source of truth for what a server does; rendered on the connect page. */
+  /** Capability description rendered on the connect page. */
   description: string;
   category: string;
 }
 
 export const stripped = (name: string) => name.replace(/^AIsa\s+/i, "");
 
-/** Both documents describe a server the same way; only the tool field differs. */
-interface DiscoveredServer {
-  slug?: string;
-  name?: string;
-  status?: string;
-  transport?: { endpoint?: string };
-  /** Index: a number. Manifest: the whole array, which we only ever count. */
-  toolCount?: number;
-  tools?: unknown[];
-  description?: string;
-  category?: string;
+/** Router's fixed public MCP contract, independent of the legacy module catalog. */
+export function unifiedMcpServer(): LiveServer {
+  return {
+    slug: "router", name: "AIsa Router", endpoint: MCP_URL, toolCount: 5,
+    description: "One AIsa connection: search, batch_get_schema, batch_quote, batch_use, and account. Discover tools, inspect schemas, quote costs, and execute through the Router.",
+    category: "AIsa",
+  };
 }
 
-function toLive(servers: DiscoveredServer[]): LiveServer[] {
-  return servers
-    .filter((s) => s.status === "live" && s.slug && s.transport?.endpoint)
-    .map((s) => ({
-      slug: s.slug as string,
-      name: s.name ?? (s.slug as string),
-      endpoint: s.transport!.endpoint as string,
-      toolCount: s.toolCount ?? s.tools?.length ?? 0,
-      description: s.description ?? "",
-      category: s.category ?? "Other",
-    }));
+export function isUnifiedMcpSelection(servers: LiveServer[]): boolean {
+  return servers.length === 1 && servers[0].slug === "router" && servers[0].endpoint === MCP_URL;
 }
 
-async function readSource(url: string, attempts: number): Promise<LiveServer[]> {
-  const res = await httpFetch(url, { idempotent: true, maxAttempts: attempts, timeoutMs: 15_000 });
-  if (!res.ok) throw new Error(`${url} answered HTTP ${res.status}`);
-  const doc = (await res.json()) as { servers?: DiscoveredServer[] };
-  const live = toLive(doc.servers ?? []);
-  if (live.length === 0) throw new Error(`${url} lists no live servers`);
-  return live;
-}
-
-/**
- * Which servers exist, asked of the host that runs them.
- *
- * The index is preferred and the manifest is the fallback, in that order for
- * one reason: the manifest is a snapshot committed by hand, and on 2026-08-25
- * it was three servers and 72 tools behind what the host was actually serving.
- * Anything derived from a running process cannot drift that way.
- *
- * The fallback is not defensive padding — the index is newer than some
- * deployments, and a self-hosted gateway configured through `baseUrl` may
- * never grow one. A user in either case should still get a working setup from
- * a slightly stale list rather than an error.
+/** Read auxiliary discovery on Connect, but never install its legacy endpoints.
+ * No old manifest fallback: it would resurrect retired per-domain MCP routes.
+ * This checks directory availability, not authenticated Router health.
  */
 export async function fetchLiveServers(): Promise<LiveServer[]> {
-  try {
-    // One attempt only: there is somewhere else to go, so spending a retry
-    // budget here just delays the fallback. The manifest is the last resort
-    // and gets the full three.
-    return await readSource(MCP_CATALOG_URL, 1);
-  } catch {
-    return await readSource(MCP_MANIFEST_URL, MAX_ATTEMPTS);
-  }
+  const res = await httpFetch(MCP_CATALOG_URL, { idempotent: true, maxAttempts: 1, timeoutMs: 15_000 });
+  if (!res.ok) throw new Error(`${MCP_CATALOG_URL} answered HTTP ${res.status}`);
+  const doc = await res.json() as { servers?: unknown[] };
+  if (!doc || !Array.isArray(doc.servers)) throw new Error("Invalid Connect directory: missing servers array");
+  return [unifiedMcpServer()];
 }
 
 /** One config entry in the shape the client actually executes. */
@@ -120,22 +67,15 @@ export function buildEntry(
   return { command: "npx", args };
 }
 
-/** The dead entry every pre-v0.3 setup wrote. Remove it on sight. */
-const DEAD_URL = "https://docs.aisa.one/mcp";
-
 export type WriteResult = { ok: true; written: number } | { ok: false; reason: string };
 
-/**
- * Write the chosen servers (plus the docs server) into one client's config
- * file. Shared by `aisa mcp setup` and `aisa connect` so the two entry points
- * cannot drift in how they treat existing files: unparseable JSON is refused,
- * never replaced, and only the known-dead legacy entry is cleaned up.
- */
+/** Add the unified entry without deleting old AIsa, docs, or unrelated entries. */
 export function writeClientConfig(
   agent: string,
   chosen: LiveServer[],
   key: string | undefined
 ): WriteResult {
+  if (!isUnifiedMcpSelection(chosen)) return { ok: false, reason: "Only the unified AIsa Router MCP can be configured" };
   const config = MCP_CONFIGS[agent];
   if (!config) return { ok: false, reason: `unknown client "${agent}"` };
   const filePath = expandHome(config.path);
@@ -155,21 +95,12 @@ export function writeClientConfig(
 
   const entries = (existing[config.key] as Record<string, unknown>) || {};
 
-  // Clean up the dead entry earlier releases wrote, and only that one: an
-  // "aisa" entry the user pointed somewhere else on purpose stays.
-  const stale = entries["aisa"] as { url?: string } | undefined;
-  if (stale?.url === DEAD_URL) delete entries["aisa"];
-
   for (const s of chosen) {
     entries[`aisa-${s.slug}`] = buildEntry(config.shape, s.endpoint, key);
   }
-  // The docs-search MCP is tiny, unauthenticated, and answers "how do I call
-  // this" questions — always included.
-  entries["aisa-docs"] = buildEntry(config.shape, DOCS_MCP_URL, undefined);
-
   existing[config.key] = entries;
   writeFileSync(filePath, JSON.stringify(existing, null, 2) + "\n", "utf-8");
-  return { ok: true, written: chosen.length + 1 };
+  return { ok: true, written: chosen.length };
 }
 
 export async function mcpSetupAction(
@@ -203,22 +134,20 @@ export async function mcpSetupAction(
     return;
   }
 
-  // Fetch before touching any file: a setup that cannot see the manifest has
-  // nothing true to write.
+  // Read auxiliary discovery before touching client configuration.
   let servers: LiveServer[];
   try {
     servers = await fetchLiveServers();
   } catch (e) {
-    error(`Could not read the MCP manifest at ${MCP_MANIFEST_URL}: ${(e as Error).message}`);
+    error(`Could not read the Connect directory at ${MCP_CATALOG_URL}: ${(e as Error).message}`);
     hint("Nothing was written. Check your network and try again.");
     process.exitCode = 1;
     return;
   }
 
-  const chosen = options.all
-    ? servers
-    : servers.filter((s) => MCP_DEFAULT_SLUGS.includes(s.slug));
-  const skipped = servers.length - chosen.length;
+  // --all remains accepted for existing scripts; there is only one entry.
+  const chosen = servers;
+  info("Adds aisa-router only. Existing MCP entries are preserved; remove old domain entries manually.");
 
   const credential = await getAccessToken();
   if (credential) {
@@ -269,11 +198,10 @@ export async function mcpSetupAction(
     );
   }
 
-  success(`Configured ${chosen.length} live servers plus docs search for ${targets.length} client(s)`);
+  success(`Configured the unified AIsa Router MCP for ${targets.length} client(s)`);
   for (const s of chosen) {
     console.log(`    ${chalk.cyan(`aisa-${s.slug}`)}  ${stripped(s.name)} (${s.toolCount} tools)`);
   }
-  if (skipped > 0) hint(`${skipped} more live servers available — run with --all to configure every one`);
   hint("Restart your agent/editor to activate");
 }
 
@@ -310,6 +238,10 @@ export async function mcpStatusAction(): Promise<void> {
     for (const [name, entry] of ours) {
       const e = entry as { url?: string; args?: string[] };
       const endpoint = e.url ?? e.args?.find((a) => a.startsWith("http"));
+      if (endpoint && endpoint !== MCP_URL) {
+        console.log(`    ${name}: existing entry preserved (not checked); remove manually if no longer needed`);
+        continue;
+      }
       if (endpoint) {
         const users = endpoints.get(endpoint) ?? [];
         users.push(`${agent}/${name}`);
