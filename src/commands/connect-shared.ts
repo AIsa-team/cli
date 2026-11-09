@@ -66,50 +66,7 @@ export const CATEGORY_ICON: Record<string, string> = {
  * AIsa tools on its own and no naming is needed at all.
  */
 export const EXAMPLES: Record<string, string[]> = {
-  "web-search": [
-    "Using AIsa, search the web for this week's biggest AI news and summarize the top 3 results with links.",
-    "Using AIsa, research how teams are adopting MCP servers in production and give me a sourced brief.",
-  ],
-  "twitter-api": [
-    "Using AIsa, fetch the latest tweets from @AnthropicAI and summarize the main themes.",
-    "Using AIsa, pull @sama's five most recent tweets with their engagement numbers.",
-  ],
-  "crypto-market-data": [
-    "Using AIsa, get Bitcoin's current price and 24h change, then compare it with Ethereum.",
-    "Using AIsa's crypto data, list today's trending coins with prices and market caps.",
-  ],
-  marketpulse: [
-    "Using AIsa, pull AAPL's latest income statement and summarize the revenue and margin trend.",
-    "Using AIsa's market data, screen for US stocks with a market cap above $1T and compare their P/E ratios.",
-  ],
-  "stock-pulse": [
-    "Using AIsa, show what X/Twitter is saying about NVDA today, joined with its market data.",
-    "Using AIsa, find which tickers are trending on X right now and why.",
-  ],
-  "prediction-market-data": [
-    "Using AIsa, list the most active prediction markets right now with their implied probabilities.",
-    "Using AIsa, compare what Polymarket and Kalshi imply about the next Fed rate decision.",
-  ],
-  reddit: [
-    "Using AIsa, find today's top posts in r/MachineLearning and summarize the discussion.",
-    "Using AIsa, search Reddit for real-world Claude Code workflows people recommend.",
-  ],
-  "youtube-search": [
-    "Using AIsa, find the three most relevant YouTube videos about MCP servers and list their channels.",
-    "Using AIsa, find beginner YouTube tutorials for Claude Code and pick the best one to start with.",
-  ],
-  instagram: [
-    "Using AIsa, fetch the Instagram profile and recent posts of @nasa and describe their content strategy.",
-    "Using AIsa, compare the recent Instagram engagement of @natgeo and @nasa.",
-  ],
-  pinterest: [
-    "Using AIsa, search Pinterest for 'mid-century interior' and summarize the visual trends.",
-    "Using AIsa, find trending home-office ideas on Pinterest and summarize them with links.",
-  ],
-  apollo: [
-    "Using AIsa, enrich the company anthropic.com — size, industry, and key people.",
-    "Using AIsa, find five AI infrastructure startups in San Francisco with their CEOs.",
-  ],
+  router: ["Using AIsa, research the latest developments in AI and cite your sources."],
 };
 
 export interface ClientInfo {

@@ -289,36 +289,37 @@ To publish a skill, open a pull request against
 npx @aisa-one/cli connect
 ```
 
-Opens a small local page (served by this process on `127.0.0.1`, shut down
-when finished) where you tick the AIsa MCP servers you want and the coding
-agents to install them into. Claude Code is configured through its own
-`claude mcp add` (user scope), then signed in through its own OAuth: connect
-runs `claude mcp login` per server, your browser opens the AIsa
-authorization, and the tokens live in Claude Code's own store where it also
-refreshes them — no API key, nothing pasted. Cursor, Claude Desktop and
-Windsurf get config entries and run the same OAuth themselves on first use.
-The page matches the AIsa Console style, reports authorization progress
-live, and a success page with copy-paste try-it-now prompts opens when
-everything is connected. No daemon stays behind. `--no-open` prints the URL
-instead of launching a browser; `--dry-run` shows what would be written.
+The browser or terminal wizard connects your coding agent to the single AIsa
+Router MCP at `https://mcp.aisa.one/mcp`, under the name `aisa-router`.
+Client selection, installation, sign-in, model configuration and launch options
+remain available. There is no per-domain server selection.
 
-### Scripted: `mcp setup`
+The CLI configures the fixed Router endpoint without requesting a directory
+service. Available tools are discovered by the MCP client from the Router;
+the CLI does not pin a tool count or inventory.
+
+### Scripted setup and status
 
 ```bash
-aisa mcp setup                          # configure the default servers for every detected client
-aisa mcp setup --all                    # every live server, not just the defaults
-aisa mcp setup --agent cursor           # one client only
-aisa mcp status                         # list entries and ping each configured endpoint
+aisa mcp setup --agent cursor           # preview the single Router entry
+aisa mcp setup --agent cursor --yes     # add it to the detected client
+aisa mcp setup --all --yes              # accepted for compatibility; still one MCP
+aisa mcp status                         # inspect entries and probe the unified endpoint
 ```
 
-`setup` reads the platform's discovery manifest (`aisa.one/.well-known/mcp.json`)
-at run time and writes one entry per live server, in the shape each client
-executes: a `url` entry for Cursor, an `npx mcp-remote` stdio bridge for
-Claude Desktop and Windsurf. With an API key configured the entries carry it
-as a Bearer header; without one they carry no credentials and the server's
-OAuth flow opens in your browser on first use. A config file that exists but
-does not parse is never overwritten. The docs-search MCP is always included
-as `aisa-docs`.
+Cursor uses an HTTP URL entry; Claude Desktop uses an `npx mcp-remote` stdio
+bridge. With a configured credential, setup writes the durable API key as a
+Bearer header. Without one, the client handles the MCP OAuth flow on first use.
+The server's OAuth resource metadata stays on `mcp.aisa.one`.
+
+Existing domain entries, `aisa-docs`, and unrelated configuration are preserved.
+The CLI no longer adds a docs MCP automatically. After validating the new
+connection, remove old domain entries manually in each client. Status lists
+legacy entries without sending requests to their retired endpoints.
+
+DNS cutover requires the Router ingress and TLS certificate to accept
+`mcp.aisa.one`, and its OAuth metadata to describe that host's `/mcp` resource.
+Updating the CLI alone does not migrate existing clients or change DNS.
 
 ## Shell Completion
 

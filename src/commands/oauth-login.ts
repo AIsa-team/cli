@@ -360,7 +360,7 @@ Default: open a browser this person can actually use (SSH/CI/no display skip the
 
 If this process already timed out, or the URL/code is from an older run, start a fresh aisa login and use the new URL and its result. Do not reuse a stale paste.
 
-No browser and no TTY: this CLI cannot complete OAuth here. Normal setup is native MCP OAuth at https://tools.aisa.one/mcp.
+No browser and no TTY: this CLI cannot complete OAuth here. Normal setup is native MCP OAuth at https://mcp.aisa.one/mcp.
 
 Do not report connected unless login stored credentials and the following balance check succeeded. aisa whoami and stored local credentials are not proof. Scripts/CI: AISA_API_KEY or --key.
 `;

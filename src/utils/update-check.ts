@@ -6,11 +6,9 @@ import { httpFetch } from "./http.js";
 /**
  * Throttled, best-effort check for a newer published version.
  *
- * `connect` already makes a network call before it does anything else
- * (fetchLiveServers), so piggybacking one more cheap lookup costs nothing —
- * but only once a day: the npm-registry hit is cached like the API catalog
- * and skills index (see cache.ts), so every other run within the window
- * reads the last answer off disk instead of asking again.
+ * The npm-registry lookup is cached once a day like the API catalog
+ * and skills index (see cache.ts), so runs within the window
+ * read the last answer off disk instead of asking again.
  *
  * Never throws and never blocks longer than FETCH_TIMEOUT_MS. Offline, a
  * timeout, or a non-200 all resolve to "nothing to report" rather than an

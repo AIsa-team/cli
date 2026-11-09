@@ -47,7 +47,7 @@ vi.mock("../src/config.js", () => ({
 
 function stubManifest(status = 200): ReturnType<typeof vi.fn> {
   const fetchMock = vi.fn(async (url: string | URL) => {
-    if (String(url).includes(".well-known/mcp.json")) {
+    if (String(url) === "https://connect.aisa.one/servers") {
       return new Response(status === 200 ? JSON.stringify(MANIFEST) : "nope", { status });
     }
     throw new Error(`unexpected fetch: ${url}`);
@@ -110,12 +110,11 @@ describe("mcp setup", () => {
     await mcpSetupAction({ agent: "cursor", yes: true });
 
     const entries = cursorConfig().mcpServers;
-    expect(entries["aisa-web-search"]).toEqual({
-      url: "https://mcp.aisa.one/web-search/mcp",
+    expect(entries["aisa-router"]).toEqual({
+      url: "https://mcp.aisa.one/mcp",
       headers: { Authorization: "Bearer sk-test-123" },
     });
-    // docs search rides along, unauthenticated
-    expect(entries["aisa-docs"]).toEqual({ url: "https://aisa.one/docs/mcp" });
+    expect(Object.keys(entries)).toEqual(["aisa-router"]);
   });
 
   it("writes the minted key, never the expiring OAuth access token", async () => {
@@ -128,7 +127,7 @@ describe("mcp setup", () => {
     const { mcpSetupAction } = await freshMcp();
     await mcpSetupAction({ agent: "cursor", yes: true });
 
-    expect(cursorConfig().mcpServers["aisa-web-search"].headers).toEqual({ Authorization: "Bearer sk-minted" });
+    expect(cursorConfig().mcpServers["aisa-router"].headers).toEqual({ Authorization: "Bearer sk-minted" });
     expect(readFileSync(join(home, ".cursor", "mcp.json"), "utf-8")).not.toContain("oauth-access-token");
   });
 
@@ -151,12 +150,12 @@ describe("mcp setup", () => {
     const { mcpSetupAction } = await freshMcp();
     await mcpSetupAction({ agent: "claude-desktop", yes: true });
 
-    const entry = claudeConfig().mcpServers["aisa-web-search"];
+    const entry = claudeConfig().mcpServers["aisa-router"];
     expect(entry.command).toBe("npx");
     expect(entry.args).toEqual([
       "-y",
       "mcp-remote",
-      "https://mcp.aisa.one/web-search/mcp",
+      "https://mcp.aisa.one/mcp",
       "--header",
       "Authorization:Bearer sk-test-123",
       "--transport",
@@ -173,31 +172,19 @@ describe("mcp setup", () => {
     const { mcpSetupAction } = await freshMcp();
     await mcpSetupAction({ yes: true });
 
-    expect(cursorConfig().mcpServers["aisa-web-search"].headers).toBeUndefined();
-    const args: string[] = claudeConfig().mcpServers["aisa-web-search"].args;
+    expect(cursorConfig().mcpServers["aisa-router"].headers).toBeUndefined();
+    const args: string[] = claudeConfig().mcpServers["aisa-router"].args;
     expect(args).not.toContain("--header");
   });
 
-  it("configures only default slugs unless --all, and never a planned server", async () => {
+  it("--all still configures only the unified entry", async () => {
     stubManifest();
     const { mcpSetupAction } = await freshMcp();
-    await mcpSetupAction({ agent: "cursor", yes: true });
-
-    let names = Object.keys(cursorConfig().mcpServers);
-    expect(names).toContain("aisa-web-search");
-    // The default set is deliberately one server: each is its own OAuth
-    // resource, so every extra default costs a keyless user another browser
-    // approval. Everything else is live but opt-in.
-    expect(names).not.toContain("aisa-twitter-api");
-    expect(names).not.toContain("aisa-reddit");
-
     await mcpSetupAction({ agent: "cursor", all: true, yes: true });
-    names = Object.keys(cursorConfig().mcpServers);
-    expect(names).toContain("aisa-reddit");
-    expect(names).not.toContain("aisa-seo-keyword-research"); // planned: no endpoint exists
+    expect(Object.keys(cursorConfig().mcpServers)).toEqual(["aisa-router"]);
   });
 
-  it("removes the dead entry old releases wrote, and only that one", async () => {
+  it("preserves legacy, docs and unrelated entries when adding the Router", async () => {
     const dir = join(home, ".cursor");
     mkdirSync(dir, { recursive: true });
     writeFileSync(
@@ -205,6 +192,8 @@ describe("mcp setup", () => {
       JSON.stringify({
         mcpServers: {
           aisa: { url: "https://docs.aisa.one/mcp" }, // the v0.2.4 dead entry
+          "aisa-web-search": { url: "https://mcp.aisa.one/web-search/mcp", headers: { Authorization: "Bearer old" } },
+          "aisa-docs": { url: "https://aisa.one/docs/mcp" },
           mine: { url: "https://example.com/mcp" }, // the user's own — untouchable
         },
       })
@@ -214,17 +203,20 @@ describe("mcp setup", () => {
     await mcpSetupAction({ agent: "cursor", yes: true });
 
     const entries = cursorConfig().mcpServers;
-    expect(entries["aisa"]).toBeUndefined();
+    expect(entries["aisa"]).toEqual({ url: "https://docs.aisa.one/mcp" });
+    expect(entries["aisa-web-search"]).toEqual({ url: "https://mcp.aisa.one/web-search/mcp", headers: { Authorization: "Bearer old" } });
+    expect(entries["aisa-docs"]).toEqual({ url: "https://aisa.one/docs/mcp" });
+    expect(entries["aisa-router"].url).toBe("https://mcp.aisa.one/mcp");
     expect(entries["mine"]).toEqual({ url: "https://example.com/mcp" });
   });
 
-  it("writes nothing at all when the manifest cannot be fetched", async () => {
-    stubManifest(503);
+  it("configures the unified entry even when directory services are unavailable", async () => {
+    const fetchMock = vi.fn(() => { throw new Error("offline"); });
+    vi.stubGlobal("fetch", fetchMock);
     const { mcpSetupAction } = await freshMcp();
-    await mcpSetupAction({ agent: "cursor", yes: true });
-
-    expect(existsSync(join(home, ".cursor", "mcp.json"))).toBe(false);
-    expect(process.exitCode).toBe(1);
+    await mcpSetupAction({ agent: "cursor", yes: true, apiKey: "sk-test" });
+    expect(cursorConfig().mcpServers["aisa-router"].url).toBe("https://mcp.aisa.one/mcp");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("rejects an unknown agent before fetching anything", async () => {
@@ -235,94 +227,35 @@ describe("mcp setup", () => {
   });
 });
 
-/**
- * Which document the server list comes from.
- *
- * The manifest is generated offline and committed by hand, so it drifts:
- * measured 2026-08-25 it named 11 servers and 188 tools while mcp.aisa.one was
- * serving 14 and 260 — three servers missing outright. The index is served by
- * the process that owns the answer, so it is tried first. These tests pin the
- * order, the fallback, and the one field whose shape differs between them.
- */
-const CATALOG = {
-  catalogVersion: 1,
-  serverCount: 2,
-  servers: [
-    {
-      slug: "agentmail", name: "AIsa AgentMail", status: "live",
-      transport: { type: "streamable-http", endpoint: "https://mcp.aisa.one/agentmail/mcp" },
-      toolCount: 49, description: "Email", category: "Communication",
-    },
-    {
-      slug: "web-search", name: "AIsa Web Search", status: "live",
-      transport: { type: "streamable-http", endpoint: "https://mcp.aisa.one/web-search/mcp" },
-      toolCount: 27, description: "Search", category: "Search & Research",
-    },
-  ],
-};
-
-function stubBoth(catalog: { status: number; body?: unknown }): string[] {
-  const seen: string[] = [];
-  vi.stubGlobal("fetch", vi.fn(async (url: string | URL) => {
-    const u = String(url);
-    seen.push(u);
-    if (u.includes("/servers")) {
-      if (catalog.status === 0) throw new TypeError("fetch failed");
-      return new Response(catalog.status === 200 ? JSON.stringify(catalog.body ?? CATALOG) : "nope",
-                          { status: catalog.status });
-    }
-    if (u.includes(".well-known/mcp.json")) return new Response(JSON.stringify(MANIFEST), { status: 200 });
-    throw new Error(`unexpected fetch: ${u}`);
-  }));
-  return seen;
-}
-
-describe("where the server list comes from", () => {
-  it("prefers the live index over the hand-committed manifest", async () => {
-    const seen = stubBoth({ status: 200 });
-    const { fetchLiveServers } = await freshMcp();
-    const servers = await fetchLiveServers();
-
-    expect(seen.some((u) => u.includes("/servers"))).toBe(true);
-    expect(seen.some((u) => u.includes(".well-known/mcp.json"))).toBe(false);
-    expect(servers.map((s) => s.slug).sort()).toEqual(["agentmail", "web-search"]);
+describe("unified discovery", () => {
+  it("returns the fixed Router without making a directory request", async () => {
+    const fetchMock = stubManifest(503);
+    const { getMcpServers } = await freshMcp();
+    expect(getMcpServers()).toEqual([expect.objectContaining({ slug: "router", endpoint: "https://mcp.aisa.one/mcp" })]);
+    expect(getMcpServers()[0].toolCount).toBeUndefined();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("reads toolCount from the index, which carries no tools array", async () => {
-    stubBoth({ status: 200 });
-    const { fetchLiveServers } = await freshMcp();
-    const agentmail = (await fetchLiveServers()).find((s) => s.slug === "agentmail");
-    expect(agentmail?.toolCount).toBe(49);
+  it("rejects retired selections before writing a client config", async () => {
+    const { writeClientConfig, isUnifiedMcpSelection } = await freshMcp();
+    const old = [{ slug: "web-search", endpoint: "https://mcp.aisa.one/web-search/mcp", name: "Web", toolCount: 1, description: "", category: "Search" }];
+    expect(isUnifiedMcpSelection(old)).toBe(false);
+    expect(writeClientConfig("cursor", old, undefined).ok).toBe(false);
+    expect(existsSync(join(home, ".cursor", "mcp.json"))).toBe(false);
   });
 
-  it("falls back to the manifest when the index is not deployed yet", async () => {
-    const seen = stubBoth({ status: 404 });
-    const { fetchLiveServers } = await freshMcp();
-    const servers = await fetchLiveServers();
-
-    expect(seen.some((u) => u.includes(".well-known/mcp.json"))).toBe(true);
-    expect(servers.length).toBeGreaterThan(0);
-    // The manifest names tools instead of counting them; the count still lands.
-    expect(servers.find((s) => s.slug === "web-search")?.toolCount).toBe(2);
-  });
-
-  it("falls back when the index host cannot be reached at all", async () => {
-    stubBoth({ status: 0 });
-    const { fetchLiveServers } = await freshMcp();
-    expect((await fetchLiveServers()).length).toBeGreaterThan(0);
-  });
-
-  it("falls back rather than trusting an index that lists nothing live", async () => {
-    stubBoth({ status: 200, body: { servers: [] } });
-    const { fetchLiveServers } = await freshMcp();
-    expect((await fetchLiveServers()).length).toBeGreaterThan(0);
-  });
-
-  it("does not spend the retry budget on the index — the fallback is the point", async () => {
-    const seen = stubBoth({ status: 0 });
-    const { fetchLiveServers } = await freshMcp();
-    await fetchLiveServers();
-    expect(seen.filter((u) => u.includes("/servers")).length).toBe(1);
+  it("status probes only the unified resource, leaving legacy entries untouched", async () => {
+    const path = join(home, ".cursor", "mcp.json");
+    const contents = JSON.stringify({ mcpServers: { "aisa-router": { url: "https://mcp.aisa.one/mcp" }, "aisa-web-search": { url: "https://mcp.aisa.one/web-search/mcp" }, "aisa-docs": { url: "https://aisa.one/docs/mcp" } } });
+    writeFileSync(path, contents);
+    const fetchMock = vi.fn(async () => new Response("{}", { status: 401 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { mcpStatusAction } = await freshMcp();
+    await mcpStatusAction();
+    expect(fetchMock.mock.calls.map((args: any[]) => args[0])).toEqual(["https://mcp.aisa.one/mcp"]);
+    expect(readFileSync(path, "utf8")).toBe(contents);
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining("1 unified, 2 other AIsa entries (not checked)"));
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining(`remove manually from ${path}`));
   });
 });
 

@@ -4,41 +4,8 @@ export const DEFAULT_CHAT_MODEL = "deepseek-v4.1-flash";
 /** Root of the platform. Per-surface bases are derived in api.ts#resolveBases. */
 export const BASE_URL = "https://api.aisa.one";
 export const ENV_VAR_NAME = "AISA_API_KEY";
-/**
- * The MCP discovery manifest — the single source of truth for which servers
- * exist and where they live. The CLI deliberately knows no server list of its
- * own: servers ship and retire on the platform side, and reading the manifest
- * at setup time means a new server works without a CLI release (the same
- * philosophy as live catalog/MCP discovery, applied to the fast-moving side).
- *
- * History: until v0.2.4 this file hardcoded MCP_URL = "https://docs.aisa.one/mcp",
- * a host that does not resolve — every `aisa mcp setup` wrote a dead entry into
- * users' configs, and nothing noticed because the command had no tests.
- */
-export const MCP_MANIFEST_URL = "https://aisa.one/.well-known/mcp.json";
-
-/**
- * The live server index, served by the MCP host itself.
- *
- * Preferred over the manifest above, which is generated offline and committed
- * by hand: being a snapshot it drifts. Measured 2026-08-25 it named 11 servers
- * and 188 tools while mcp.aisa.one was serving 14 and 260 — agentmail (49
- * tools), seo (21) and creator-discovery (2) missing outright, so every user
- * of this CLI was offered 72 fewer tools than exist.
- *
- * It is also 12 KB against the manifest's 137 KB. Most of that difference is
- * tool names, of which this CLI uses exactly one thing: `tools.length`, to
- * print a count. The index carries `toolCount` instead; a client that wants
- * the names is about to connect anyway, and `tools/list` is authoritative.
- *
- * The manifest stays as the fallback — this endpoint is newer than some
- * deployments — and as the public document for readers who want the roadmap
- * of planned servers, which a running process cannot honestly report.
- */
-export const MCP_CATALOG_URL = "https://mcp.aisa.one/servers";
-
-/** Mintlify's docs-search MCP (3 tools: search/read/feedback). Unauthenticated. */
-export const DOCS_MCP_URL = "https://aisa.one/docs/mcp";
+/** The only business MCP resource configured by this CLI. */
+export const MCP_URL = "https://mcp.aisa.one/mcp";
 
 /** Where credit is added. Payment always finishes in a browser — Stripe's
  *  hosted page owns the card details, and 3-D Secure needs one. */
@@ -56,24 +23,6 @@ export const LLM_RESPONSES_BASE_URL = "https://api.aisa.one/v1";
 /** The provider name written into Codex's config.toml. Frozen: renaming it
  *  orphans the block we would otherwise remove cleanly. */
 export const AISA_PROVIDER_ID = "aisa";
-
-/**
- * Servers configured by default. Eleven entries per client is a lot of config;
- * these five cover the broadest agent needs, and `--all` configures everything
- * the manifest lists as live.
- */
-export const MCP_DEFAULT_SLUGS: readonly string[] = ["web-search"];
-
-/**
- * Why one and not five.
- *
- * Each server is its own OAuth resource — the authorization URL carries
- * `resource=https://mcp.aisa.one/<slug>/mcp` (RFC 8707) — so a keyless
- * install authorises once per server. Defaulting to five meant five browser
- * round trips before anything worked, observed 2026-08-20. Web search is the
- * one every agent reaches for; the rest are one tick away, and a configured
- * API key skips authorization for all of them anyway.
- */
 
 export const AGENT_DIRS: Record<string, string> = {
   claude: "~/.claude/skills/",

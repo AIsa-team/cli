@@ -707,96 +707,9 @@ export async function runTerminalFlow(
       // ── step 4: capabilities ──
       if (from <= 4) {
       console.log(header(4, o.lang));
-      const totalTools = o.servers.reduce((n, s) => n + s.toolCount, 0);
-      const cats = [...new Set(o.servers.map((s) => s.category))];
-      say(fill(STEP_CAPS.counts, o.lang, {
-        areas: cats.length, servers: o.servers.length, tools: totalTools,
-      }));
-      console.log(dim("│"));
-      // Pull once more: the capability list is long, and a page open beside
-      // this one is the likelier place to have ticked through it.
-      const fresh = await pull(o);
-      if (fresh?.draft?.servers?.length) draft.servers = fresh.draft.servers;
-      if (fresh) rev = fresh.rev;
-      const chosen = new Set(draft.servers);
-      if (interactive()) {
-        // Sorted by area, with the area named once where it changes.
-        //
-        // Twenty-five servers over eight areas — and five of those areas hold
-        // exactly one server, so a heading per area produced "heading, row,
-        // heading, row", which is a hat on every line rather than a grouping.
-        // The name on the first row of each run says the same thing and costs
-        // no rows: what follows inherits it from the blank space beside it.
-        const ordered = [...o.servers].sort(
-          (a, b) => a.category.localeCompare(b.category) || a.slug.localeCompare(b.slug)
-        );
-        const rowFor = (slug: string) => ordered.findIndex((s) => s.slug === slug);
-        const initial = [...chosen].map(rowFor).filter((i) => i >= 0);
-        const a3 = await pickOrWatch(o, rev, 4,
-          ordered.map((srv) => ({
-            label: srv.slug,
-            meta: `${srv.toolCount} ${t(STEP_CAPS.toolsWord, o.lang)}`,
-            tag: srv.category,
-            // Straight from the host, the same sentence the page shows. A
-            // hand-written table here would be a second source of truth for
-            // something that ships with the server.
-            detail: srv.description,
-          })),
-          true, initial,
-          o.lang === "zh"
-            ? "↑↓ 移动 · 空格勾选 · a 全选/全不选 · 回车确认 · esc 返回上一步"
-            : "↑↓ move · space to tick · a for all · enter to confirm · esc to go back",
-          3,
-          {
-            read: (d) =>
-              d.servers === undefined ? undefined : d.servers.map(rowFor).filter((i) => i >= 0),
-            write: async (indexes) => {
-              const next = indexes.map((i) => ordered[i]?.slug).filter((x): x is string => Boolean(x));
-              ({ rev } = await push(o, rev, { draft: { servers: next } }));
-              return rev;
-            },
-          });
-        // In a checklist the way back cannot be another row — a row is a
-        // thing you tick — so Escape is the gesture, and the hint says so.
-        if (a3.by === "back") throw new Rewind(a3.to, a3.from === "here");
-        if (a3.by === "page") {
-          chosen.clear();
-          for (const slug of a3.draft.servers ?? []) chosen.add(slug);
-          const s2 = await pull(o); if (s2) rev = s2.rev;
-          console.log("\n" + dim("│  ") + chalk.magenta(o.lang === "zh" ? "↩ 已在页面中选择" : "↩ chosen in the page"));
-        } else {
-          chosen.clear();
-          for (const i of a3.picked ?? []) { const srv = ordered[i]; if (srv) chosen.add(srv.slug); }
-        }
-      } else {
-        o.servers.forEach((s, i) => {
-          const mark = chosen.has(s.slug) ? chalk.green("[x]") : dim("[ ]");
-          console.log(`${dim("│")}  ${mark} ${bold(String(i + 1).padStart(2))}) ${s.slug.padEnd(24)} ${dim(String(s.toolCount) + " " + t(STEP_CAPS.toolsWord, o.lang))}`);
-        });
-        console.log(dim("│"));
-        say(o.lang === "zh"
-          ? "输入编号切换选中(空格分隔),直接回车确认。"
-          : "Type numbers to toggle (space-separated), or press enter to confirm.");
-        for (;;) {
-          const answer = await askLine(bold.cyan("│  > "));
-          if (answer === "") break;
-          for (const tok of answer.split(/[\s,]+/)) {
-            const n = Number(tok);
-            if (!Number.isInteger(n) || n < 1 || n > o.servers.length) continue;
-            const slug = o.servers[n - 1].slug;
-            if (chosen.has(slug)) chosen.delete(slug);
-            else chosen.add(slug);
-          }
-          console.log(dim("│  ") + chalk.green(`${chosen.size} selected: `) + dim([...chosen].join(", ")));
-          ({ rev } = await push(o, rev, { draft: { servers: [...chosen] } }));
-        }
-      }
-      draft.servers = [...chosen];
-      if (draft.servers.length === 0) {
-        console.log(dim("└─ ") + chalk.yellow(o.lang === "zh" ? "至少选一个" : "Pick at least one"));
-        return undefined;
-      }
-      console.log(dim("└─ ") + chalk.green(`${draft.servers.length} ✓`));
+      say(t(STEP_CAPS.ledeTail, o.lang));
+      draft.servers = o.servers.map((s) => s.slug);
+      for (const server of o.servers) console.log(dim("│  ") + server.name + " — " + server.endpoint);
       // Publish the choice but NOT the step: arriving at step 5 is what makes
       // the page start the run by itself, and the user has not confirmed yet.
       // Announcing the step here applied everything without being asked.

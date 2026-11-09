@@ -282,7 +282,7 @@ skills
 // Top-level so the zero-install one-liner works: `npx @aisa-one/cli connect`.
 program
   .command("connect")
-  .description("Connect AIsa MCP servers to your local coding agents via a one-shot local page")
+  .description("Connect the unified AIsa Router MCP and models to your coding agents")
   .option("--no-open", "Print the URL instead of opening the browser")
   .option("--port <port>", "Bind a specific port (default: random)")
   .option("--dry-run", "Show what would be configured without writing anything")
@@ -304,9 +304,9 @@ const mcp = program.command("mcp").description("MCP server integration");
 
 mcp
   .command("setup")
-  .description("Configure AIsa MCP servers (from the live manifest) for AI agents")
+  .description("Configure the unified AIsa Router MCP for AI agents")
   .option("--agent <agent>", "Target agent: cursor, claude-desktop, all")
-  .option("--all", "Configure every live server, not just the default set")
+  .option("--all", "Compatibility option: configures the single AIsa Router MCP")
   .option("--yes", "Write the files. Without it, print what would change and stop")
   .action(wrap(mcpSetupAction));
 

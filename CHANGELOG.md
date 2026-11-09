@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Keep `connect` and its client/model setup flow, but configure only
+  `aisa-router` at `https://mcp.aisa.one/mcp`. Remove the directory-service dependency;
+  stop installing per-domain endpoints or an extra docs MCP.
+- Preserve existing client entries for manual cleanup. `mcp setup --all` now
+  adds the same single Router entry; `mcp status` skips legacy endpoints.
+- Reject resuming setup runs that still contain retired MCP endpoints.
+
 ## [0.6.9] — 2026-10-21
 
 ### Fixed

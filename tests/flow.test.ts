@@ -1,9 +1,10 @@
+import { unifiedMcpServer } from "../src/commands/mcp.js";
 import { describe, expect, it } from "vitest";
 import {
   LANGS, resolveLang, t, STEP_AGENT, AGENT_ORDER, agentRank,
   AGENT_BADGE, AGENT_SIDE_TITLES, AGENT_NOTES, AGENT_HAVE_NOTES, installOffer,
   STEP_TITLES, STEP_WELCOME, STEP_MODELS, STEP_CAPS, STEP_INSTALL, STEP_DONE,
-  FILE_MODEL_NOTE, FILE_MODEL_FALLBACK, BACKUP_COPY, CATEGORY_BLURB,
+  FILE_MODEL_NOTE, FILE_MODEL_FALLBACK, BACKUP_COPY,
 } from "../src/commands/flow.js";
 import { renderT2Page } from "../src/commands/connect-t2.js";
 import type { LiveServer } from "../src/commands/mcp.js";
@@ -88,7 +89,6 @@ describe("translations are complete", () => {
     "fileModel.fallback": FILE_MODEL_FALLBACK,
     ...Object.fromEntries(Object.entries(FILE_MODEL_NOTE).map(([k, v]) => [`fileModel.${k}`, v])),
     ...Object.fromEntries(Object.entries(BACKUP_COPY).map(([k, v]) => [`backup.${k}`, v])),
-    ...Object.fromEntries(Object.entries(CATEGORY_BLURB).map(([k, v]) => [`blurb.${k}`, v])),
   };
 
   it.each(LANGS)("every string has a %s", (lang) => {
@@ -145,9 +145,7 @@ describe("installOffer", () => {
  * The reason this file exists: one source, two renderers.
  */
 describe("the page renders from the flow definition, not its own copy", () => {
-  const servers: LiveServer[] = [
-    { slug: "web-search", name: "AIsa Web Search", endpoint: "https://mcp.aisa.one/web-search/mcp", toolCount: 27, description: "Search.", category: "Search & Research" },
-  ];
+  const servers = [unifiedMcpServer()];
   const clients: ClientInfo[] = [
     { id: "claude-code", label: "Claude Code", kind: "cli", detected: true, detail: "2.1.241" },
     { id: "codex", label: "Codex", kind: "cli", detected: false, detail: "not on PATH", installable: true, command: "npm install -g @openai/codex" },

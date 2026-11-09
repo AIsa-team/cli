@@ -1,3 +1,4 @@
+import { unifiedMcpServer } from "../src/commands/mcp.js";
 import { describe, expect, it } from "vitest";
 import { renderT2Page } from "../src/commands/connect-t2.js";
 import type { LiveServer } from "../src/commands/mcp.js";
@@ -24,11 +25,7 @@ import type { ClientInfo } from "../src/commands/connect-shared.js";
  * neither.
  */
 
-const servers: LiveServer[] = [
-  { slug: "web-search", name: "AIsa Web Search", endpoint: "https://mcp.aisa.one/web-search/mcp", toolCount: 27, description: "Search the web.", category: "Search & Research" },
-  { slug: "agentmail", name: "AIsa AgentMail", endpoint: "https://mcp.aisa.one/agentmail/mcp", toolCount: 49, description: "Email for agents.", category: "Communication" },
-  { slug: "marketpulse", name: "AIsa MarketPulse", endpoint: "https://mcp.aisa.one/marketpulse/mcp", toolCount: 21, description: "US equities.", category: "Finance" },
-];
+const servers = [unifiedMcpServer()];
 
 /**
  * Every shape the agent step can take at once: a detected CLI, one that is
