@@ -179,11 +179,11 @@ export const AGENT_NOTES: Record<string, Text> = {
   },
   "claude-desktop": {
     en: "Claude Desktop's config file only takes MCP servers over stdio, so the AIsa Router is written in as a small <code>mcp-remote</code> bridge carrying your key. The bridge lives and dies with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the Router appears under its tools menu.",
-    zh: "Claude Desktop 的配置文件只接受 stdio 形式的 MCP server,所以AIsa Router 写成一个带你 key 的 <code>mcp-remote</code> 小桥接。桥接随 app 启停 —— 没有后台服务,不开端口。模型无法更改:Claude Desktop 跑的是 Anthropic 自家模型。重启 app 后就能在工具菜单里看到AIsa Router。",
+    zh: "Claude Desktop 的配置文件只接受 stdio 形式的 MCP server,所以 AIsa Router 写成一个带你 key 的 <code>mcp-remote</code> 小桥接。桥接随 app 启停 —— 没有后台服务,不开端口。模型无法更改:Claude Desktop 跑的是 Anthropic 自家模型。重启 app 后就能在工具菜单里看到 AIsa Router。",
   },
   "claude-ai": {
     en: "Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get the Router URL with a Copy button, and add it under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own.",
-    zh: "不安装任何东西。claude.ai 以 <b>Connectors</b> 的形式接受远程 MCP server:最后一步会给出Router 的 URL 和复制按钮,在 <b>Settings → Connectors → Add custom connector</b> 里添加,然后点 Connect —— claude.ai 会自己跑 AIsa 的登录流程。模型无法更改:claude.ai 跑的是 Anthropic 自家模型。",
+    zh: "不安装任何东西。claude.ai 以 <b>Connectors</b> 的形式接受远程 MCP server:最后一步会给出 Router 的 URL 和复制按钮,在 <b>Settings → Connectors → Add custom connector</b> 里添加,然后点 Connect —— claude.ai 会自己跑 AIsa 的登录流程。模型无法更改:claude.ai 跑的是 Anthropic 自家模型。",
   },
 };
 
@@ -220,7 +220,7 @@ export const AGENT_HAVE_NOTES: Record<string, Text> = {
   },
   cursor: {
     en: "Nothing of yours is replaced. Cursor adds the AIsa Router beside your existing MCP entries under the <code>aisa-router</code> name, and you approve it inside Cursor first.",
-    zh: "你原有的东西一样都不会被替换。Cursor 会把每个 AIsa server 以 <code>aisa-*</code> 命名加在你已有的 MCP 条目旁边,而且每一个都要你在 Cursor 里先确认。",
+    zh: "你原有的东西一样都不会被替换。Cursor 会把 AIsa Router 以 <code>aisa-router</code> 命名加在你已有的 MCP 条目旁边,并需要你在 Cursor 里先确认。",
   },
 };
 
@@ -387,7 +387,6 @@ export const STEP_CAPS = {
     en: "One unified AIsa MCP connection.",
     zh: "一个统一的 AIsa MCP 连接。",
   },
-
 };
 
 /** Shown for a file-configured client that has no note of its own. */

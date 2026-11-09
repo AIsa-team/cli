@@ -1262,13 +1262,11 @@ function renderPage(
   const body = `
 <div class="eyebrow">Connect</div>
 <h1><em>AIsa MCP</em> — powerful real-world reach for your agent</h1>
-<p class="lede">One connection puts <b>live tools</b> — web search &amp; research,
-X/Twitter, Reddit, Instagram, stocks, crypto, prediction markets and B2B data — inside the
-coding agent you already use. Pick what you need, press Connect, approve in the browser. Done.</p>
+<p class="lede">One connection gives your coding agent access to AIsa tools. Press Connect and approve in the browser. Done.</p>
 
 <div class="cols">
 <div class="left">
-<h2><span class="n">1</span>Choose capabilities</h2>
+<h2><span class="n">1</span>Connect AIsa Router</h2>
 ${serverGroups}
 </div>
 
@@ -1543,7 +1541,7 @@ machine except the OAuth you approve. The process exits when everything is conne
     var servers = picked("server");
     var chosen = document.querySelector('input[name="client"]:checked');
     if (!servers.length || !chosen) {
-      result.textContent = "Pick at least one capability and one client."; return;
+      result.textContent = "Choose a client to connect to AIsa Router."; return;
     }
     var clients = [chosen.value];
     var install = chosen.dataset.install === "1" ? [chosen.value] : [];

@@ -67,7 +67,6 @@ export const CATEGORY_ICON: Record<string, string> = {
  */
 export const EXAMPLES: Record<string, string[]> = {
   router: ["Using AIsa, research the latest developments in AI and cite your sources."],
-
 };
 
 export interface ClientInfo {
