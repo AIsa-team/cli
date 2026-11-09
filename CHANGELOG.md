@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.10] — 2026-11-09
+
 ### Changed
 
 - Keep `connect` and its client/model setup flow, but configure only
@@ -553,7 +555,9 @@ supports today; nothing here depends on a backend change.
 - Config commands (`aisa config get|set|list|reset`) and auth
   (`aisa login|logout|whoami`).
 
-[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.6.8...HEAD
+[Unreleased]: https://github.com/AIsa-team/cli/compare/v0.6.10...HEAD
+[0.6.10]: https://github.com/AIsa-team/cli/compare/v0.6.9...v0.6.10
+[0.6.9]: https://github.com/AIsa-team/cli/compare/v0.6.8...v0.6.9
 [0.6.8]: https://github.com/AIsa-team/cli/compare/v0.6.7...v0.6.8
 [0.6.7]: https://github.com/AIsa-team/cli/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/AIsa-team/cli/compare/v0.6.5...v0.6.6
