@@ -48,6 +48,14 @@ describe("T2 page", () => {
     expect(html).toContain("Cursor <i>not found</i>");
   });
 
+  it("only highlights client cards whose inputs are checked before JavaScript runs", () => {
+    const cards = [...html.matchAll(/<label class="tile agent([^"]*)" data-cid="[^"]+">([\s\S]*?)<\/label>/g)];
+    expect(cards.length).toBeGreaterThan(1);
+    for (const [, classes, body] of cards) {
+      expect(classes.split(" ").includes("on")).toBe(/<input[^>]* checked/.test(body));
+    }
+  });
+
   it("keeps the default server ticked and embeds the run token", () => {
     expect(html).toMatch(/value="router" checked disabled/);
     expect(html).toContain('var TOKEN = "tok"');

@@ -210,13 +210,13 @@ describe("mcp setup", () => {
     expect(entries["mine"]).toEqual({ url: "https://example.com/mcp" });
   });
 
-  it("writes nothing at all when the manifest cannot be fetched", async () => {
-    stubManifest(503);
+  it("configures the unified entry even when directory services are unavailable", async () => {
+    const fetchMock = vi.fn(() => { throw new Error("offline"); });
+    vi.stubGlobal("fetch", fetchMock);
     const { mcpSetupAction } = await freshMcp();
-    await mcpSetupAction({ agent: "cursor", yes: true });
-
-    expect(existsSync(join(home, ".cursor", "mcp.json"))).toBe(false);
-    expect(process.exitCode).toBe(1);
+    await mcpSetupAction({ agent: "cursor", yes: true, apiKey: "sk-test" });
+    expect(cursorConfig().mcpServers["aisa-router"].url).toBe("https://mcp.aisa.one/mcp");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("rejects an unknown agent before fetching anything", async () => {
@@ -228,25 +228,12 @@ describe("mcp setup", () => {
 });
 
 describe("unified discovery", () => {
-  it("reads only Connect and ignores legacy endpoint/count metadata", async () => {
-    const fetchMock = stubManifest();
-    const { fetchLiveServers } = await freshMcp();
-    const servers = await fetchLiveServers();
-    expect(servers).toEqual([expect.objectContaining({ slug: "router", endpoint: "https://mcp.aisa.one/mcp", toolCount: 5 })]);
-    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["https://connect.aisa.one/servers"]);
-  });
-
-  it("never falls back to the old manifest on a directory failure", async () => {
-    const fetchMock = stubManifest(404);
-    const { fetchLiveServers } = await freshMcp();
-    await expect(fetchLiveServers()).rejects.toThrow("HTTP 404");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("rejects malformed auxiliary directory data", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ entrypoints: [] })));
-    const { fetchLiveServers } = await freshMcp();
-    await expect(fetchLiveServers()).rejects.toThrow("missing servers array");
+  it("returns the fixed Router without making a directory request", async () => {
+    const fetchMock = stubManifest(503);
+    const { getMcpServers } = await freshMcp();
+    expect(getMcpServers()).toEqual([expect.objectContaining({ slug: "router", endpoint: "https://mcp.aisa.one/mcp" })]);
+    expect(getMcpServers()[0].toolCount).toBeUndefined();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("rejects retired selections before writing a client config", async () => {
@@ -267,6 +254,8 @@ describe("unified discovery", () => {
     await mcpStatusAction();
     expect(fetchMock.mock.calls.map((args: any[]) => args[0])).toEqual(["https://mcp.aisa.one/mcp"]);
     expect(readFileSync(path, "utf8")).toBe(contents);
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining("1 unified, 2 other AIsa entries (not checked)"));
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining(`remove manually from ${path}`));
   });
 });
 

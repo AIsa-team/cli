@@ -8,9 +8,9 @@ import { dirname, join } from "node:path";
 import chalk from "chalk";
 import { success, error, info, hint } from "../utils/display.js";
 import { expandHome } from "../utils/file.js";
-import { MCP_CONFIGS, MCP_DEFAULT_SLUGS, AISA_PROVIDER_ID } from "../constants.js";
+import { MCP_CONFIGS, AISA_PROVIDER_ID } from "../constants.js";
 import { getAccessToken, getConfig, setConfig } from "../config.js";
-import { fetchLiveServers, writeClientConfig, buildEntry, stripped, type LiveServer, isUnifiedMcpSelection } from "./mcp.js";
+import { getMcpServers, writeClientConfig, buildEntry, stripped, type LiveServer, isUnifiedMcpSelection } from "./mcp.js";
 import { INSTALLERS, installAgent, isInstalled, supported } from "./install.js";
 import {
   writeCodexLLM,
@@ -1203,14 +1203,13 @@ function renderPage(
     .map(([cat, list]) => {
       const rows = list
         .map((s) => {
-          const checked = MCP_DEFAULT_SLUGS.includes(s.slug) ? "checked" : "";
           // The full manifest description, CSS-clamped to two lines; "more"
           // expands it and is hidden by the page script when the text already
           // fits — so short cards carry no dead link and long ones stay tidy.
-          return `<label class="card ${checked ? "on" : ""}" data-kind="server">
+          return `<label class="card on" data-kind="server">
   <input type="checkbox" name="server" value="${s.slug}" checked disabled>
   <span class="body"><span class="head"><span class="name">${stripped(s.name)}</span>
-    <span class="badge">${s.toolCount} tools</span></span>
+    </span>
     <span class="desc">${s.description}</span>
     <span class="more" data-more>more</span></span></label>`;
         })
@@ -1250,7 +1249,6 @@ function renderPage(
       ? `<div class="chips">${rest.map((c) => `${c.label} <i>· not found</i>`).join(" &nbsp;&nbsp; ")}</div>`
       : "");
 
-  const totalTools = servers.reduce((n, s) => n + s.toolCount, 0);
   // Named per client so the page can say which model a pick actually gets.
   const modelByClient = Object.fromEntries(
     clients.map((c) => [c.id, defaultModelsFor(c.id).model])
@@ -1264,7 +1262,7 @@ function renderPage(
   const body = `
 <div class="eyebrow">Connect</div>
 <h1><em>AIsa MCP</em> — powerful real-world reach for your agent</h1>
-<p class="lede">One connection puts <b>${totalTools} live tools</b> — web search &amp; research,
+<p class="lede">One connection puts <b>live tools</b> — web search &amp; research,
 X/Twitter, Reddit, Instagram, stocks, crypto, prediction markets and B2B data — inside the
 coding agent you already use. Pick what you need, press Connect, approve in the browser. Done.</p>
 
@@ -1619,9 +1617,6 @@ export function renderDone(
        Fix the above, then run <code>npx @aisa-one/cli connect</code> again — it is
        safe to re-run and picks up where things stand.</div></div>`
     : "";
-  const toolCount = chosen.reduce((n, s) => n + s.toolCount, 0);
-  const remaining = allServers.length - chosen.length;
-  const remainingTools = allServers.reduce((n, s) => n + s.toolCount, 0) - toolCount;
 
   // A run that installed an agent is a much bigger deal than one that only
   // added tools, and the headline must say so: the user walked in with
@@ -1633,12 +1628,12 @@ export function renderDone(
   const model = defaultModelsFor(clientIds[0] ?? "");
   const successHeadline = installedAgents.length
     ? `<h1>Congratulations — <em>${installedAgents.join(" & ")}</em> is installed and armed
-with <em>${toolCount} powerful tool${toolCount > 1 ? "s" : ""}</em></h1>
+with <em>AIsa tools</em></h1>
 <p class="lede"><b>${installedAgents.join(" & ")}</b> is now on this machine, signed in to
 AIsa${llmOk ? `, running on <b>${model.model}</b> through AIsa,` : ","} with
 ${chosen.length} MCP server${chosen.length > 1 ? "s" : ""} wired in — a complete AI setup,
 nothing else to configure.</p>`
-    : `<h1>Congratulations — your agent just got <em>${toolCount} powerful new tool${toolCount > 1 ? "s" : ""}</em></h1>
+    : `<h1>Congratulations — your agent just got <em>access to AIsa tools</em></h1>
 <p class="lede">${chosen.length} AIsa MCP server${chosen.length > 1 ? "s are" : " is"} now
 installed and signed in for <b>${clientNames}</b> — nothing else to configure.</p>`;
   // Launchable only for the CLI agents, and only while the local process is
@@ -1721,7 +1716,7 @@ ${successHeadline}`;
   const recap = `
 <h2>Everything you just gained</h2>
 <div class="recap">
-  <div class="rsum">${chosen.length} capabilit${chosen.length === 1 ? "y" : "ies"} · ${toolCount} tools · ${clientNames}</div>
+  <div class="rsum">AIsa Router MCP · ${clientNames}</div>
 ${recapRows}
 </div>`;
 
@@ -1804,12 +1799,7 @@ ${
     mcpFailed
       ? failBlock + recap + balanceCard
       : `<p class="lede" style="margin-top:.6rem">You are now connected to <b>AIsa</b> — a powerful capability layer for agents: one account for
-<b>Claude, GPT, Gemini, DeepSeek, Kimi, GLM</b> and the live data behind them: <b>Twitter, SimilarWeb, CoinGecko, Apollo, Polymarket</b> and more.${
-          remaining > 0
-            ? ` ${remaining} more MCP server${remaining > 1 ? "s" : ""} (${remainingTools} tools) are one
-<code>npx @aisa-one/cli connect</code> away.`
-            : ""
-        }
+<b>Claude, GPT, Gemini, DeepSeek, Kimi, GLM</b> and the live data behind them: <b>Twitter, SimilarWeb, CoinGecko, Apollo, Polymarket</b> and more.
 Explore the platform at <a href="https://aisa.one" target="_blank" rel="noopener noreferrer">aisa.one</a> ·
 usage &amp; billing at <a href="https://console.aisa.one" target="_blank" rel="noopener noreferrer">console.aisa.one</a>.</p>
 ${failBlock}
@@ -2463,11 +2453,11 @@ export async function connectAction(options: {
   }
   let servers: LiveServer[];
   try {
-    servers = resumed ? resumed.servers : await fetchLiveServers();
+    servers = resumed ? resumed.servers : getMcpServers();
     if (!isUnifiedMcpSelection(servers)) throw new Error("This saved run uses retired MCP endpoints. Start again with aisa connect --force.");
   } catch (e) {
     log.line("fail", "Could not prepare the unified MCP connection", (e as Error).message);
-    log.note("check your network and try again");
+    log.note("Review your clients and models again with: aisa connect --force");
     process.exitCode = 1;
     return;
   }
@@ -2530,7 +2520,7 @@ export async function connectAction(options: {
     // that never opens a browser starts from the same defaults rather than
     // from nothing.
     draft: {
-      servers: servers.filter((s) => MCP_DEFAULT_SLUGS.includes(s.slug)).map((s) => s.slug),
+      servers: servers.map((s) => s.slug),
       clients: [],
       install: [],
       llmMode: "backup",

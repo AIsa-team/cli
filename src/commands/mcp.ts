@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import chalk from "chalk";
 import { success, error, info, hint } from "../utils/display.js";
 import { expandHome, ensureDir } from "../utils/file.js";
-import { MCP_CONFIGS, MCP_CATALOG_URL, MCP_URL } from "../constants.js";
+import { MCP_CONFIGS, MCP_URL } from "../constants.js";
 import { httpFetch } from "../utils/http.js";
 import { getAccessToken } from "../config.js";
 import { clientConfigKey } from "../utils/client-key.js";
@@ -15,7 +15,7 @@ export interface LiveServer {
   slug: string;
   name: string;
   endpoint: string;
-  toolCount: number;
+  toolCount?: number;
   /** Capability description rendered on the connect page. */
   description: string;
   category: string;
@@ -26,8 +26,8 @@ export const stripped = (name: string) => name.replace(/^AIsa\s+/i, "");
 /** Router's fixed public MCP contract, independent of the legacy module catalog. */
 export function unifiedMcpServer(): LiveServer {
   return {
-    slug: "router", name: "AIsa Router", endpoint: MCP_URL, toolCount: 5,
-    description: "One AIsa connection: search, batch_get_schema, batch_quote, batch_use, and account. Discover tools, inspect schemas, quote costs, and execute through the Router.",
+    slug: "router", name: "AIsa Router", endpoint: MCP_URL,
+    description: "One AIsa connection to discover and use tools through the Router.",
     category: "AIsa",
   };
 }
@@ -36,15 +36,8 @@ export function isUnifiedMcpSelection(servers: LiveServer[]): boolean {
   return servers.length === 1 && servers[0].slug === "router" && servers[0].endpoint === MCP_URL;
 }
 
-/** Read auxiliary discovery on Connect, but never install its legacy endpoints.
- * No old manifest fallback: it would resurrect retired per-domain MCP routes.
- * This checks directory availability, not authenticated Router health.
- */
-export async function fetchLiveServers(): Promise<LiveServer[]> {
-  const res = await httpFetch(MCP_CATALOG_URL, { idempotent: true, maxAttempts: 1, timeoutMs: 15_000 });
-  if (!res.ok) throw new Error(`${MCP_CATALOG_URL} answered HTTP ${res.status}`);
-  const doc = await res.json() as { servers?: unknown[] };
-  if (!doc || !Array.isArray(doc.servers)) throw new Error("Invalid Connect directory: missing servers array");
+/** The unified entry is fixed; setup does not depend on a directory service. */
+export function getMcpServers(): LiveServer[] {
   return [unifiedMcpServer()];
 }
 
@@ -134,16 +127,7 @@ export async function mcpSetupAction(
     return;
   }
 
-  // Read auxiliary discovery before touching client configuration.
-  let servers: LiveServer[];
-  try {
-    servers = await fetchLiveServers();
-  } catch (e) {
-    error(`Could not read the Connect directory at ${MCP_CATALOG_URL}: ${(e as Error).message}`);
-    hint("Nothing was written. Check your network and try again.");
-    process.exitCode = 1;
-    return;
-  }
+  const servers = getMcpServers();
 
   // --all remains accepted for existing scripts; there is only one entry.
   const chosen = servers;
@@ -167,7 +151,7 @@ export async function mcpSetupAction(
       console.log(`  ${chalk.cyan(MCP_CONFIGS[agent].path)}  (${agent}, ${MCP_CONFIGS[agent].shape})`);
     }
     for (const s of chosen) {
-      console.log(`    ${chalk.gray(`aisa-${s.slug}`)}  ${stripped(s.name)} (${s.toolCount} tools)`);
+      console.log(`    ${chalk.gray(`aisa-${s.slug}`)}  ${stripped(s.name)}`);
     }
     hint("Nothing was written. Re-run with --yes to apply, or use `aisa connect` to choose interactively.");
     return;
@@ -200,7 +184,7 @@ export async function mcpSetupAction(
 
   success(`Configured the unified AIsa Router MCP for ${targets.length} client(s)`);
   for (const s of chosen) {
-    console.log(`    ${chalk.cyan(`aisa-${s.slug}`)}  ${stripped(s.name)} (${s.toolCount} tools)`);
+    console.log(`    ${chalk.cyan(`aisa-${s.slug}`)}  ${stripped(s.name)}`);
   }
   hint("Restart your agent/editor to activate");
 }
@@ -234,12 +218,16 @@ export async function mcpStatusAction(): Promise<void> {
       console.log(`  ${chalk.gray("○")} ${agent}: not configured`);
       continue;
     }
-    console.log(`  ${chalk.green("✓")} ${agent}: ${ours.length} entries`);
+    const unified = ours.filter(([, entry]) => {
+      const e = entry as { url?: string; args?: string[] };
+      return (e.url ?? e.args?.find((a) => a.startsWith("http"))) === MCP_URL;
+    }).length;
+    console.log(`  ${unified ? chalk.green("✓") : chalk.yellow("!")} ${agent}: ${unified} unified, ${ours.length - unified} other AIsa entries (not checked)`);
     for (const [name, entry] of ours) {
       const e = entry as { url?: string; args?: string[] };
       const endpoint = e.url ?? e.args?.find((a) => a.startsWith("http"));
       if (endpoint && endpoint !== MCP_URL) {
-        console.log(`    ${name}: existing entry preserved (not checked); remove manually if no longer needed`);
+        console.log(`    ${name}: ${endpoint} — existing entry preserved (not checked); remove manually from ${filePath} if no longer needed`);
         continue;
       }
       if (endpoint) {

@@ -4,8 +4,6 @@ export const DEFAULT_CHAT_MODEL = "deepseek-v4.1-flash";
 /** Root of the platform. Per-surface bases are derived in api.ts#resolveBases. */
 export const BASE_URL = "https://api.aisa.one";
 export const ENV_VAR_NAME = "AISA_API_KEY";
-/** Auxiliary discovery stays on the Connect service after the MCP DNS cutover. */
-export const MCP_CATALOG_URL = "https://connect.aisa.one/servers";
 /** The only business MCP resource configured by this CLI. */
 export const MCP_URL = "https://mcp.aisa.one/mcp";
 
@@ -25,9 +23,6 @@ export const LLM_RESPONSES_BASE_URL = "https://api.aisa.one/v1";
 /** The provider name written into Codex's config.toml. Frozen: renaming it
  *  orphans the block we would otherwise remove cleanly. */
 export const AISA_PROVIDER_ID = "aisa";
-
-/** Stable config key: aisa-router. Existing domain entries are left untouched. */
-export const MCP_DEFAULT_SLUGS: readonly string[] = ["router"];
 
 export const AGENT_DIRS: Record<string, string> = {
   claude: "~/.claude/skills/",

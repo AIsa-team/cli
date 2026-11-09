@@ -294,11 +294,9 @@ Router MCP at `https://mcp.aisa.one/mcp`, under the name `aisa-router`.
 Client selection, installation, sign-in, model configuration and launch options
 remain available. There is no per-domain server selection.
 
-Auxiliary discovery is read from `https://connect.aisa.one/servers`. Its legacy
-module endpoints and counts are not installed: the CLI uses the Router's five
-public tools (`search`, `batch_get_schema`, `batch_quote`, `batch_use`, `account`).
-The directory check is not an authenticated MCP health check. There is no
-fallback to the old manifest.
+The CLI configures the fixed Router endpoint without requesting a directory
+service. Available tools are discovered by the MCP client from the Router;
+the CLI does not pin a tool count or inventory.
 
 ### Scripted setup and status
 

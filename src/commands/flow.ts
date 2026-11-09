@@ -178,12 +178,12 @@ export const AGENT_NOTES: Record<string, Text> = {
     zh: "每个 server 一次点击:最后一步会给出 <b>Add to Cursor</b> 链接。Cursor 会打开、把确切的配置内容给你看,你确认后由它自己写进 MCP 设置。模型保持原样 —— Cursor 用它自己的。",
   },
   "claude-desktop": {
-    en: "Claude Desktop's config file only takes MCP servers over stdio, so each AIsa server is written in as a small <code>mcp-remote</code> bridge carrying your key. The bridges live and die with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the servers appear under its tools menu.",
-    zh: "Claude Desktop 的配置文件只接受 stdio 形式的 MCP server,所以每个 AIsa server 都写成一个带你 key 的 <code>mcp-remote</code> 小桥接。桥接随 app 启停 —— 没有后台服务,不开端口。模型无法更改:Claude Desktop 跑的是 Anthropic 自家模型。重启 app 后就能在工具菜单里看到这些 server。",
+    en: "Claude Desktop's config file only takes MCP servers over stdio, so the AIsa Router is written in as a small <code>mcp-remote</code> bridge carrying your key. The bridge lives and dies with the app — no background service, no open ports. Models cannot be changed: Claude Desktop runs Anthropic's own. Restart the app and the Router appears under its tools menu.",
+    zh: "Claude Desktop 的配置文件只接受 stdio 形式的 MCP server,所以AIsa Router 写成一个带你 key 的 <code>mcp-remote</code> 小桥接。桥接随 app 启停 —— 没有后台服务,不开端口。模型无法更改:Claude Desktop 跑的是 Anthropic 自家模型。重启 app 后就能在工具菜单里看到AIsa Router。",
   },
   "claude-ai": {
-    en: "Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get one URL per server with a Copy button, and add each under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own.",
-    zh: "不安装任何东西。claude.ai 以 <b>Connectors</b> 的形式接受远程 MCP server:最后一步会给出每个 server 的 URL 和复制按钮,在 <b>Settings → Connectors → Add custom connector</b> 里逐个添加,然后点 Connect —— claude.ai 会自己跑 AIsa 的登录流程。模型无法更改:claude.ai 跑的是 Anthropic 自家模型。",
+    en: "Nothing is installed. claude.ai takes remote MCP servers as <b>Connectors</b>: on the last step you get the Router URL with a Copy button, and add it under <b>Settings → Connectors → Add custom connector</b>, then press Connect — claude.ai runs the AIsa sign-in itself. Models cannot be changed: claude.ai runs Anthropic's own.",
+    zh: "不安装任何东西。claude.ai 以 <b>Connectors</b> 的形式接受远程 MCP server:最后一步会给出Router 的 URL 和复制按钮,在 <b>Settings → Connectors → Add custom connector</b> 里添加,然后点 Connect —— claude.ai 会自己跑 AIsa 的登录流程。模型无法更改:claude.ai 跑的是 Anthropic 自家模型。",
   },
 };
 
@@ -219,7 +219,7 @@ export const AGENT_HAVE_NOTES: Record<string, Text> = {
     zh: "你原有的东西一样都不会被替换。那两个文件里其他的 MCP server 和模型分组保持原样;只有 <code>aisa-*</code> 条目和 AIsa 那个分组是我们写的,要移除就是删掉它们。",
   },
   cursor: {
-    en: "Nothing of yours is replaced. Cursor adds each AIsa server beside your existing MCP entries under <code>aisa-*</code> names, and you approve every one inside Cursor first.",
+    en: "Nothing of yours is replaced. Cursor adds the AIsa Router beside your existing MCP entries under the <code>aisa-router</code> name, and you approve it inside Cursor first.",
     zh: "你原有的东西一样都不会被替换。Cursor 会把每个 AIsa server 以 <code>aisa-*</code> 命名加在你已有的 MCP 条目旁边,而且每一个都要你在 Cursor 里先确认。",
   },
 };
@@ -383,32 +383,11 @@ export const STEP_CAPS = {
     en: "One Router MCP connects your agent to AIsa tools. Existing MCP entries stay unchanged; remove old domain entries manually.",
     zh: "通过一个 Router MCP 接入 AIsa 工具。已有 MCP 条目保持不变；旧的领域条目请自行删除。",
   },
-  pickArea: { en: "Pick an area above", zh: "先在上面选一个领域" },
-  selectAll: { en: "Select all in this area", zh: "全选这个领域" },
-  /**
-   * The counts sentence as one string, because punctuation is not shared
-   * between languages: joining "N", "areas", ", " in code produced
-   * "2 个领域, 2 个 server, 48 个工具." — Chinese text with ASCII commas and a
-   * full stop. Whatever varies goes in as a placeholder instead.
-   */
   counts: {
     en: "One unified AIsa MCP connection.",
     zh: "一个统一的 AIsa MCP 连接。",
   },
-  /** Category tile meta: "3 servers · 47 tools". */
-  tileMeta: {
-    en: "{n} {noun} · {tools} tools",
-    zh: "{n} 个 {noun} · {tools} 个工具",
-  },
-  /**
-   * A placeholder both renderers can fill. The page used to carry
-   * <b id="mModel"></b> here and fill it with script — which left the
-   * terminal printing "AIsa()" with nothing inside, because stripping tags is
-   * all it can do with markup meant for the other surface.
-   */
-  serversWord: { en: "servers", zh: "server" },
-  serverWord: { en: "server", zh: "server" },
-  toolsWord: { en: "tools", zh: "个工具" },
+
 };
 
 /** Shown for a file-configured client that has no note of its own. */
@@ -416,52 +395,6 @@ export const FILE_MODEL_FALLBACK: Text = {
   en: "This client picks its own models inside the app, so nothing is changed here — only the MCP servers are added.",
   zh: "这个客户端在它自己的应用里选模型,所以这一步不做改动 —— 只添加 MCP server。",
 };
-
-export const CATEGORY_BLURB: Record<string, Text> = {
-  "Search & Research": {
-    en: "Ranked web results with page text already extracted, plus YouTube.",
-    zh: "带排序的网页搜索结果,正文已经抽好,另有 YouTube。",
-  },
-  Finance: {
-    en: "US equities, crypto, prediction markets and what X is saying about a ticker.",
-    zh: "美股、加密货币、预测市场,以及 X 上关于某只票的讨论。",
-  },
-  Social: {
-    en: "Public X/Twitter, Reddit, Instagram and Pinterest — profiles, posts, engagement.",
-    zh: "公开的 X/Twitter、Reddit、Instagram 和 Pinterest —— 资料、帖子、互动数据。",
-  },
-  Sales: {
-    en: "Apollo B2B data — enrich people and companies, find prospects.",
-    zh: "Apollo 的 B2B 数据 —— 补全人和公司信息、找潜在客户。",
-  },
-  "SEO & Search Data": {
-    en: "Keywords, rankings, backlinks and on-page checks — and how a brand shows up in AI answers.",
-    zh: "关键词、排名、外链、页面检查 —— 还有一个品牌在 AI 回答里的露出情况。",
-  },
-  Communication: {
-    en: "An inbox an agent can actually use — its own address, sending and receiving.",
-    zh: "agent 能真正用起来的邮箱 —— 自己的地址,能收能发。",
-  },
-  Creators: {
-    en: "Find creators by audience, topic and reach, across platforms.",
-    zh: "按受众、话题和影响力找创作者,跨平台。",
-  },
-  Search: {
-    en: "YouTube search on its own.",
-    zh: "单独的 YouTube 搜索。",
-  },
-  "Market Intelligence": {
-    en: "Similarweb data — a site's traffic, engagement and where its visitors come from.",
-    zh: "Similarweb 数据 —— 网站流量、互动情况,以及访客从哪来。",
-  },
-};
-
-/** New host categories remain visible without waiting for a client release. */
-export function categoryBlurb(category: string, servers: Array<{ name: string }>): Text {
-  if (Object.hasOwn(CATEGORY_BLURB, category)) return CATEGORY_BLURB[category];
-  const names = servers.map((server) => server.name).filter(Boolean).join(", ");
-  return { en: `Explore ${names || category}.`, zh: `查看 ${names || category} 的接口。` };
-}
 
 // ── step 5: install ─────────────────────────────────────────────────────────
 
@@ -494,10 +427,6 @@ export const STEP_DONE = {
 // the browser has no access to this file. Same source, one hop later.
 
 export const RUNTIME_COPY = {
-  nothingSelected: {
-    en: "Nothing selected yet — pick at least one server.",
-    zh: "还没有选择 —— 至少选一个 server。",
-  },
   planBackup: {
     "claude-code": { en: "Install the claude-aisa command", zh: "安装 claude-aisa 命令" },
     codex: { en: "Add the aisa profile and codex-aisa", zh: "添加 aisa profile 和 codex-aisa" },

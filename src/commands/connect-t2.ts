@@ -6,7 +6,7 @@ import {
   STEP_AGENT, AGENT_ORDER, agentRank, AGENT_BADGE, AGENT_SIDE_TITLES,
   AGENT_NOTES, AGENT_HAVE_NOTES, installOffer, t, fill, type Lang, LANGS, LANG_LABEL, NAV,
   STEP_TITLES, STEP_WELCOME, STEP_MODELS, STEP_CAPS, STEP_INSTALL, STEP_DONE,
-  FILE_MODEL_NOTE, FILE_MODEL_FALLBACK, BACKUP_COPY, categoryBlurb, runtimeCopy, NEXT_WORD, SUPERSEDED,
+  FILE_MODEL_NOTE, FILE_MODEL_FALLBACK, BACKUP_COPY, runtimeCopy, NEXT_WORD, SUPERSEDED,
 } from "./flow.js";
 import {
   RED,
@@ -114,7 +114,6 @@ export function renderT2Page(
   /** A per-agent map of Text, flattened to the current language. */
   const resolved = (m: Record<string, { en: string; zh: string }>) =>
     Object.fromEntries(Object.entries(m).map(([k, v]) => [k, t(v, lang)]));
-  const totalTools = servers.reduce((n, s) => n + s.toolCount, 0);
   const cats = new Map<string, LiveServer[]>();
   for (const s of servers) {
     const c = normCategory(s.category);
@@ -130,7 +129,6 @@ export function renderT2Page(
     endpoint: s.endpoint,
     name: stripped(s.name),
     category: normCategory(s.category),
-    toolCount: s.toolCount,
     description: s.description,
   }));
   // Windsurf is not part of this flow (its file path stays in T1). claude.ai
@@ -179,7 +177,7 @@ export function renderT2Page(
   const firstPick = shown.find((c) => c.detected) ?? shown[0];
   const rest = CLIENTS.filter((c) => !c.detected && !c.installable);
   const clientCard = (c: (typeof CLIENTS)[number], checked: boolean) => `
-<label class="tile agent on" data-cid="${c.id}">
+<label class="tile agent${checked ? " on" : ""}" data-cid="${c.id}">
   <input type="radio" class="dot" name="client" value="${c.id}"${checked ? " checked" : ""}${c.installable ? ' data-install="1"' : ""}>
   <span class="tlogo${c.id === "cursor" ? " mono" : ""}">${BRAND_LOGOS[c.id] ?? (c.id === "claude-desktop" ? BRAND_LOGOS["claude-ai"] : undefined) ?? CLIENT_LOGOS[c.id] ?? I.terminal}</span>
   <span class="tbody"><span class="thead"><span class="tname">${c.label}</span></span>
@@ -256,7 +254,7 @@ ${restChips}
           return `<label class="stile on" data-cat="${cat}">
   <input type="checkbox" name="server" value="${s.slug}" checked disabled>
   <span class="tbody"><span class="thead"><span class="tname">${stripped(s.name)}</span>
-    <span class="badge">${s.toolCount} tools</span></span>
+    </span>
     <span class="sdesc">${s.description}</span></span></label>`;
         })
         .join("")
@@ -264,7 +262,7 @@ ${restChips}
     .join("");
   const caps = `
 <h1>${T(STEP_CAPS.h1).replace("reach", "<em>reach</em>")}</h1>
-<p class="lede">${fill(STEP_CAPS.counts, lang, { areas: catList.length, servers: servers.length, tools: totalTools })} ${T(STEP_CAPS.ledeTail)}</p>
+<p class="lede">${T(STEP_CAPS.counts)} ${T(STEP_CAPS.ledeTail)}</p>
 <div class="spanel" id="spanel">
     <div class="sgrid" id="sgrid">${serverTiles}</div>
 </div>
@@ -804,7 +802,7 @@ ${restChips}
   function syncCaps() {
     $$('input[name="server"]').forEach(function (i) { i.checked = true; i.disabled = true; });
     $("#spanel").classList.add("open");
-    $("#tally").textContent = "https://mcp.aisa.one/mcp";
+    $("#tally").textContent = SERVERS[0].endpoint;
   }
 
   // ── next button ──
@@ -1041,7 +1039,6 @@ ${restChips}
     var sel = s.selection, steps = s.steps || [];
     var id = sel.clients[0], name = LABEL[id] || id;
     var chosen = sel.servers.map(function (x) { return BY_SLUG[x]; }).filter(Boolean);
-    var tools = chosen.reduce(function (n, x) { return n + x.toolCount; }, 0);
     var failed = steps.filter(function (x) { return x.state === "fail"; });
     var mcpFailed = failed.some(function (x) { return x.id === "mcp"; });
     var installed = steps.filter(function (x) { return x.id.indexOf("install:") === 0 && x.id !== "install:aisa-cli" && x.state === "ok"; })
@@ -1053,8 +1050,8 @@ ${restChips}
     var head = mcpFailed
       ? "<div class='eyebrow'>Almost there</div><h1>Your agent is <em>not connected yet</em></h1><p class='lede'>The MCP entries could not be added to <b>" + name + "</b> — details below.</p>"
       : (installed.length
-        ? "<h1><em>Congratulations!</em> " + installed.join(" & ") + " is installed and armed with " + tools + " powerful tools<span class='h1check'>" + ICON_CHECK + "</span></h1><p class='lede'><b>" + installed.join(" & ") + "</b> is on this machine, signed in to AIsa" + (llmOk ? ", running on <b>" + MODEL_FOR[id] + "</b> through AIsa," : ",") + " with " + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " wired in — a complete setup, nothing else to configure.</p>"
-        : "<h1><em>Congratulations!</em> Your agent just got " + tools + " powerful new tool" + (tools > 1 ? "s" : "") + ".<span class='h1check'>" + ICON_CHECK + "</span></h1><p class='lede'>" + (id === "claude-ai"
+        ? "<h1><em>Congratulations!</em> " + installed.join(" & ") + " is installed and armed with AIsa tools<span class='h1check'>" + ICON_CHECK + "</span></h1><p class='lede'><b>" + installed.join(" & ") + "</b> is on this machine, signed in to AIsa" + (llmOk ? ", running on <b>" + MODEL_FOR[id] + "</b> through AIsa," : ",") + " with " + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " wired in — a complete setup, nothing else to configure.</p>"
+        : "<h1><em>Congratulations!</em> Your agent just got access to AIsa tools.<span class='h1check'>" + ICON_CHECK + "</span></h1><p class='lede'>" + (id === "claude-ai"
           ? chosen.length + " connector URL" + (chosen.length > 1 ? "s are" : " is") + " ready for <b>Claude.ai</b> — add them below, it takes about a minute."
           : id === "cursor" && s.deeplinks && s.deeplinks.length
           ? chosen.length + " install link" + (chosen.length > 1 ? "s are" : " is") + " ready for <b>Cursor</b> — one click each, below."
@@ -1064,7 +1061,7 @@ ${restChips}
       failed.map(function (x) { return "<li><b>" + x.label + "</b> — " + (x.detail || "failed") + "</li>"; }).join("") +
       "</ul>Fix the above, then run <code>npx @aisa-one/cli connect</code> again — it is safe to re-run.</div></div>" : "";
     var ICON = { ok: "✓", fail: "✕", skip: "–", pending: "·", running: "·" };
-    var recap = "<h2>Everything you just gained</h2><div class='recap'><div class='rsum'>" + chosen.length + " capabilit" + (chosen.length === 1 ? "y" : "ies") + " · " + tools + " tools · " + name + "</div>" +
+    var recap = "<h2>Everything you just gained</h2><div class='recap'><div class='rsum'>AIsa Router MCP · " + name + "</div>" +
       // The balance has its own card right below, so its row stays out of the recap.
       steps.filter(function (x) { return x.id !== "balance"; }).map(function (x) { return "<div class='rrow " + x.state + "'><span class='rl'>" + x.label + "</span><span class='rd' title=\\"" + (x.detail || "").replace(/"/g, "&quot;") + "\\">" + (x.detail || "") + "</span><span class='ri'>" + ICON[x.state] + "</span></div>"; }).join("") + "</div>";
     var bal = s.balanceMicros, low = bal !== null && bal !== undefined && bal < 5e6;
@@ -1080,8 +1077,8 @@ ${restChips}
         "<div class='fine' style='margin:0'>" + chosen.length + " MCP server" + (chosen.length > 1 ? "s" : "") + " are in its config — one restart loads them.</div></div>" +
         "<div class='termside'><button type='button' class='cta sm' id='launch'>Restart Claude Desktop →</button><span class='fine' id='launchnote'></span></div></div>" +
         "<div class='vscgrid'>" +
-        "<div class='vscitem'><span class='srv'>Tools</span>After the restart, open the <b>tools menu</b> (🔧) in a chat — the <code>aisa-…</code> servers are there. Each runs as a small bridge that lives and dies with the app; no background service.</div>" +
-        "<div class='vscitem'><span class='srv'>Across devices</span>Prefer one setup on every device? Add the same server URLs as <b>custom Connectors</b> under Settings → Connectors — they sync with claude.ai through your account.</div>" +
+        "<div class='vscitem'><span class='srv'>Tools</span>After the restart, open the <b>tools menu</b> (🔧) in a chat — the <code>aisa-router</code> server is there. It runs as a small bridge that lives and dies with the app; no background service.</div>" +
+        "<div class='vscitem'><span class='srv'>Across devices</span>Prefer one setup on every device? Add the same server URL as <b>custom Connectors</b> under Settings → Connectors — they sync with claude.ai through your account.</div>" +
         "</div></div>";
     }
     if (id === "vscode") {
@@ -1093,7 +1090,7 @@ ${restChips}
         "<div class='termside'><button type='button' class='cta sm' id='launch'>Open VS Code →</button><span class='fine' id='launchnote'></span></div></div>" +
         "<div class='vscgrid'>" +
         (modelsOn ? "<div class='vscitem'><span class='srv'>Models</span>Open <b>Chat</b> (<code>Ctrl+Cmd+I</code>), click the model name at the bottom-right of the input — the <b>AIsa</b> group lists Claude, GPT, DeepSeek, Kimi, GLM and Qwen. The AIsa extension already stored your key.</div>" : "") +
-        "<div class='vscitem'><span class='srv'>Tools</span>Switch Chat to <b>Agent</b> mode and tick the <code>aisa-…</code> servers in the tools picker (🔧). They are listed under <b>Extensions → MCP Servers</b>; if one is missing, run <b>Reload Window</b> once.</div>" +
+        "<div class='vscitem'><span class='srv'>Tools</span>Switch Chat to <b>Agent</b> mode and tick the <code>aisa-router</code> server in the tools picker (🔧). It is listed under <b>Extensions → MCP Servers</b>; if one is missing, run <b>Reload Window</b> once.</div>" +
         "</div></div>";
       if (sel.llmMode === "backup" && needsPaste) {
         fileNote += "<h2>One paste in VS Code — your key</h2><div class='webcard'>" +
@@ -1479,21 +1476,6 @@ function shellT2(title: string, body: string): string {
   .mw-fix { margin-top: .7rem; background: var(--red-cta); color: #fff; border: 0; border-radius: 6px;
     padding: .5rem 1.2rem; font: inherit; font-weight: 700; cursor: pointer; }
   @keyframes mwshake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
-  /* capabilities: the area grid, then the servers of the open area */
-  .cgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .9rem; margin: 1.6rem 0 1rem; }
-  .ctile { position: relative; display: flex; flex-direction: column; gap: .25rem; align-items: flex-start; text-align: left;
-    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.2rem 1.2rem 1.1rem;
-    font: inherit; color: var(--ink); cursor: pointer; min-height: 168px; transition: border-color .15s, transform .15s; }
-  .ctile:hover { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); transform: translateY(-1px); }
-  .ctile.active { border-color: var(--red); box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 18%, transparent); }
-  .ctile.has { border-left: 3px solid var(--ok); }
-  .cico { width: 40px; height: 40px; border-radius: 10px; background: var(--tint); color: var(--red);
-    display: flex; align-items: center; justify-content: center; margin-bottom: .4rem; }
-  .cico svg { width: 20px; height: 20px; }
-  .cname { font-weight: 800; font-size: 1.05rem; }
-  .cmeta { font-size: .78rem; color: var(--muted); }
-  .cblurb { font-size: .86rem; color: var(--muted); margin-top: .3rem; }
-  .csel { position: absolute; top: .8rem; right: .9rem; font-size: .74rem; font-weight: 700; color: var(--ok); }
   .spanel { display: none; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--card) 60%, var(--paper));
     padding: 1rem 1.2rem 1.2rem; }
   .spanel.open { display: block; animation: fade .2s ease; }
